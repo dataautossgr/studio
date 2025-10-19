@@ -6,8 +6,10 @@ import {
   LayoutDashboard,
   Receipt,
   Settings,
-  ShoppingCart,
   Users,
+  CreditCard,
+  ShoppingBag,
+  Building,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -20,8 +22,11 @@ import {
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/pos', label: 'POS', icon: ShoppingCart },
   { href: '/sales', label: 'Sales', icon: Receipt },
+  { href: '/purchase', label: 'Purchase', icon: ShoppingBag },
+  { href: '/dealers', label: 'Dealers', icon: Building },
+  { href: '/customers', label: 'Customers', icon: Users },
+  { href: '/expenses', label: 'Expenses', icon: CreditCard },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

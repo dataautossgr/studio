@@ -6,7 +6,6 @@ import Image from 'next/image';
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle,
   CardDescription
@@ -30,9 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   MoreHorizontal,
-  PlusCircle,
 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
 
 export default function InventoryPage() {
@@ -52,10 +49,6 @@ export default function InventoryPage() {
                 Manage your products from one screen.
                 </CardDescription>
             </div>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Product
-            </Button>
             </CardHeader>
             <CardContent>
                 <Table>

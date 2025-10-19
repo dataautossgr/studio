@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, FileText } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -53,12 +53,6 @@ export default async function SalesPage() {
               View all past transactions and their status.
             </CardDescription>
           </div>
-          <Button asChild>
-            <Link href="/pos">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Sale
-            </Link>
-          </Button>
         </CardHeader>
         <CardContent>
           <Table>

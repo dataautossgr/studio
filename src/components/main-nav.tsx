@@ -19,8 +19,9 @@ import {
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/inventory', label: 'Inventory & POS', icon: Boxes },
-  { href: '/sales', label: 'Sales', icon: ShoppingCart },
+  { href: '/inventory', label: 'Inventory', icon: Boxes },
+  { href: '/pos', label: 'POS', icon: ShoppingCart },
+  { href: '/sales', label: 'Sales', icon: Receipt },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -33,22 +34,20 @@ export function MainNav() {
       <SidebarMenu>
         {links.map((link) => (
           <SidebarMenuItem key={link.href}>
-            <Link href={link.href} passHref>
-              <SidebarMenuButton
-                asChild
-                isActive={
-                  link.href === '/'
-                    ? pathname === link.href
-                    : pathname.startsWith(link.href)
-                }
-                tooltip={link.label}
-              >
-                <a>
-                  <link.icon />
-                  <span>{link.label}</span>
-                </a>
-              </SidebarMenuButton>
-            </Link>
+            <SidebarMenuButton
+              asChild
+              isActive={
+                link.href === '/'
+                  ? pathname === link.href
+                  : pathname.startsWith(link.href)
+              }
+              tooltip={link.label}
+            >
+              <Link href={link.href}>
+                <link.icon />
+                <span>{link.label}</span>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         ))}
       </SidebarMenu>

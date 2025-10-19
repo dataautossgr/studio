@@ -35,6 +35,30 @@ export interface Sale {
         quantity: number;
         price: number;
     }[];
+    paymentMethod?: 'cash' | 'online';
+    onlinePaymentSource?: string;
+}
+
+export interface Dealer {
+    id: string;
+    name: string;
+    company: string;
+    phone: string;
+}
+
+export interface Purchase {
+    id: string;
+    dealer: Dealer;
+    invoiceNumber: string;
+    date: string;
+    total: number;
+    status: 'Paid' | 'Unpaid' | 'Partial';
+    items: {
+        productId: string;
+        name: string;
+        quantity: number;
+        costPrice: number;
+    }[];
 }
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
@@ -72,6 +96,7 @@ const mockSales: Sale[] = [
             { productId: 'PROD1001', name: 'Spark Plugs (4-pack)', quantity: 1, price: 1200 },
             { productId: 'PROD1002', name: 'Oil Filter', quantity: 1, price: 500 },
         ],
+        paymentMethod: 'cash'
     },
     {
         id: 'SALE002',
@@ -83,13 +108,15 @@ const mockSales: Sale[] = [
         items: [
              { productId: 'PROD1003', name: 'Front Brake Pads', quantity: 1, price: 6000 },
         ],
+        paymentMethod: 'online',
+        onlinePaymentSource: 'Easypaisa',
     },
     {
         id: 'SALE003',
         invoice: 'INV-2024-003',
         customer: { name: 'Usman Autos', type: 'registered' },
         date: '2024-07-21T09:15:00Z',
-        total: 1400,
+        total: 1450,
         status: 'Unpaid',
         items: [
             { productId: 'PROD1005', name: 'Air Filter', quantity: 1, price: 650 },
@@ -109,6 +136,49 @@ const mockSales: Sale[] = [
     }
 ];
 
+const mockDealers: Dealer[] = [
+    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567' },
+    { id: 'DLR002', name: 'Nadeem Sons', company: 'Nadeem & Sons Trading', phone: '0321-7654321' },
+    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334' },
+];
+
+const mockPurchases: Purchase[] = [
+    {
+        id: 'PUR001',
+        dealer: mockDealers[0],
+        invoiceNumber: 'QN-5829',
+        date: '2024-07-18T14:00:00Z',
+        total: 24000,
+        status: 'Paid',
+        items: [
+            { productId: 'PROD1001', name: 'Spark Plugs (4-pack)', quantity: 30, costPrice: 800 },
+        ],
+    },
+    {
+        id: 'PUR002',
+        dealer: mockDealers[1],
+        invoiceNumber: 'NS-9812',
+        date: '2024-07-19T16:30:00Z',
+        total: 105000,
+        status: 'Partial',
+        items: [
+            { productId: 'PROD1004', name: 'AGS Battery', quantity: 15, costPrice: 7000 },
+        ],
+    },
+    {
+        id: 'PUR003',
+        dealer: mockDealers[2],
+        invoiceNumber: 'BT-0123',
+        date: '2024-07-22T11:00:00Z',
+        total: 8000,
+        status: 'Unpaid',
+        items: [
+            { productId: 'PROD1005', name: 'Air Filter', quantity: 20, costPrice: 400 },
+        ],
+    }
+];
+
+
 // Simulate async data fetching
 export const getProducts = async (): Promise<Product[]> => {
   return new Promise(resolve => setTimeout(() => resolve(mockProducts), 500));
@@ -122,3 +192,11 @@ export const getProductCategories = async (): Promise<string[]> => {
     const categories = [...new Set(mockProducts.map(p => p.category))];
     return new Promise(resolve => setTimeout(() => resolve(['All', ...categories]), 200));
 }
+
+export const getDealers = async (): Promise<Dealer[]> => {
+    return new Promise(resolve => setTimeout(() => resolve(mockDealers), 500));
+};
+
+export const getPurchases = async (): Promise<Purchase[]> => {
+    return new Promise(resolve => setTimeout(() => resolve(mockPurchases), 500));
+};

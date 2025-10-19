@@ -1,17 +1,15 @@
 'use client';
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
-import { ChartTooltipContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { useEffect, useState } from 'react';
 
-const data = [
-  { month: 'Jan', sales: Math.floor(Math.random() * 20000) + 10000 },
-  { month: 'Feb', sales: Math.floor(Math.random() * 20000) + 10000 },
-  { month: 'Mar', sales: Math.floor(Math.random() * 20000) + 10000 },
-  { month: 'Apr', sales: Math.floor(Math.random() * 20000) + 10000 },
-  { month: 'May', sales: Math.floor(Math.random() * 20000) + 10000 },
-  { month: 'Jun', sales: Math.floor(Math.random() * 20000) + 10000 },
-];
+const chartConfig = {
+  sales: {
+    label: 'Sales',
+    color: 'hsl(var(--primary))',
+  },
+} satisfies ChartConfig;
 
 
 export function SalesChart() {
@@ -35,8 +33,8 @@ export function SalesChart() {
   }
   
   return (
-    <ResponsiveContainer width="100%" height={350}>
-      <BarChart data={chartData}>
+    <ChartContainer config={chartConfig} className="h-[350px] w-full">
+      <BarChart data={chartData} accessibilityLayer>
         <XAxis
           dataKey="month"
           stroke="hsl(var(--muted-foreground))"
@@ -58,8 +56,8 @@ export function SalesChart() {
             indicator="dot"
              />}
         />
-        <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} />
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }

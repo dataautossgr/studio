@@ -43,15 +43,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useToast } from '@/hooks/use-toast';
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
     getProducts().then(products => {
@@ -80,19 +82,46 @@ export default function InventoryPage() {
   };
   
   const handleDeleteProduct = (productId: string) => {
-    // Logic to delete product would go here
-    console.log("Deleting product", productId);
+    setProducts(products.filter(p => p.id !== productId));
+    toast({
+        title: "Product Deleted",
+        description: "The product has been removed from your inventory.",
+    })
+    setProductToDelete(null);
   };
 
   const handleSaveProduct = (product: Product) => {
     if (selectedProduct) {
       // Update existing product
       setProducts(products.map(p => p.id === product.id ? product : p));
+      toast({
+        title: "Success",
+        description: "Product has been updated successfully.",
+      })
+      setIsDialogOpen(false);
     } else {
       // Add new product
-      setProducts([...products, { ...product, id: `PROD${Date.now()}` }]);
+      const isDuplicate = products.some(
+        p => p.name.toLowerCase() === product.name.toLowerCase() &&
+             p.brand.toLowerCase() === product.brand.toLowerCase() &&
+             p.model.toLowerCase() === product.model.toLowerCase()
+      );
+
+      if (isDuplicate) {
+        toast({
+          variant: "destructive",
+          title: "Failed to Add Product",
+          description: "A product with the same name, brand, and model already exists.",
+        });
+      } else {
+        setProducts([...products, { ...product, id: `PROD${Date.now()}` }]);
+        toast({
+            title: "Success",
+            description: "Product has been added successfully.",
+        });
+        setIsDialogOpen(false);
+      }
     }
-    setIsDialogOpen(false);
   };
 
 
@@ -180,24 +209,12 @@ export default function InventoryPage() {
                                 <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem onSelect={() => handleEditProduct(product)}>Edit</DropdownMenuItem>
-                                 <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" className="w-full justify-start text-sm text-destructive font-normal px-2 relative hover:bg-destructive hover:text-destructive-foreground">Delete</Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          This action cannot be undone. This will permanently delete the product
-                                          and remove its data from our servers.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Continue</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
+                                <DropdownMenuItem 
+                                  onSelect={() => setProductToDelete(product)} 
+                                  className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+                                >
+                                  Delete
+                                </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -214,6 +231,22 @@ export default function InventoryPage() {
             onSave={handleSaveProduct}
             product={selectedProduct}
         />
+
+        <AlertDialog open={!!productToDelete} onOpenChange={() => setProductToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the product
+                    "{productToDelete?.name}" and remove its data from our servers.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => productToDelete && handleDeleteProduct(productToDelete.id)}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }

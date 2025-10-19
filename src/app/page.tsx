@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { CreditCard, DollarSign, Package, TrendingUp } from 'lucide-react';
+import { CreditCard, DollarSign, Package, TrendingUp, Users } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
 import { getSales } from '@/lib/data';
 import {
@@ -22,27 +22,33 @@ import { format } from 'date-fns';
 const reportCards = [
   {
     title: "Today's Revenue",
-    value: 'Rs. 18,450',
+    value: 'Rs. 0',
     icon: DollarSign,
-    change: '+15.2% from yesterday',
+    change: 'No sales yet today',
   },
   {
     title: "Today's Profit",
-    value: 'Rs. 4,120',
+    value: 'Rs. 0',
     icon: TrendingUp,
-    change: '+20% from yesterday',
+    change: 'No sales yet today',
+  },
+  {
+    title: "Today's Expenses",
+    value: 'Rs. 0',
+    icon: CreditCard,
+    change: 'No expenses recorded',
   },
   {
     title: 'Low Stock Items',
-    value: '5',
+    value: '0',
     icon: Package,
-    change: '2 items are out of stock',
+    change: 'All items are in stock',
   },
   {
     title: 'Pending Payments',
-    value: 'Rs. 7,900',
-    icon: CreditCard,
-    change: 'From 2 invoices',
+    value: 'Rs. 0',
+    icon: Users,
+    change: 'No pending payments',
   },
 ];
 
@@ -58,7 +64,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {reportCards.map((card, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

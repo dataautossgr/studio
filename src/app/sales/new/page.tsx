@@ -42,6 +42,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
 
 interface CartItem {
   id: string;
@@ -52,6 +54,8 @@ interface CartItem {
   isOneTime: boolean;
 }
 
+const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
+
 export default function NewSalePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -61,7 +65,9 @@ export default function NewSalePage() {
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
   const [status, setStatus] = useState<'Paid' | 'Unpaid'>('Paid');
-  
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>('cash');
+  const [onlinePaymentSource, setOnlinePaymentSource] = useState('');
+
   useEffect(() => {
     getProducts().then(setProducts);
   }, []);
@@ -286,7 +292,14 @@ export default function NewSalePage() {
             <div className="space-y-4">
                <div className="flex items-center gap-4">
                   <Label htmlFor="status" className="flex-shrink-0">Sale Status</Label>
-                  <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid') => setStatus(val)}>
+                  <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid') => {
+                      setStatus(val);
+                      if (val === 'Unpaid') {
+                          setPaymentMethod(null);
+                      } else {
+                          setPaymentMethod('cash');
+                      }
+                  }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -296,6 +309,36 @@ export default function NewSalePage() {
                     </SelectContent>
                   </Select>
                </div>
+               {status === 'Paid' && (
+                <div className="space-y-4 rounded-md border p-4">
+                    <Label>Payment Method</Label>
+                    <RadioGroup value={paymentMethod || ''} onValueChange={(val: 'cash' | 'online') => setPaymentMethod(val)} className="flex gap-4">
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="cash" id="cash" />
+                            <Label htmlFor="cash">Cash</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="online" id="online" />
+                            <Label htmlFor="online">Online</Label>
+                        </div>
+                    </RadioGroup>
+                    {paymentMethod === 'online' && (
+                        <div className="grid gap-2">
+                             <Label htmlFor="online-source">Bank/Service</Label>
+                             <Select value={onlinePaymentSource} onValueChange={setOnlinePaymentSource}>
+                                <SelectTrigger id="online-source">
+                                    <SelectValue placeholder="Select a payment source" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {onlinePaymentProviders.map(provider => (
+                                        <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                             </Select>
+                        </div>
+                    )}
+                </div>
+               )}
             </div>
             <div className="space-y-2 text-right">
                 <div className="flex justify-end items-center gap-4">

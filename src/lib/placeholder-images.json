@@ -1,3 +1,64 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "1",
+      "description": "A set of four spark plugs.",
+      "imageUrl": "https://images.unsplash.com/photo-1670764169470-bd2f737f9248?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzcGFyayUyMHBsdWdzfGVufDB8fHx8MTc2MDg4NjkwNHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "spark plugs"
+    },
+    {
+      "id": "2",
+      "description": "A cylindrical car oil filter.",
+      "imageUrl": "https://images.unsplash.com/photo-1641877558194-ed9410feb2e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxvaWwlMjBmaWx0ZXJ8ZW58MHx8fHwxNzYwODg2OTA0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "oil filter"
+    },
+    {
+      "id": "3",
+      "description": "A pair of front brake pads.",
+      "imageUrl": "https://images.unsplash.com/photo-1656232976683-7b688560e427?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxicmFrZSUyMHBhZHN8ZW58MHx8fHwxNzYwODg2OTA0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "brake pads"
+    },
+    {
+      "id": "4",
+      "description": "A car battery.",
+      "imageUrl": "https://images.unsplash.com/photo-1597766325363-f5576d851d6a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjYXIlMjBiYXR0ZXJ5fGVufDB8fHx8MTc2MDg4NjkwNHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "car battery"
+    },
+    {
+      "id": "5",
+      "description": "A rectangular car air filter.",
+      "imageUrl": "https://images.unsplash.com/photo-1632928274371-878938e4d825?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxhaXIlMjBmaWx0ZXJ8ZW58MHx8fHwxNzYwODg2OTA0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "air filter"
+    },
+    {
+      "id": "6",
+      "description": "A car timing belt.",
+      "imageUrl": "https://images.unsplash.com/photo-1622940000663-a20e92ffb555?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHx0aW1pbmclMjBiZWx0fGVufDB8fHx8MTc2MDg4NjkwNXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "timing belt"
+    },
+    {
+      "id": "7",
+      "description": "A bottle of radiator coolant.",
+      "imageUrl": "https://images.unsplash.com/photo-1729183672500-46c52a897de5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxyYWRpYXRvciUyMGNvb2xhbnR8ZW58MHx8fHwxNzYwODg2OTA0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "radiator coolant"
+    },
+    {
+      "id": "8",
+      "description": "A car headlight bulb.",
+      "imageUrl": "https://images.unsplash.com/photo-1754782384765-f5ce82277f74?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxoZWFkbGlnaHQlMjBidWxifGVufDB8fHx8MTc2MDg4NjkwNHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "headlight bulb"
+    },
+    {
+      "id": "9",
+      "description": "A pair of windshield wiper blades.",
+      "imageUrl": "https://images.unsplash.com/photo-1533390455024-0ea2f9760616?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx3aXBlciUyMGJsYWRlc3xlbnwwfHx8fDE3NjA3ODUxMDJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "wiper blades"
+    },
+    {
+      "id": "10",
+      "description": "A 4-liter bottle of synthetic engine oil.",
+      "imageUrl": "https://images.unsplash.com/photo-1567016958860-87d898933af1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxlbmdpbmUlMjBvaWx8ZW58MHx8fHwxNzYwNzg1MTAyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "engine oil"
+    }
+  ]
 }

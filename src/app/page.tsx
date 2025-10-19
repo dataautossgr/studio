@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/card';
 import { CreditCard, DollarSign, Package, TrendingUp, Users } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
-import { getSales } from '@/lib/data';
+import { getSales, getProducts } from '@/lib/data';
 import {
   Table,
   TableBody,
@@ -19,41 +19,43 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
-const reportCards = [
-  {
-    title: "Today's Revenue",
-    value: 'Rs. 0',
-    icon: DollarSign,
-    change: 'No sales yet today',
-  },
-  {
-    title: "Today's Profit",
-    value: 'Rs. 0',
-    icon: TrendingUp,
-    change: 'No sales yet today',
-  },
-  {
-    title: "Today's Expenses",
-    value: 'Rs. 0',
-    icon: CreditCard,
-    change: 'No expenses recorded',
-  },
-  {
-    title: 'Low Stock Items',
-    value: '0',
-    icon: Package,
-    change: 'All items are in stock',
-  },
-  {
-    title: 'Pending Payments',
-    value: 'Rs. 0',
-    icon: Users,
-    change: 'No pending payments',
-  },
-];
-
 export default async function DashboardPage() {
   const sales = (await getSales()).slice(0, 5);
+  const products = await getProducts();
+  const lowStockCount = products.filter(p => p.stock <= p.lowStockThreshold).length;
+
+  const reportCards = [
+    {
+      title: "Today's Revenue",
+      value: 'Rs. 0',
+      icon: DollarSign,
+      change: 'No sales yet today',
+    },
+    {
+      title: "Today's Profit",
+      value: 'Rs. 0',
+      icon: TrendingUp,
+      change: 'No sales yet today',
+    },
+    {
+      title: "Today's Expenses",
+      value: 'Rs. 0',
+      icon: CreditCard,
+      change: 'No expenses recorded',
+    },
+    {
+      title: 'Low Stock Items',
+      value: lowStockCount.toString(),
+      icon: Package,
+      change: lowStockCount > 0 ? `${lowStockCount} items need attention` : 'All items are in stock',
+    },
+    {
+      title: 'Pending Payments',
+      value: 'Rs. 0',
+      icon: Users,
+      change: 'No pending payments',
+    },
+  ];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">

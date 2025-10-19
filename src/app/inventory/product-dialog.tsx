@@ -1,5 +1,5 @@
 'use client';
-import type { Product } from '@/lib/data';
+import type { Product, Unit } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -14,17 +14,33 @@ import { Label } from '@/components/ui/label';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import Image from 'next/image';
+
+const units: Unit[] = [
+    'piece', 'cartoon', 'ml', 'litre', 'kg', 'g', 'inch', 'foot', 'meter'
+];
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
+  description: z.string().optional(),
   category: z.string().min(1, 'Category is required'),
   brand: z.string().min(1, 'Brand is required'),
   model: z.string(),
   costPrice: z.coerce.number().min(0, 'Cost price must be positive'),
   salePrice: z.coerce.number().min(0, 'Sale price must be positive'),
   stock: z.coerce.number().int('Stock must be a whole number').min(0, 'Stock must be positive'),
+  unit: z.enum(units),
   lowStockThreshold: z.coerce.number().int().min(0),
+  imageUrl: z.string().optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -37,9 +53,11 @@ interface ProductDialogProps {
 }
 
 export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialogProps) {
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ProductFormData>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
   });
+
+  const imageUrl = watch('imageUrl');
 
   useEffect(() => {
     if (product) {
@@ -47,23 +65,37 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
     } else {
       reset({
         name: '',
+        description: '',
         category: '',
         brand: '',
         model: '',
         costPrice: 0,
         salePrice: 0,
         stock: 0,
+        unit: 'piece',
         lowStockThreshold: 10,
+        imageUrl: '',
       });
     }
   }, [product, reset, isOpen]);
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setValue('imageUrl', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   
   const onSubmit = (data: ProductFormData) => {
     onSave({
         ...data,
-        id: product?.id || '', // Keep original id or it will be assigned on save
-        imageUrl: product?.imageUrl || 'https://picsum.photos/seed/placeholder/64/64',
-        imageHint: product?.imageHint || 'placeholder'
+        id: product?.id || '',
+        imageUrl: data.imageUrl || product?.imageUrl || 'https://picsum.photos/seed/placeholder/64/64',
+        imageHint: product?.imageHint || 'product'
     });
   };
 
@@ -79,11 +111,30 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
+                <Label>Image</Label>
+                <div className="col-span-3 flex items-center gap-4">
+                    <Image
+                        src={imageUrl || 'https://picsum.photos/seed/placeholder/64/64'}
+                        alt="Product image"
+                        width={64}
+                        height={64}
+                        className="rounded-md aspect-square object-cover"
+                    />
+                    <Input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs" />
+                </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">Name</Label>
               <div className="col-span-3">
                 <Input id="name" {...register('name')} className={errors.name ? 'border-destructive' : ''}/>
                 {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
               </div>
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="description" className="text-right pt-2">Description</Label>
+                <div className="col-span-3">
+                    <Textarea id="description" {...register('description')} placeholder="Optional product details..."/>
+                </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="category" className="text-right">Category</Label>
@@ -121,8 +172,27 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
                     <Input id="stock" type="number" {...register('stock')} className={errors.stock ? 'border-destructive' : ''}/>
                     {errors.stock && <p className="text-xs text-destructive mt-1 col-span-2 text-right">{errors.stock.message}</p>}
                 </div>
-                <div className="grid grid-cols-2 items-center gap-4">
-                    <Label htmlFor="lowStockThreshold" className="text-right">Low Stock Warning</Label>
+                 <div className="grid grid-cols-2 items-center gap-4">
+                    <Label htmlFor="unit" className="text-right">Unit</Label>
+                    <Controller
+                        name="unit"
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select unit" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {units.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="lowStockThreshold" className="text-right">Low Stock Warning</Label>
+                <div className="col-span-3">
                     <Input id="lowStockThreshold" type="number" {...register('lowStockThreshold')} />
                 </div>
             </div>

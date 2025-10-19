@@ -1,14 +1,19 @@
 import { placeholderImages } from "./placeholder-images.json";
 
+export type Unit = 'piece' | 'cartoon' | 'ml' | 'litre' | 'kg' | 'g' | 'inch' | 'foot' | 'meter';
+
+
 export interface Product {
   id: string;
   name: string;
+  description?: string;
   category: string;
   brand: string;
   model: string;
   costPrice: number;
   salePrice: number;
   stock: number;
+  unit: Unit;
   lowStockThreshold: number;
   imageUrl: string;
   imageHint: string;
@@ -33,16 +38,16 @@ export interface Sale {
 }
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
-  { name: 'Spark Plugs (4-pack)', category: 'Engine Parts', brand: 'NGK', model: 'BKR6E-11', costPrice: 800, salePrice: 1200, stock: 50, lowStockThreshold: 10 },
-  { name: 'Oil Filter', category: 'Filters', brand: 'Guard', model: 'GDO-118', costPrice: 350, salePrice: 500, stock: 120, lowStockThreshold: 20 },
-  { name: 'Front Brake Pads', category: 'Brakes', brand: 'Toyota Genuine', model: '04465-YZZR3', costPrice: 4500, salePrice: 6000, stock: 30, lowStockThreshold: 5 },
-  { name: 'AGS Battery', category: 'Batteries', brand: 'AGS', model: 'GL-48', costPrice: 7000, salePrice: 8500, stock: 15, lowStockThreshold: 3 },
-  { name: 'Air Filter', category: 'Filters', brand: 'Leppon', model: 'LA-261', costPrice: 400, salePrice: 650, stock: 80, lowStockThreshold: 15 },
-  { name: 'Timing Belt', category: 'Engine Parts', brand: 'Gates', model: 'T145', costPrice: 2200, salePrice: 3000, stock: 25, lowStockThreshold: 5 },
-  { name: 'Radiator Coolant (1L)', category: 'Fluids', brand: 'ZIC', model: 'Super A', costPrice: 600, salePrice: 800, stock: 100, lowStockThreshold: 25 },
-  { name: 'Headlight Bulb', category: 'Lighting', brand: 'Philips', model: 'H4', costPrice: 250, salePrice: 400, stock: 200, lowStockThreshold: 50 },
-  { name: 'Wiper Blades (Pair)', category: 'Exterior', brand: 'Bosch', model: 'Clear Advantage', costPrice: 1000, salePrice: 1500, stock: 40, lowStockThreshold: 10 },
-  { name: 'Synthetic Engine Oil (4L)', category: 'Fluids', brand: 'Shell', model: 'Helix Ultra 5W-40', costPrice: 4800, salePrice: 5500, stock: 35, lowStockThreshold: 10 },
+  { name: 'Spark Plugs (4-pack)', category: 'Engine Parts', brand: 'NGK', model: 'BKR6E-11', costPrice: 800, salePrice: 1200, stock: 50, unit: 'piece', lowStockThreshold: 10 },
+  { name: 'Oil Filter', category: 'Filters', brand: 'Guard', model: 'GDO-118', costPrice: 350, salePrice: 500, stock: 8, unit: 'piece', lowStockThreshold: 20 },
+  { name: 'Front Brake Pads', category: 'Brakes', brand: 'Toyota Genuine', model: '04465-YZZR3', costPrice: 4500, salePrice: 6000, stock: 30, unit: 'piece', lowStockThreshold: 5 },
+  { name: 'AGS Battery', category: 'Batteries', brand: 'AGS', model: 'GL-48', costPrice: 7000, salePrice: 8500, stock: 15, unit: 'piece', lowStockThreshold: 3 },
+  { name: 'Air Filter', category: 'Filters', brand: 'Leppon', model: 'LA-261', costPrice: 400, salePrice: 650, stock: 80, unit: 'piece', lowStockThreshold: 15 },
+  { name: 'Timing Belt', category: 'Engine Parts', brand: 'Gates', model: 'T145', costPrice: 2200, salePrice: 3000, stock: 4, unit: 'piece', lowStockThreshold: 5 },
+  { name: 'Radiator Coolant (1L)', category: 'Fluids', brand: 'ZIC', model: 'Super A', costPrice: 600, salePrice: 800, stock: 100, unit: 'litre', lowStockThreshold: 25 },
+  { name: 'Headlight Bulb', category: 'Lighting', brand: 'Philips', model: 'H4', costPrice: 250, salePrice: 400, stock: 200, unit: 'piece', lowStockThreshold: 50 },
+  { name: 'Wiper Blades (Pair)', category: 'Exterior', brand: 'Bosch', model: 'Clear Advantage', costPrice: 1000, salePrice: 1500, stock: 9, unit: 'piece', lowStockThreshold: 10 },
+  { name: 'Synthetic Engine Oil (4L)', category: 'Fluids', brand: 'Shell', model: 'Helix Ultra 5W-40', costPrice: 4800, salePrice: 5500, stock: 35, unit: 'litre', lowStockThreshold: 10 },
 ];
 
 const mockProducts: Product[] = productData.map((p, index) => {

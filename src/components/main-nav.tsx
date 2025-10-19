@@ -4,6 +4,7 @@ import {
   BarChart3,
   Boxes,
   LayoutDashboard,
+  PlusCircle,
   Receipt,
   Settings,
   ShoppingCart,
@@ -19,6 +20,7 @@ import {
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/pos', label: 'POS', icon: PlusCircle },
   { href: '/inventory', label: 'Inventory', icon: Boxes },
   { href: '/sales', label: 'Sales', icon: ShoppingCart },
   { href: '/reports', label: 'Reports', icon: BarChart3 },

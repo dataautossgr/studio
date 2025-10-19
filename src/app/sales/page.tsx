@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText } from 'lucide-react';
+import { MoreHorizontal, FileText, PlusCircle } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -25,6 +25,7 @@ import {
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
+import Link from 'next/link';
 
 export default async function SalesPage() {
   const sales = await getSales();
@@ -45,11 +46,19 @@ export default async function SalesPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <Card>
-        <CardHeader>
-          <CardTitle>Sales History</CardTitle>
-          <CardDescription>
-            View all past transactions and their status.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Sales History</CardTitle>
+            <CardDescription>
+              View all past transactions and their status.
+            </CardDescription>
+          </div>
+          <Button asChild>
+            <Link href="/pos">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Sale
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>

@@ -16,11 +16,13 @@ import {
   MinusCircle,
   X,
   UserPlus,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 interface PosClientProps {
   products: Product[];
@@ -223,7 +225,8 @@ export function PosClient({ products, categories }: PosClientProps) {
               <span>Rs. {total.toLocaleString()}</span>
             </div>
             <Button size="lg" className="w-full">
-              Generate Bill
+              <Plus className="mr-2 h-4 w-4" />
+              Create Sale
             </Button>
           </CardFooter>
         </Card>

@@ -17,7 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -32,11 +32,17 @@ export default async function InventoryPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <Card>
-        <CardHeader>
-          <CardTitle>Inventory</CardTitle>
-          <CardDescription>
-            Manage your products and view their stock levels.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Inventory</CardTitle>
+            <CardDescription>
+              Manage your products and view their stock levels.
+            </CardDescription>
+          </div>
+           <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Product
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -71,10 +77,8 @@ export default async function InventoryPage() {
                   </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>
-                    <Badge variant={product.stock > product.lowStockThreshold ? "default" : "destructive"}>
-                      {product.stock > product.lowStockThreshold
-                        ? 'In Stock'
-                        : `Low Stock (${product.stock})`}
+                    <Badge variant={product.stock > 0 ? (product.stock > product.lowStockThreshold ? 'default' : 'secondary') : 'destructive'}>
+                      {product.stock > 0 ? (product.stock > product.lowStockThreshold ? 'In Stock' : 'Low Stock') : 'Out of Stock'}
                     </Badge>
                   </TableCell>
                   <TableCell>Rs. {product.salePrice.toLocaleString()}</TableCell>

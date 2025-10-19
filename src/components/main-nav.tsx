@@ -33,8 +33,9 @@ export function MainNav() {
       <SidebarMenu>
         {links.map((link) => (
           <SidebarMenuItem key={link.href}>
-            <Link href={link.href} legacyBehavior passHref>
+            <Link href={link.href} passHref>
               <SidebarMenuButton
+                asChild
                 isActive={
                   link.href === '/'
                     ? pathname === link.href
@@ -42,8 +43,10 @@ export function MainNav() {
                 }
                 tooltip={link.label}
               >
-                <link.icon />
-                <span>{link.label}</span>
+                <a>
+                  <link.icon />
+                  <span>{link.label}</span>
+                </a>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>

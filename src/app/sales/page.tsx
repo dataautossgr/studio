@@ -1,4 +1,6 @@
+'use client';
 import { getSales } from '@/lib/data';
+import type { Sale } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -16,19 +18,25 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText } from 'lucide-react';
+import { MoreHorizontal, FileText, PlusCircle, Pencil, Trash2, Undo2 } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-export default async function SalesPage() {
-  const sales = await getSales();
+export default function SalesPage() {
+  const [sales, setSales] = useState<Sale[]>([]);
+
+  useEffect(() => {
+    getSales().then(setSales);
+  }, [])
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
     switch (status) {
@@ -53,6 +61,12 @@ export default async function SalesPage() {
               View all past transactions and their status.
             </CardDescription>
           </div>
+           <Button asChild>
+            <Link href="/sales/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Sale
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -96,7 +110,22 @@ export default async function SalesPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem>
                             <FileText className="mr-2 h-4 w-4" />
-                            View Receipt
+                            View Invoice
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/sales/${sale.id}`}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                            <Undo2 className="mr-2 h-4 w-4" />
+                            Return / Exchange
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

@@ -74,7 +74,7 @@ export default function SalesPage() {
               <TableRow>
                 <TableHead>Invoice</TableHead>
                 <TableHead>Customer</TableHead>
-                <TableHead className="hidden md:table-cell">Date</TableHead>
+                <TableHead className="hidden md:table-cell">Date & Time</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>
@@ -88,7 +88,7 @@ export default function SalesPage() {
                   <TableCell className="font-medium">{sale.invoice}</TableCell>
                   <TableCell>{sale.customer.name}</TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {format(new Date(sale.date), 'dd MMM, yyyy')}
+                    {format(new Date(sale.date), 'dd MMM, yyyy, hh:mm a')}
                   </TableCell>
                   <TableCell>Rs. {sale.total.toLocaleString()}</TableCell>
                   <TableCell>

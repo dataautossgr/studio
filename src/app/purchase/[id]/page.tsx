@@ -64,6 +64,7 @@ export default function PurchaseFormPage() {
     const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
     const [invoiceNumber, setInvoiceNumber] = useState('');
     const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
+    const [purchaseTime, setPurchaseTime] = useState(format(new Date(), 'HH:mm'));
     const [status, setStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
     
     const params = useParams();
@@ -81,7 +82,9 @@ export default function PurchaseFormPage() {
                     setPurchase(currentPurchase);
                     setSelectedDealer(currentPurchase.dealer);
                     setInvoiceNumber(currentPurchase.invoiceNumber);
-                    setPurchaseDate(new Date(currentPurchase.date));
+                    const transactionDate = new Date(currentPurchase.date);
+                    setPurchaseDate(transactionDate);
+                    setPurchaseTime(format(transactionDate, 'HH:mm'));
                     setStatus(currentPurchase.status);
                     setPurchaseItems(currentPurchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)})));
                 } else {
@@ -173,30 +176,36 @@ export default function PurchaseFormPage() {
                     <Label htmlFor="invoiceNumber">Supplier Invoice #</Label>
                     <Input id="invoiceNumber" placeholder="e.g., INV-12345" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} />
                 </div>
-                 <div className="space-y-2">
-                    <Label>Purchase Date</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            variant={"outline"}
-                            className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !purchaseDate && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={purchaseDate}
-                            onSelect={setPurchaseDate}
-                            initialFocus
-                        />
-                        </PopoverContent>
-                    </Popover>
+                 <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                        <Label>Purchase Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !purchaseDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={purchaseDate}
+                                onSelect={setPurchaseDate}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Purchase Time</Label>
+                        <Input type="time" value={purchaseTime} onChange={e => setPurchaseTime(e.target.value)} />
+                    </div>
                  </div>
             </div>
 

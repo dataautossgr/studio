@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, PlusCircle, UserPlus } from 'lucide-react';
+import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon } from 'lucide-react';
 import { getProducts, getCustomers, type Product, type Customer } from '@/lib/data';
 import {
   Popover,
@@ -46,6 +46,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useRouter } from 'next/navigation';
 import { CustomerDialog } from '@/app/customers/customer-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+
 
 interface CartItem {
   id: string;
@@ -70,6 +74,10 @@ export default function NewSalePage() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>('cash');
   const [onlinePaymentSource, setOnlinePaymentSource] = useState('');
   const [partialAmount, setPartialAmount] = useState(0);
+  const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
+  const [saleTime, setSaleTime] = useState(format(new Date(), 'HH:mm'));
+  const [cashReceived, setCashReceived] = useState(0);
+
 
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -146,6 +154,7 @@ export default function NewSalePage() {
 
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const finalAmount = subtotal - discount;
+  const changeToReturn = cashReceived > finalAmount ? cashReceived - finalAmount : 0;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -158,7 +167,7 @@ export default function NewSalePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Customer Section */}
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Customer Type</Label>
               <Select
@@ -222,6 +231,37 @@ export default function NewSalePage() {
                         </Button>
                     </div>
                 )}
+            </div>
+            <div className='grid grid-cols-2 gap-2'>
+              <div className="space-y-2">
+                  <Label>Sale Date</Label>
+                   <Popover>
+                      <PopoverTrigger asChild>
+                      <Button
+                          variant={"outline"}
+                          className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !saleDate && "text-muted-foreground"
+                          )}
+                      >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {saleDate ? format(saleDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                      <Calendar
+                          mode="single"
+                          selected={saleDate}
+                          onSelect={setSaleDate}
+                          initialFocus
+                      />
+                      </PopoverContent>
+                  </Popover>
+              </div>
+              <div className="space-y-2">
+                  <Label>Sale Time</Label>
+                  <Input type="time" value={saleTime} onChange={e => setSaleTime(e.target.value)} />
+              </div>
             </div>
           </div>
           
@@ -402,6 +442,25 @@ export default function NewSalePage() {
                                     ))}
                                 </SelectContent>
                              </Select>
+                        </div>
+                    )}
+                     {paymentMethod === 'cash' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="cashReceived">Cash Received</Label>
+                                <Input 
+                                    id="cashReceived"
+                                    type="number"
+                                    value={cashReceived}
+                                    onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Change</Label>
+                                <p className="font-bold text-lg h-10 flex items-center">
+                                    Rs. {changeToReturn.toLocaleString()}
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

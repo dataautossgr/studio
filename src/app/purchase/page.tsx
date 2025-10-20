@@ -71,7 +71,7 @@ export default function PurchasesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
+                <TableHead>Date & Time</TableHead>
                 <TableHead>Dealer</TableHead>
                 <TableHead>Invoice #</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -85,7 +85,7 @@ export default function PurchasesPage() {
               {purchases.map((purchase) => (
                 <TableRow key={purchase.id}>
                   <TableCell className="hidden md:table-cell">
-                    {format(new Date(purchase.date), 'dd MMM, yyyy')}
+                    {format(new Date(purchase.date), 'dd MMM, yyyy, hh:mm a')}
                   </TableCell>
                   <TableCell>{purchase.dealer.name}</TableCell>
                   <TableCell className="font-medium">{purchase.invoiceNumber}</TableCell>

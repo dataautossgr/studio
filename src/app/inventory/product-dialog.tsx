@@ -1,6 +1,5 @@
 'use client';
 import type { Product, Unit, Dealer } from '@/lib/data';
-import { getDealers } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +24,9 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection } from 'firebase/firestore';
+
 
 const units: Unit[] = [
     'piece', 'cartoon', 'ml', 'litre', 'kg', 'g', 'inch', 'foot', 'meter'
@@ -51,7 +53,7 @@ type ProductFormData = z.infer<typeof productSchema>;
 interface ProductDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (product: Product) => void;
+  onSave: (product: Omit<Product, 'id'>) => void;
   product: Product | null;
 }
 
@@ -60,14 +62,10 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
     resolver: zodResolver(productSchema),
   });
 
-  const [dealers, setDealers] = useState<Dealer[]>([]);
+  const firestore = useFirestore();
+  const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(collection(firestore, 'dealers'));
   const imageUrl = watch('imageUrl');
 
-  useEffect(() => {
-    if(isOpen) {
-        getDealers().then(setDealers);
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -107,7 +105,6 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
   const onSubmit = (data: ProductFormData) => {
     onSave({
         ...data,
-        id: product?.id || '',
         imageUrl: data.imageUrl || product?.imageUrl || 'https://picsum.photos/seed/placeholder/64/64',
         imageHint: product?.imageHint || 'product'
     });
@@ -181,7 +178,7 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="">None</SelectItem>
-                                    {dealers.map(d => <SelectItem key={d.id} value={d.id}>{d.company}</SelectItem>)}
+                                    {dealers?.map(d => <SelectItem key={d.id} value={d.id}>{d.company}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         )}
@@ -244,5 +241,3 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
     </Dialog>
   );
 }
-
-    

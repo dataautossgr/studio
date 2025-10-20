@@ -1,6 +1,6 @@
 'use client';
 import type { Product, Purchase, Dealer } from '@/lib/data';
-import { getProducts, getPurchases, getDealers } from '@/lib/data';
+import { getProducts, getPurchases, getDealers, seedInitialData } from '@/lib/data';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
@@ -47,6 +47,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+
 
 interface DisplayProduct extends Product {
     lastPurchaseDate?: string;
@@ -54,7 +57,11 @@ interface DisplayProduct extends Product {
 }
 
 export default function InventoryPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const firestore = useFirestore();
+  const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(collection(firestore, 'products'));
+  const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(collection(firestore, 'purchases'));
+  const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(collection(firestore, 'dealers'));
+
   const [filteredProducts, setFilteredProducts] = useState<DisplayProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -63,22 +70,8 @@ export default function InventoryPage() {
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
 
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [dealers, setDealers] = useState<Dealer[]>([]);
-
-  useEffect(() => {
-    Promise.all([
-        getProducts(),
-        getPurchases(),
-        getDealers()
-    ]).then(([productsData, purchasesData, dealersData]) => {
-      setProducts(productsData);
-      setPurchases(purchasesData);
-      setDealers(dealersData);
-    });
-  }, []);
-
   const displayProducts = useMemo(() => {
+    if (!products || !purchases || !dealers) return [];
     return products.map(product => {
         const productPurchases = purchases
             .filter(p => p.items.some(item => item.productId === product.id))
@@ -98,8 +91,8 @@ export default function InventoryPage() {
   useEffect(() => {
     const results = displayProducts.filter(product =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.model && product.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (product.lastPurchaseDealer && product.lastPurchaseDealer.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredProducts(results);
@@ -115,8 +108,9 @@ export default function InventoryPage() {
     setIsDialogOpen(true);
   };
   
-  const handleDeleteProduct = (productId: string) => {
-    setProducts(products.filter(p => p.id !== productId));
+  const handleDeleteProduct = () => {
+    if(!productToDelete) return;
+    deleteDocumentNonBlocking(doc(firestore, 'products', productToDelete.id));
     toast({
         title: "Product Deleted",
         description: "The product has been removed from your inventory.",
@@ -124,18 +118,18 @@ export default function InventoryPage() {
     setProductToDelete(null);
   };
 
-  const handleSaveProduct = (product: Product) => {
+  const handleSaveProduct = (product: Omit<Product, 'id'>) => {
     if (selectedProduct) {
       // Update existing product
-      setProducts(products.map(p => p.id === product.id ? product : p));
+      const productRef = doc(firestore, 'products', selectedProduct.id);
+      setDocumentNonBlocking(productRef, { ...selectedProduct, ...product }, { merge: true });
       toast({
         title: "Success",
         description: "Product has been updated successfully.",
       })
-      setIsDialogOpen(false);
     } else {
       // Add new product
-      const isDuplicate = products.some(
+      const isDuplicate = products?.some(
         p => p.name.toLowerCase() === product.name.toLowerCase() &&
              p.brand.toLowerCase() === product.brand.toLowerCase() &&
              p.model.toLowerCase() === product.model.toLowerCase()
@@ -147,19 +141,20 @@ export default function InventoryPage() {
           title: "Failed to Add Product",
           description: "A product with the same name, brand, and model already exists.",
         });
-      } else {
-        setProducts([...products, { ...product, id: `PROD${Date.now()}` }]);
-        toast({
-            title: "Success",
-            description: "Product has been added successfully.",
-        });
-        setIsDialogOpen(false);
+         return;
       }
+      
+      addDocumentNonBlocking(collection(firestore, 'products'), product);
+      toast({
+          title: "Success",
+          description: "Product has been added successfully.",
+      });
     }
+    setIsDialogOpen(false);
   };
 
-  const handleReset = () => {
-    getProducts().then(setProducts);
+  const handleReset = async () => {
+    await seedInitialData(firestore);
     toast({ title: "Inventory Reset", description: "The inventory list has been reset to its initial state." });
     setIsResetting(false);
   };
@@ -215,6 +210,11 @@ export default function InventoryPage() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
+                    {(isLoadingProducts || isLoadingPurchases || isLoadingDealers) && (
+                        <TableRow>
+                            <TableCell colSpan={9} className="text-center">Loading inventory...</TableCell>
+                        </TableRow>
+                    )}
                     {filteredProducts.map((product) => (
                         <TableRow key={product.id}>
                         <TableCell className="hidden sm:table-cell">
@@ -288,7 +288,7 @@ export default function InventoryPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => productToDelete && handleDeleteProduct(productToDelete.id)}>Continue</AlertDialogAction>
+                <AlertDialogAction onClick={handleDeleteProduct}>Continue</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -298,7 +298,7 @@ export default function InventoryPage() {
                 <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will reset the inventory list to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                    This will reset the inventory list to its original state. Any changes you've made will be lost.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -310,5 +310,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-    

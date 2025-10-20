@@ -29,7 +29,7 @@ type DealerFormData = z.infer<typeof dealerSchema>;
 interface DealerDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (dealer: Dealer) => void;
+  onSave: (dealer: Omit<Dealer, 'id' | 'balance'>) => void;
   dealer: Dealer | null;
 }
 
@@ -52,11 +52,7 @@ export function DealerDialog({ isOpen, onClose, onSave, dealer }: DealerDialogPr
   }, [dealer, reset, isOpen]);
 
   const onSubmit = (data: DealerFormData) => {
-    onSave({
-        ...data,
-        id: dealer?.id || '',
-        balance: dealer?.balance || 0,
-    });
+    onSave(data);
   };
 
   return (

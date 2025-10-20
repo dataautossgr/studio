@@ -272,3 +272,49 @@ export const getDealers = async (): Promise<Dealer[]> => {
 export const getPurchases = async (): Promise<Purchase[]> => {
     return new Promise(resolve => setTimeout(() => resolve(mockPurchases), 500));
 };
+
+export const seedInitialData = async (db: any) => {
+    const { collection, addDoc, doc, setDoc } = await import('firebase/firestore');
+
+    console.log("Seeding initial data...");
+
+    const productsCollection = collection(db, 'products');
+    for (const product of mockProducts) {
+        await setDoc(doc(productsCollection, product.id), product);
+    }
+    console.log("Seeded products.");
+
+    const customersCollection = collection(db, 'customers');
+     for (const customer of mockCustomers) {
+        await setDoc(doc(customersCollection, customer.id), customer);
+    }
+    console.log("Seeded customers.");
+
+    const dealersCollection = collection(db, 'dealers');
+    for (const dealer of mockDealers) {
+        await setDoc(doc(dealersCollection, dealer.id), dealer);
+    }
+    console.log("Seeded dealers.");
+    
+    const salesCollection = collection(db, 'sales');
+    for (const sale of mockSales) {
+       const saleToStore = {
+           ...sale,
+           customer: doc(db, 'customers', sale.customer.id)
+       }
+       await setDoc(doc(salesCollection, sale.id), saleToStore);
+    }
+    console.log("Seeded sales.");
+
+    const purchasesCollection = collection(db, 'purchases');
+    for (const purchase of mockPurchases) {
+         const purchaseToStore = {
+           ...purchase,
+           dealer: doc(db, 'dealers', purchase.dealer.id)
+       }
+        await setDoc(doc(purchasesCollection, purchase.id), purchaseToStore);
+    }
+    console.log("Seeded purchases.");
+    
+    console.log("Data seeding complete.");
+};

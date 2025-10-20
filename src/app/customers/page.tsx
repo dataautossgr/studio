@@ -1,5 +1,5 @@
 'use client';
-import { getCustomers, type Customer } from '@/lib/data';
+import { getCustomers, type Customer, seedInitialData } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -39,18 +39,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const firestore = useFirestore();
+  const { data: customers, isLoading } = useCollection<Customer>(collection(firestore, 'customers'));
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    getCustomers().then(setCustomers);
-  }, []);
   
   const handleAddCustomer = () => {
     setSelectedCustomer(null);
@@ -64,29 +65,30 @@ export default function CustomersPage() {
 
   const handleSaveCustomer = (customerData: Omit<Customer, 'id' | 'balance' | 'type'>) => {
     if (selectedCustomer) {
-      setCustomers(customers.map(c => c.id === selectedCustomer.id ? { ...selectedCustomer, ...customerData } : c));
+      const customerRef = doc(firestore, 'customers', selectedCustomer.id);
+      setDocumentNonBlocking(customerRef, { ...selectedCustomer, ...customerData }, { merge: true });
       toast({ title: "Success", description: "Customer updated successfully." });
     } else {
-      const newCustomer: Customer = { 
+      const newCustomer: Omit<Customer, 'id'> = { 
         ...customerData, 
-        id: `CUST${Date.now()}`, 
         balance: 0,
         type: 'registered'
       };
-      setCustomers([...customers, newCustomer]);
+      addDocumentNonBlocking(collection(firestore, 'customers'), newCustomer);
       toast({ title: "Success", description: "Customer added successfully." });
     }
     setIsDialogOpen(false);
   };
 
-  const handleDeleteCustomer = (customerId: string) => {
-    setCustomers(customers.filter(c => c.id !== customerId));
+  const handleDeleteCustomer = () => {
+    if (!customerToDelete) return;
+    deleteDocumentNonBlocking(doc(firestore, 'customers', customerToDelete.id));
     toast({ title: "Customer Deleted", description: "The customer has been removed." });
     setCustomerToDelete(null);
   };
 
-  const handleReset = () => {
-    getCustomers().then(setCustomers);
+  const handleReset = async () => {
+    await seedInitialData(firestore);
     toast({ title: "Customers Reset", description: "The customer list has been reset to its initial state." });
     setIsResetting(false);
   }
@@ -131,7 +133,12 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.filter(c => c.type === 'registered').map((customer) => (
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">Loading...</TableCell>
+                </TableRow>
+              )}
+              {customers?.filter(c => c.type === 'registered').map((customer) => (
                 <TableRow key={customer.id}>
                   <TableCell className="font-medium">{customer.name}</TableCell>
                   <TableCell>{customer.phone}</TableCell>
@@ -199,7 +206,7 @@ export default function CustomersPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => customerToDelete && handleDeleteCustomer(customerToDelete.id)}>Continue</AlertDialogAction>
+                <AlertDialogAction onClick={handleDeleteCustomer}>Continue</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

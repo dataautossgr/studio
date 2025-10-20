@@ -1,5 +1,5 @@
 'use client';
-import { getDealers, type Dealer } from '@/lib/data';
+import { getDealers, type Dealer, seedInitialData } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -38,19 +38,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+
 
 export default function DealersPage() {
-  const [dealers, setDealers] = useState<Dealer[]>([]);
+  const firestore = useFirestore();
+  const { data: dealers, isLoading } = useCollection<Dealer>(collection(firestore, 'dealers'));
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [dealerToDelete, setDealerToDelete] = useState<Dealer | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    getDealers().then(setDealers);
-  }, []);
   
   const handleAddDealer = () => {
     setSelectedDealer(null);
@@ -62,26 +63,28 @@ export default function DealersPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSaveDealer = (dealer: Dealer) => {
+  const handleSaveDealer = (dealer: Omit<Dealer, 'id' | 'balance'>) => {
     if (selectedDealer) {
-      setDealers(dealers.map(d => d.id === dealer.id ? dealer : d));
+      const dealerRef = doc(firestore, 'dealers', selectedDealer.id);
+      setDocumentNonBlocking(dealerRef, { ...selectedDealer, ...dealer }, { merge: true });
       toast({ title: "Success", description: "Dealer updated successfully." });
     } else {
-      const newDealer = { ...dealer, id: `DLR${Date.now()}`, balance: 0 };
-      setDealers([...dealers, newDealer]);
+      const newDealer = { ...dealer, balance: 0 };
+      addDocumentNonBlocking(collection(firestore, 'dealers'), newDealer);
       toast({ title: "Success", description: "Dealer added successfully." });
     }
     setIsDialogOpen(false);
   };
 
-  const handleDeleteDealer = (dealerId: string) => {
-    setDealers(dealers.filter(d => d.id !== dealerId));
+  const handleDeleteDealer = () => {
+    if(!dealerToDelete) return;
+    deleteDocumentNonBlocking(doc(firestore, 'dealers', dealerToDelete.id));
     toast({ title: "Dealer Deleted", description: "The dealer has been removed." });
     setDealerToDelete(null);
   };
 
-  const handleReset = () => {
-    getDealers().then(setDealers);
+  const handleReset = async () => {
+    await seedInitialData(firestore);
     toast({ title: "Dealers Reset", description: "The dealer list has been reset to its initial state." });
     setIsResetting(false);
   };
@@ -126,7 +129,12 @@ export default function DealersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dealers.map((dealer) => (
+              {isLoading && (
+                 <TableRow>
+                    <TableCell colSpan={5} className="text-center">Loading...</TableCell>
+                </TableRow>
+              )}
+              {dealers?.map((dealer) => (
                 <TableRow key={dealer.id}>
                   <TableCell className="font-medium">{dealer.company}</TableCell>
                   <TableCell>{dealer.name}</TableCell>
@@ -194,7 +202,7 @@ export default function DealersPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => dealerToDelete && handleDeleteDealer(dealerToDelete.id)}>Continue</AlertDialogAction>
+                <AlertDialogAction onClick={handleDeleteDealer}>Continue</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

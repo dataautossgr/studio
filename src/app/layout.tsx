@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { StoreSettingsProvider } from '@/context/store-settings-context';
 import { SidebarLayout } from '@/components/sidebar-layout';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'Data Autos POS System',
@@ -30,11 +31,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <StoreSettingsProvider>
-            <SidebarLayout>
-              {children}
-            </SidebarLayout>
-          </StoreSettingsProvider>
+          <FirebaseClientProvider>
+            <StoreSettingsProvider>
+              <SidebarLayout>
+                {children}
+              </SidebarLayout>
+            </StoreSettingsProvider>
+          </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>
       </body>

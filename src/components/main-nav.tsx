@@ -10,6 +10,7 @@ import {
   CreditCard,
   ShoppingBag,
   Building,
+  Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -27,6 +28,7 @@ const links = [
   { href: '/dealers', label: 'Dealers', icon: Building },
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/expenses', label: 'Expenses', icon: CreditCard },
+  { href: '/cash-flow', label: 'Cash Flow', icon: Wallet },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

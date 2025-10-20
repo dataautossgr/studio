@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useEffect } from 'react';
@@ -21,6 +21,7 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import type { Transaction } from './page';
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
@@ -29,34 +30,45 @@ const paymentSchema = z.object({
   notes: z.string().optional(),
 });
 
-type PaymentFormData = z.infer<typeof paymentSchema>;
+export type PaymentFormData = z.infer<typeof paymentSchema>;
 
 interface PaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (amount: number) => void;
+  onSave: (data: PaymentFormData) => void;
   dealerName: string;
+  payment: Transaction | null;
 }
 
-export function PaymentDialog({ isOpen, onClose, onSave, dealerName }: PaymentDialogProps) {
+export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: PaymentDialogProps) {
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
-    defaultValues: {
-      amount: 0,
-      paymentDate: new Date(),
-      paymentMethod: 'Cash',
-      notes: '',
-    }
   });
+
+  const isEditing = !!payment;
 
   useEffect(() => {
     if (isOpen) {
-      reset();
+      if (isEditing && payment?.paymentDetails) {
+        reset({
+            amount: payment.credit,
+            paymentDate: new Date(payment.date),
+            paymentMethod: payment.paymentDetails.paymentMethod,
+            notes: payment.paymentDetails.notes
+        });
+      } else {
+        reset({
+            amount: 0,
+            paymentDate: new Date(),
+            paymentMethod: 'Cash',
+            notes: '',
+        });
+      }
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, payment, isEditing]);
 
   const onSubmit = (data: PaymentFormData) => {
-    onSave(data.amount);
+    onSave(data);
     onClose();
   };
 
@@ -64,9 +76,9 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName }: PaymentDi
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Payment for {dealerName}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit' : 'Add'} Payment for {dealerName}</DialogTitle>
           <DialogDescription>
-            Record a payment made to this dealer.
+             {isEditing ? 'Update the details of this payment.' : 'Record a payment made to this dealer.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -78,49 +90,62 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName }: PaymentDi
             </div>
             <div className="space-y-2">
                 <Label>Payment Date</Label>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant={"outline"}
-                            className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !control._getWatch('paymentDate') && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {control._getWatch('paymentDate') ? format(control._getWatch('paymentDate'), "PPP") : <span>Pick a date</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        mode="single"
-                        selected={control._getWatch('paymentDate')}
-                        onSelect={(date) => control.setValue('paymentDate', date || new Date())}
-                        initialFocus
-                    />
-                    </PopoverContent>
-                </Popover>
+                <Controller
+                    control={control}
+                    name="paymentDate"
+                    render={({ field }) => (
+                      <Popover>
+                          <PopoverTrigger asChild>
+                              <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                  )}
+                              >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                              </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                          <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                          />
+                          </PopoverContent>
+                      </Popover>
+                    )}
+                />
             </div>
             <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <RadioGroup 
-                    defaultValue="Cash" 
-                    onValueChange={(value: 'Cash' | 'Bank Transfer' | 'Cheque') => control.setValue('paymentMethod', value)}
-                    className="flex gap-4 pt-2"
-                >
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Cash" id="cash" />
-                        <Label htmlFor="cash">Cash</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Bank Transfer" id="bank" />
-                        <Label htmlFor="bank">Bank Transfer</Label>
-                    </div>
-                     <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Cheque" id="cheque" />
-                        <Label htmlFor="cheque">Cheque</Label>
-                    </div>
-                </RadioGroup>
+                 <Controller
+                    control={control}
+                    name="paymentMethod"
+                    defaultValue="Cash"
+                    render={({ field }) => (
+                        <RadioGroup 
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="flex gap-4 pt-2"
+                        >
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Cash" id="cash" />
+                                <Label htmlFor="cash">Cash</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Bank Transfer" id="bank" />
+                                <Label htmlFor="bank">Bank Transfer</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Cheque" id="cheque" />
+                                <Label htmlFor="cheque">Cheque</Label>
+                            </div>
+                        </RadioGroup>
+                    )}
+                />
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
@@ -129,7 +154,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName }: PaymentDi
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Save Payment</Button>
+            <Button type="submit">{isEditing ? 'Save Changes' : 'Save Payment'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

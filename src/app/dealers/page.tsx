@@ -39,13 +39,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
 
 export default function DealersPage() {
   const firestore = useFirestore();
-  const { data: dealers, isLoading } = useCollection<Dealer>(collection(firestore, 'dealers'));
+  const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
+  const { data: dealers, isLoading } = useCollection<Dealer>(dealersCollection);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);

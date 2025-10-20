@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
 
@@ -58,9 +58,13 @@ interface DisplayProduct extends Product {
 
 export default function InventoryPage() {
   const firestore = useFirestore();
-  const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(collection(firestore, 'products'));
-  const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(collection(firestore, 'purchases'));
-  const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(collection(firestore, 'dealers'));
+  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
+  const purchasesCollection = useMemoFirebase(() => collection(firestore, 'purchases'), [firestore]);
+  const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
+
+  const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
+  const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesCollection);
+  const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
 
   const [filteredProducts, setFilteredProducts] = useState<DisplayProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

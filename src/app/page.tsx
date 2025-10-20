@@ -1,3 +1,4 @@
+'use client';
 
 import {
   Card,
@@ -6,9 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { CreditCard, DollarSign, Package, TrendingUp, Users } from 'lucide-react';
+import { CreditCard, DollarSign, Package, TrendingUp, Users, Search } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
-import { getSales, getProducts, getCustomers, getDealers } from '@/lib/data';
 import {
   Table,
   TableBody,
@@ -17,30 +17,74 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, startOfToday } from 'date-fns';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import type { Sale, Product, Customer } from '@/lib/data';
+import { MasterSearchDialog } from '@/components/master-search-dialog';
+import { useState, useMemo, useEffect } from 'react';
 
-export default async function DashboardPage() {
-  const sales = (await getSales());
-  const products = await getProducts();
-  const customers = await getCustomers();
-  const dealers = await getDealers();
+export default function DashboardPage() {
+  const firestore = useFirestore();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const lowStockCount = products.filter(p => p.stock <= p.lowStockThreshold).length;
-  const pendingPayments = customers.reduce((acc, c) => acc + c.balance, 0);
+  const salesCollection = useMemoFirebase(() => collection(firestore, 'sales'), [firestore]);
+  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
+  const customersCollection = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
+
+  const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
+  const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
+  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
+
+   useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setIsSearchOpen((open) => !open);
+      }
+    };
+
+    document.addEventListener('keydown', down);
+    return () => document.removeEventListener('keydown', down);
+  }, []);
+
+  const { lowStockCount, pendingPayments, todaysRevenue, todaysProfit } = useMemo(() => {
+    const todayStart = startOfToday();
+
+    const lowStockCount = products?.filter(p => p.stock <= p.lowStockThreshold).length || 0;
+    const pendingPayments = customers?.filter(c => c.balance > 0).reduce((acc, c) => acc + c.balance, 0) || 0;
+    
+    const todaysSales = sales?.filter(s => {
+      const saleDate = new Date(s.date);
+      return saleDate >= todayStart;
+    }) || [];
+    
+    const todaysRevenue = todaysSales.reduce((acc, s) => acc + s.total, 0);
+    
+    const todaysProfit = todaysSales.reduce((acc, sale) => {
+        const saleCost = sale.items.reduce((itemSum, item) => {
+            const product = products?.find(p => p.id === item.productId);
+            return itemSum + (product ? product.costPrice * item.quantity : 0);
+        }, 0);
+        return acc + (sale.total - saleCost);
+    }, 0);
+
+    return { lowStockCount, pendingPayments, todaysRevenue, todaysProfit };
+  }, [sales, products, customers]);
+
 
   const reportCards = [
     {
       title: "Today's Revenue",
-      value: 'Rs. 0',
+      value: `Rs. ${todaysRevenue.toLocaleString()}`,
       icon: DollarSign,
-      change: 'No sales yet today',
+      change: todaysRevenue > 0 ? 'Sales recorded today' : 'No sales yet today',
     },
     {
       title: "Today's Profit",
-      value: 'Rs. 0',
+      value: `Rs. ${todaysProfit.toLocaleString()}`,
       icon: TrendingUp,
-      change: 'No sales yet today',
+      change: todaysProfit > 0 ? 'Profitability is positive' : 'No profit yet today',
     },
     {
       title: "Today's Expenses",
@@ -58,21 +102,46 @@ export default async function DashboardPage() {
       title: 'Pending Customer Payments',
       value: `Rs. ${pendingPayments.toLocaleString()}`,
       icon: Users,
-      change: `${customers.filter(c => c.balance > 0).length} customers have dues`,
+      change: `${customers?.filter(c => c.balance > 0).length || 0} customers have dues`,
     },
   ];
 
+  const isLoading = salesLoading || productsLoading || customersLoading;
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-      <div>
+      <div className="space-y-4">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
           A quick overview of your business performance.
         </p>
+         <button
+            onClick={() => setIsSearchOpen(true)}
+            className="w-full max-w-lg text-sm text-muted-foreground bg-background border rounded-md px-4 py-2 flex items-center justify-between hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+            <div className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                <span>Search for products, customers, dealers...</span>
+            </div>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                <span className="text-xs">⌘</span>K
+            </kbd>
+      </button>
+        <MasterSearchDialog open={isSearchOpen} onOpenChange={setIsSearchOpen} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {reportCards.map((card, i) => (
+        {isLoading ? Array.from({length: 5}).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="h-4 w-2/3 bg-muted rounded-md animate-pulse" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 w-1/2 bg-muted rounded-md animate-pulse mb-2" />
+              <div className="h-3 w-full bg-muted rounded-md animate-pulse" />
+            </CardContent>
+          </Card>
+        )) : reportCards.map((card, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -116,19 +185,25 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sales.slice(0,5).map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell>
-                      <div className="font-medium">{sale.customer.name}</div>
-                      <div className="text-sm text-muted-foreground hidden sm:inline">
-                        {format(new Date(sale.date), 'dd MMM, yyyy')}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      Rs. {sale.total.toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {salesLoading ? (
+                    <TableRow>
+                        <TableCell colSpan={2} className="text-center">Loading...</TableCell>
+                    </TableRow>
+                ) : (
+                    sales?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((sale) => (
+                        <TableRow key={sale.id}>
+                            <TableCell>
+                            <div className="font-medium">{customers?.find(c => c.id === (sale.customer as unknown as {id: string})?.id)?.name || 'Walk-in Customer'}</div>
+                            <div className="text-sm text-muted-foreground hidden sm:inline">
+                                {format(new Date(sale.date), 'dd MMM, yyyy')}
+                            </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                            Rs. {sale.total.toLocaleString()}
+                            </TableCell>
+                        </TableRow>
+                    ))
+                )}
               </TableBody>
             </Table>
           </CardContent>

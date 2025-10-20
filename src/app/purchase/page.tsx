@@ -45,40 +45,37 @@ import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 
 export default function PurchasesPage() {
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [allPurchases, setAllPurchases] = useState<Purchase[]>([]);
+  const [filteredPurchases, setFilteredPurchases] = useState<Purchase[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfDay(new Date()),
+    to: endOfDay(new Date()),
+  });
   const [isResetting, setIsResetting] = useState(false);
-  const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
-    getPurchases().then(setPurchases);
+    getPurchases().then(setAllPurchases);
   }, []);
+
+  useEffect(() => {
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        const filtered = allPurchases.filter(purchase => {
+            const purchaseDate = new Date(purchase.date);
+            return purchaseDate >= from && purchaseDate <= to;
+        });
+        setFilteredPurchases(filtered);
+    } else {
+        setFilteredPurchases(allPurchases);
+    }
+  }, [dateRange, allPurchases]);
 
   const handleReset = () => {
     getPurchases().then(initialPurchases => {
-        if (resetDateRange?.from) {
-            const from = startOfDay(resetDateRange.from);
-            const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
-
-            const purchasesToKeep = purchases.filter(p => {
-                const purchaseDate = new Date(p.date);
-                return purchaseDate < from || purchaseDate > to;
-            });
-            
-            const originalPurchasesInRange = initialPurchases.filter(p => {
-                const purchaseDate = new Date(p.date);
-                return purchaseDate >= from && purchaseDate <= to;
-            });
-
-            const newPurchases = [...purchasesToKeep, ...originalPurchasesInRange].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            
-            setPurchases(newPurchases);
-            toast({ title: "Purchases Reset", description: `Purchases from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
-        } else {
-            setPurchases(initialPurchases);
-            toast({ title: "All Purchases Reset", description: "The purchase history has been reset to its initial state." });
-        }
-        setResetDateRange(undefined);
+        setAllPurchases(initialPurchases);
+        toast({ title: "All Purchases Reset", description: "The purchase history has been reset to its initial state." });
         setIsResetting(false);
     });
   };
@@ -111,14 +108,14 @@ export default function PurchasesPage() {
               <PopoverTrigger asChild>
                   <Button variant="outline">
                       <CalendarDays className="mr-2 h-4 w-4" />
-                      {resetDateRange?.from ? (
-                          resetDateRange.to ? (
+                      {dateRange?.from ? (
+                          dateRange.to ? (
                               <>
-                                  {format(resetDateRange.from, "LLL dd, y")} -{" "}
-                                  {format(resetDateRange.to, "LLL dd, y")}
+                                  {format(dateRange.from, "LLL dd, y")} -{" "}
+                                  {format(dateRange.to, "LLL dd, y")}
                               </>
                           ) : (
-                              format(resetDateRange.from, "LLL dd, y")
+                              format(dateRange.from, "LLL dd, y")
                           )
                       ) : (
                           <span>Pick a date range</span>
@@ -129,9 +126,9 @@ export default function PurchasesPage() {
                   <Calendar
                       initialFocus
                       mode="range"
-                      defaultMonth={resetDateRange?.from}
-                      selected={resetDateRange}
-                      onSelect={setResetDateRange}
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
                       numberOfMonths={2}
                   />
               </PopoverContent>
@@ -162,7 +159,7 @@ export default function PurchasesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchases.map((purchase) => (
+              {filteredPurchases.map((purchase) => (
                 <TableRow key={purchase.id}>
                   <TableCell className="hidden md:table-cell">
                     {format(new Date(purchase.date), 'dd MMM, yyyy, hh:mm a')}
@@ -217,11 +214,7 @@ export default function PurchasesPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
             <AlertDialogDescription>
-                 {resetDateRange?.from
-                    ? `This will reset purchase data from ${format(resetDateRange.from, 'PPP')} ${resetDateRange.to ? `to ${format(resetDateRange.to, 'PPP')}` : ''}. Any changes you've made in this period will be lost.`
-                    : "This will reset the entire purchase history to its original state. Any changes you've made will be lost."
-                }
-                {' '}This will not affect your cloud backup.
+                 This will reset the entire purchase history to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

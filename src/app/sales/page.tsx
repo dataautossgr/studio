@@ -46,40 +46,37 @@ import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 
 export default function SalesPage() {
-  const [sales, setSales] = useState<Sale[]>([]);
+  const [allSales, setAllSales] = useState<Sale[]>([]);
+  const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfDay(new Date()),
+    to: endOfDay(new Date())
+  });
   const [isResetting, setIsResetting] = useState(false);
-  const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
-    getSales().then(setSales);
+    getSales().then(setAllSales);
   }, []);
+
+  useEffect(() => {
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        const filtered = allSales.filter(sale => {
+            const saleDate = new Date(sale.date);
+            return saleDate >= from && saleDate <= to;
+        });
+        setFilteredSales(filtered);
+    } else {
+        setFilteredSales(allSales); // Show all if no date is selected
+    }
+  }, [dateRange, allSales]);
 
   const handleReset = () => {
     getSales().then(initialSales => {
-        if (resetDateRange?.from) {
-            const from = startOfDay(resetDateRange.from);
-            const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
-
-            const salesToKeep = sales.filter(sale => {
-                const saleDate = new Date(sale.date);
-                return saleDate < from || saleDate > to;
-            });
-            
-            const originalSalesInRange = initialSales.filter(sale => {
-                const saleDate = new Date(sale.date);
-                return saleDate >= from && saleDate <= to;
-            });
-
-            const newSales = [...salesToKeep, ...originalSalesInRange].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            
-            setSales(newSales);
-            toast({ title: "Sales Reset", description: `Sales from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
-        } else {
-            setSales(initialSales);
-            toast({ title: "All Sales Reset", description: "The sales history has been reset to its initial state." });
-        }
-        setResetDateRange(undefined);
+        setAllSales(initialSales);
+        toast({ title: "All Sales Reset", description: "The sales history has been reset to its initial state." });
         setIsResetting(false);
     });
   };
@@ -112,14 +109,14 @@ export default function SalesPage() {
               <PopoverTrigger asChild>
                   <Button variant="outline">
                       <CalendarDays className="mr-2 h-4 w-4" />
-                      {resetDateRange?.from ? (
-                          resetDateRange.to ? (
+                      {dateRange?.from ? (
+                          dateRange.to ? (
                               <>
-                                  {format(resetDateRange.from, "LLL dd, y")} -{" "}
-                                  {format(resetDateRange.to, "LLL dd, y")}
+                                  {format(dateRange.from, "LLL dd, y")} -{" "}
+                                  {format(dateRange.to, "LLL dd, y")}
                               </>
                           ) : (
-                              format(resetDateRange.from, "LLL dd, y")
+                              format(dateRange.from, "LLL dd, y")
                           )
                       ) : (
                           <span>Pick a date range</span>
@@ -130,9 +127,9 @@ export default function SalesPage() {
                   <Calendar
                       initialFocus
                       mode="range"
-                      defaultMonth={resetDateRange?.from}
-                      selected={resetDateRange}
-                      onSelect={setResetDateRange}
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
                       numberOfMonths={2}
                   />
               </PopoverContent>
@@ -163,7 +160,7 @@ export default function SalesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sales.map((sale) => (
+              {filteredSales.map((sale) => (
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium">{sale.invoice}</TableCell>
                   <TableCell>{sale.customer.name}</TableCell>
@@ -217,16 +214,12 @@ export default function SalesPage() {
         </CardContent>
       </Card>
       
-      <AlertDialog open={isResetting} onOpenChange={setIsResetting}>
+      <AlertDialog open={isResetting} onOpenChange={() => setIsResetting(false)}>
         <AlertDialogContent>
             <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
             <AlertDialogDescription>
-                {resetDateRange?.from
-                    ? `This will reset sales data from ${format(resetDateRange.from, 'PPP')} ${resetDateRange.to ? `to ${format(resetDateRange.to, 'PPP')}` : ''}. Any changes you've made in this period will be lost.`
-                    : "This will reset the entire sales history to its original state. Any changes you've made will be lost."
-                }
-                {' '}This will not affect your cloud backup.
+                This will reset the entire sales history to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

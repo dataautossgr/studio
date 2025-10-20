@@ -180,6 +180,7 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
                                     <SelectValue placeholder="Select dealer" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="">None</SelectItem>
                                     {dealers.map(d => <SelectItem key={d.id} value={d.id}>{d.company}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -243,3 +244,5 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
     </Dialog>
   );
 }
+
+    

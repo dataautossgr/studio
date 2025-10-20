@@ -1,7 +1,7 @@
 'use client';
-import type { Product } from '@/lib/data';
-import { getProducts } from '@/lib/data';
-import { useState, useEffect } from 'react';
+import type { Product, Purchase, Dealer } from '@/lib/data';
+import { getProducts, getPurchases, getDealers } from '@/lib/data';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -45,31 +45,63 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+
+interface DisplayProduct extends Product {
+    lastPurchaseDate?: string;
+    lastPurchaseDealer?: string;
+}
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<DisplayProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [dealers, setDealers] = useState<Dealer[]>([]);
+
   useEffect(() => {
-    getProducts().then(products => {
-      setProducts(products);
-      setFilteredProducts(products);
+    Promise.all([
+        getProducts(),
+        getPurchases(),
+        getDealers()
+    ]).then(([productsData, purchasesData, dealersData]) => {
+      setProducts(productsData);
+      setPurchases(purchasesData);
+      setDealers(dealersData);
     });
   }, []);
 
+  const displayProducts = useMemo(() => {
+    return products.map(product => {
+        const productPurchases = purchases
+            .filter(p => p.items.some(item => item.productId === product.id))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const lastPurchase = productPurchases[0];
+        const dealer = lastPurchase ? dealers.find(d => d.id === lastPurchase.dealer.id) : null;
+        
+        return {
+            ...product,
+            lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yyyy') : 'N/A',
+            lastPurchaseDealer: dealer ? dealer.company : (product.dealerId ? 'N/A' : 'N/A'),
+        }
+    })
+  }, [products, purchases, dealers]);
+
   useEffect(() => {
-    const results = products.filter(product =>
+    const results = displayProducts.filter(product =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.model.toLowerCase().includes(searchTerm.toLowerCase())
+      product.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.lastPurchaseDealer && product.lastPurchaseDealer.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredProducts(results);
-  }, [searchTerm, products]);
+  }, [searchTerm, displayProducts]);
 
   const handleAddProduct = () => {
     setSelectedProduct(null);
@@ -161,7 +193,8 @@ export default function InventoryPage() {
                         </TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead className="hidden md:table-cell">Brand & Model</TableHead>
+                        <TableHead>Dealer</TableHead>
+                        <TableHead>Last Purchase</TableHead>
                         <TableHead className="text-right">Purchase Cost</TableHead>
                         <TableHead className="text-right">Sales Cost</TableHead>
                         <TableHead className="text-center">Stock</TableHead>
@@ -186,11 +219,12 @@ export default function InventoryPage() {
                         <TableCell className="font-medium">
                           {product.name}
                            {product.stock <= product.lowStockThreshold && (
-                              <Badge variant="secondary" className="ml-2">Low Stock</Badge>
+                              <Badge variant="destructive" className="ml-2">Low Stock</Badge>
                            )}
                         </TableCell>
                          <TableCell>{product.location}</TableCell>
-                        <TableCell className="hidden md:table-cell">{product.brand} - {product.model}</TableCell>
+                         <TableCell className="hidden md:table-cell">{product.lastPurchaseDealer}</TableCell>
+                         <TableCell className="hidden md:table-cell">{product.lastPurchaseDate}</TableCell>
                         <TableCell className="text-right">Rs. {product.costPrice.toLocaleString()}</TableCell>
                         <TableCell className="text-right">Rs. {product.salePrice.toLocaleString()}</TableCell>
                         <TableCell className="text-center">{product.stock}</TableCell>
@@ -250,3 +284,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+    

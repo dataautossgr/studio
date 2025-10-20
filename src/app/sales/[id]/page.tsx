@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon } from 'lucide-react';
+import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Search } from 'lucide-react';
 import { getProducts, getCustomers, getSales, getPurchases, getDealers, type Product, type Customer, type Sale, type Purchase, type Dealer } from '@/lib/data';
 import {
   Popover,
@@ -393,7 +393,10 @@ export default function SaleFormPage() {
             <div className="flex gap-2">
               <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">Search inventory to add products...</Button>
+                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                        <Search className="mr-2 h-4 w-4" />
+                        Search inventory to add products...
+                    </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                     <Command>
@@ -410,14 +413,11 @@ export default function SaleFormPage() {
                                 <div>
                                     <p className="font-medium">{product.name}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {product.lastPurchaseDealer !== 'N/A' 
-                                            ? `From ${product.lastPurchaseDealer} on ${product.lastPurchaseDate}`
-                                            : 'No purchase history'
-                                        }
+                                        Purchase Cost: Rs. {product.costPrice.toLocaleString()}
                                     </p>
                                 </div>
                                 <span className="text-sm font-mono text-muted-foreground ml-4">
-                                    {product.costPrice.toLocaleString()}
+                                    Stock: {product.stock}
                                 </span>
                             </div>
                             </CommandItem>
@@ -647,17 +647,15 @@ export default function SaleFormPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Print Invoice</AlertDialogTitle>
             <AlertDialogDescription>
-                The sale has been saved. Do you want to print an invoice?
+                Do you want to print an invoice for this sale?
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
+            <AlertDialogAction onClick={handleSaveAndPrint}>Save & Print</AlertDialogAction>
             <AlertDialogCancel onClick={handleSaveOnly}>Save Only</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSaveAndPrint}>Print & Save</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
     </div>
   );
 }
-
-    

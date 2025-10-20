@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar as CalendarIcon, Trash2, Search, PlusCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Trash2, Search, PlusCircle, Upload } from 'lucide-react';
 import { getProducts, getDealers, getPurchases, type Product, type Dealer, type Purchase } from '@/lib/data';
 import {
   Popover,
@@ -46,6 +46,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import Image from 'next/image';
 
 interface PurchaseItem {
   productId: string;
@@ -66,6 +67,7 @@ export default function PurchaseFormPage() {
     const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
     const [purchaseTime, setPurchaseTime] = useState(format(new Date(), 'HH:mm'));
     const [status, setStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
+    const [receiptImageUrl, setReceiptImageUrl] = useState<string | undefined>(undefined);
     
     const params = useParams();
     const router = useRouter();
@@ -87,6 +89,7 @@ export default function PurchaseFormPage() {
                     setPurchaseTime(format(transactionDate, 'HH:mm'));
                     setStatus(currentPurchase.status);
                     setPurchaseItems(currentPurchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)})));
+                    setReceiptImageUrl(currentPurchase.receiptImageUrl);
                 } else {
                     router.push('/purchase');
                 }
@@ -145,6 +148,17 @@ export default function PurchaseFormPage() {
     const totalAmount = useMemo(() => {
         return purchaseItems.reduce((acc, item) => acc + item.costPrice * item.quantity, 0);
     }, [purchaseItems]);
+
+    const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setReceiptImageUrl(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
 
     const pageTitle = isNew ? 'Create New Purchase' : `Edit Purchase - ${purchase?.invoiceNumber}`;
 
@@ -312,6 +326,25 @@ export default function PurchaseFormPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="receipt-upload">Upload Bill / Receipt (Optional)</Label>
+                        <div className="flex items-center gap-4">
+                            {receiptImageUrl ? (
+                                <Image
+                                    src={receiptImageUrl}
+                                    alt="Receipt preview"
+                                    width={80}
+                                    height={80}
+                                    className="rounded-md aspect-square object-cover"
+                                />
+                            ) : (
+                                <div className="w-20 h-20 bg-muted rounded-md flex items-center justify-center">
+                                    <Upload className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                            )}
+                            <Input id="receipt-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs max-w-sm" />
+                        </div>
+                    </div>
                    <div className="flex items-center gap-4">
                         <Label htmlFor="status" className="flex-shrink-0">Purchase Status</Label>
                         <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => setStatus(val)}>

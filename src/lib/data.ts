@@ -65,6 +65,7 @@ export interface Purchase {
     date: string;
     total: number;
     status: 'Paid' | 'Unpaid' | 'Partial';
+    receiptImageUrl?: string;
     items: {
         productId: string;
         name: string;

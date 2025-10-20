@@ -44,6 +44,7 @@ export interface Sale {
     }[];
     paymentMethod?: 'cash' | 'online';
     onlinePaymentSource?: string;
+    partialAmountPaid?: number;
 }
 
 export interface Dealer {
@@ -143,10 +144,11 @@ const mockSales: Sale[] = [
      {
         id: 'SALE004',
         invoice: 'INV-2024-004',
-        customer: mockCustomers[3],
+        customer: mockCustomers[2],
         date: '2024-07-22T14:00:00Z',
         total: 5500,
         status: 'Partial',
+        partialAmountPaid: 3000,
         items: [
             { productId: 'PROD1010', name: 'Synthetic Engine Oil (4L)', quantity: 1, price: 5500 },
         ],
@@ -207,12 +209,16 @@ export const getSales = async (): Promise<Sale[]> => {
     updatedCustomers.forEach(c => c.balance = 0); // Reset balances
 
     mockSales.forEach(sale => {
-        if (sale.status === 'Unpaid' || sale.status === 'Partial') {
-            const customer = updatedCustomers.find(c => c.id === sale.customer.id);
-            if (customer) {
-                customer.balance += sale.total; // Simplified, doesn't account for partial payments
+      if (sale.customer.type === 'registered') {
+        const customer = updatedCustomers.find(c => c.id === sale.customer.id);
+        if (customer) {
+            if (sale.status === 'Unpaid') {
+                customer.balance += sale.total;
+            } else if (sale.status === 'Partial' && sale.partialAmountPaid) {
+                customer.balance += (sale.total - sale.partialAmountPaid);
             }
         }
+      }
     });
 
     const salesWithUpdatedCustomers = mockSales.map(sale => {
@@ -228,12 +234,16 @@ export const getCustomers = async (): Promise<Customer[]> => {
     updatedCustomers.forEach(c => c.balance = 0); // Reset balances
 
     mockSales.forEach(sale => {
-        if (sale.status === 'Unpaid' || sale.status === 'Partial') {
-            const customer = updatedCustomers.find(c => c.id === sale.customer.id);
-            if (customer) {
-                customer.balance += sale.total; // Simplified, doesn't account for partial payments
+       if (sale.customer.type === 'registered') {
+        const customer = updatedCustomers.find(c => c.id === sale.customer.id);
+        if (customer) {
+            if (sale.status === 'Unpaid') {
+                customer.balance += sale.total;
+            } else if (sale.status === 'Partial' && sale.partialAmountPaid) {
+                customer.balance += (sale.total - sale.partialAmountPaid);
             }
         }
+       }
     });
     return new Promise(resolve => setTimeout(() => resolve(updatedCustomers), 500));
 };

@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, PlusCircle } from 'lucide-react';
+import { Trash2, PlusCircle, UserPlus } from 'lucide-react';
 import { getProducts, getCustomers, type Product, type Customer } from '@/lib/data';
 import {
   Popover,
@@ -44,7 +44,8 @@ import {
 } from "@/components/ui/command"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useRouter } from 'next/navigation';
-
+import { CustomerDialog } from '@/app/customers/customer-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface CartItem {
   id: string;
@@ -61,17 +62,18 @@ export default function NewSalePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>(
-    'walk-in'
-  );
+  const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
-  const [status, setStatus] = useState<'Paid' | 'Unpaid'>('Paid');
+  const [status, setStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>('cash');
   const [onlinePaymentSource, setOnlinePaymentSource] = useState('');
-  const router = useRouter();
+  const [partialAmount, setPartialAmount] = useState(0);
 
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     getProducts().then(setProducts);
@@ -128,6 +130,20 @@ export default function NewSalePage() {
     setCart(cart.filter((item) => item.id !== id));
   };
   
+  const handleSaveNewCustomer = (customerData: Omit<Customer, 'id' | 'balance' | 'type'>) => {
+    const newCustomer: Customer = { 
+      ...customerData, 
+      id: `CUST${Date.now()}`, 
+      balance: 0,
+      type: 'registered'
+    };
+    const updatedCustomers = [...customers, newCustomer];
+    setCustomers(updatedCustomers);
+    setSelectedCustomer(newCustomer);
+    toast({ title: "Success", description: "New customer has been registered." });
+    setIsCustomerDialogOpen(false);
+  };
+
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const finalAmount = subtotal - discount;
 
@@ -164,7 +180,7 @@ export default function NewSalePage() {
             </div>
             <div className="space-y-2">
                 <Label htmlFor="customerName">
-                    {customerType === 'walk-in' ? 'Customer Name' : 'Search Customer'}
+                    {customerType === 'walk-in' ? 'Customer Name' : 'Customer'}
                 </Label>
                 {customerType === 'walk-in' ? (
                     <Input
@@ -174,31 +190,37 @@ export default function NewSalePage() {
                         placeholder="e.g., John Doe"
                     />
                 ) : (
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
-                                {selectedCustomer ? selectedCustomer.name : 'Select a customer...'}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                                <CommandInput placeholder="Search by name or phone..." />
-                                <CommandList>
-                                    <CommandEmpty>No customers found.</CommandEmpty>
-                                    <CommandGroup>
-                                        {customers.filter(c => c.type === 'registered').map((customer) => (
-                                            <CommandItem
-                                                key={customer.id}
-                                                onSelect={() => setSelectedCustomer(customer)}
-                                            >
-                                                {customer.name} ({customer.phone})
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
+                    <div className="flex gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                                    {selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.phone})` : 'Select a customer...'}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search by name or phone..." />
+                                    <CommandList>
+                                        <CommandEmpty>No customers found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {customers.filter(c => c.type === 'registered').map((customer) => (
+                                                <CommandItem
+                                                    key={customer.id}
+                                                    onSelect={() => setSelectedCustomer(customer)}
+                                                >
+                                                    {customer.name} ({customer.phone})
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <Button variant="outline" size="icon" onClick={() => setIsCustomerDialogOpen(true)}>
+                            <UserPlus className="h-4 w-4" />
+                            <span className="sr-only">Add New Customer</span>
+                        </Button>
+                    </div>
                 )}
             </div>
           </div>
@@ -322,9 +344,9 @@ export default function NewSalePage() {
             <div className="space-y-4">
                <div className="flex items-center gap-4">
                   <Label htmlFor="status" className="flex-shrink-0">Sale Status</Label>
-                  <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid') => {
+                  <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => {
                       setStatus(val);
-                      if (val === 'Unpaid') {
+                      if (val !== 'Paid') {
                           setPaymentMethod(null);
                       } else {
                           setPaymentMethod('cash');
@@ -336,9 +358,24 @@ export default function NewSalePage() {
                     <SelectContent>
                       <SelectItem value="Paid">Paid</SelectItem>
                       <SelectItem value="Unpaid">Unpaid</SelectItem>
+                      <SelectItem value="Partial">Partial</SelectItem>
                     </SelectContent>
                   </Select>
                </div>
+                {status === 'Partial' && (
+                    <div className="grid grid-cols-[120px_1fr] items-center gap-4 rounded-md border p-4">
+                        <Label htmlFor="partialAmount">Amount Paid</Label>
+                        <Input
+                            id="partialAmount"
+                            type="number"
+                            value={partialAmount}
+                            onChange={(e) => setPartialAmount(parseFloat(e.target.value) || 0)}
+                            className="w-full"
+                            min="0"
+                            max={finalAmount}
+                        />
+                    </div>
+                )}
                {status === 'Paid' && (
                 <div className="space-y-4 rounded-md border p-4">
                     <Label>Payment Method</Label>
@@ -389,6 +426,12 @@ export default function NewSalePage() {
                     <Label>Final Amount</Label>
                     <p className="w-32">Rs. {finalAmount.toLocaleString()}</p>
                 </div>
+                 {status === 'Partial' && finalAmount > partialAmount && (
+                    <div className="flex justify-end items-center gap-4 text-destructive">
+                        <Label>Remaining Balance</Label>
+                        <p className="font-semibold w-32">Rs. {(finalAmount - partialAmount).toLocaleString()}</p>
+                    </div>
+                )}
             </div>
           </div>
         </CardContent>
@@ -397,6 +440,13 @@ export default function NewSalePage() {
           <Button>Save Sale</Button>
         </CardFooter>
       </Card>
+
+      <CustomerDialog 
+        isOpen={isCustomerDialogOpen} 
+        onClose={() => setIsCustomerDialogOpen(false)}
+        onSave={handleSaveNewCustomer}
+        customer={null}
+      />
     </div>
   );
 }

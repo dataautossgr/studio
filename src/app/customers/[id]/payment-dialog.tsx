@@ -164,9 +164,11 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
                     )}
                 />
             </div>
-            {paymentMethod === 'Bank Transfer' && (
+            {(paymentMethod === 'Bank Transfer' || paymentMethod === 'Cheque') && (
               <div className="space-y-2">
-                <Label htmlFor="receipt-upload">Upload Receipt (Optional)</Label>
+                <Label htmlFor="receipt-upload">
+                  {paymentMethod === 'Bank Transfer' ? 'Upload Receipt (Optional)' : 'Upload Cheque Image (Optional)'}
+                </Label>
                 <div className="flex items-center gap-4">
                   {receiptImageUrl ? (
                      <Image

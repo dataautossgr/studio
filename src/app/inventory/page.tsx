@@ -30,7 +30,8 @@ import { Button } from '@/components/ui/button';
 import {
   MoreHorizontal,
   PlusCircle,
-  Search
+  Search,
+  RotateCcw
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ProductDialog } from './product-dialog';
@@ -59,6 +60,7 @@ export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
 
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -156,6 +158,12 @@ export default function InventoryPage() {
     }
   };
 
+  const handleReset = () => {
+    getProducts().then(setProducts);
+    toast({ title: "Inventory Reset", description: "The inventory list has been reset to its initial state." });
+    setIsResetting(false);
+  };
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -178,6 +186,9 @@ export default function InventoryPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
+                <Button variant="outline" onClick={() => setIsResetting(true)}>
+                  <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                </Button>
                 <Button onClick={handleAddProduct}>
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Product
@@ -278,6 +289,21 @@ export default function InventoryPage() {
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={() => productToDelete && handleDeleteProduct(productToDelete.id)}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={isResetting} onOpenChange={setIsResetting}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will reset the inventory list to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset}>Reset Data</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon } from 'lucide-react';
 import { getProducts, getCustomers, getSales, getPurchases, getDealers, type Product, type Customer, type Sale, type Purchase, type Dealer } from '@/lib/data';
 import {
   Popover,
@@ -62,7 +62,7 @@ interface CartItem {
 const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
 
 
-export default function EditSalePage() {
+export default function SaleFormPage() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -89,6 +89,7 @@ export default function EditSalePage() {
   const params = useParams();
   const router = useRouter();
   const saleId = params.id as string;
+  const isNew = saleId === 'new';
 
   useEffect(() => {
     Promise.all([
@@ -103,7 +104,7 @@ export default function EditSalePage() {
         setPurchases(purchasesData);
         setDealers(dealersData);
 
-        if (saleId !== 'new') {
+        if (!isNew) {
             const currentSale = allSales.find(s => s.id === saleId);
             if (currentSale) {
                 setSale(currentSale);
@@ -148,7 +149,7 @@ export default function EditSalePage() {
             }
         }
     });
-  }, [saleId, router]);
+  }, [saleId, router, isNew]);
 
 
   const displayProducts = useMemo(() => {
@@ -237,7 +238,7 @@ export default function EditSalePage() {
   const finalAmount = subtotal - discount;
   const changeToReturn = cashReceived > finalAmount ? cashReceived - finalAmount : 0;
   
-  const pageTitle = sale ? `Edit Sale - ${sale.invoice}` : 'Create New Sale';
+  const pageTitle = isNew ? 'Create New Sale' : `Edit Sale - ${sale?.invoice}`;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -245,7 +246,7 @@ export default function EditSalePage() {
         <CardHeader>
           <CardTitle>{pageTitle}</CardTitle>
           <CardDescription>
-            {sale ? 'Update the details of this transaction.' : 'Fill in the details to record a new transaction.'}
+            {isNew ? 'Fill in the details to record a new transaction.' : 'Update the details of this transaction.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -354,7 +355,7 @@ export default function EditSalePage() {
             <div className="flex gap-2">
               <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start">Search inventory...</Button>
+                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">Search inventory to add products...</Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                     <Command>
@@ -412,7 +413,7 @@ export default function EditSalePage() {
               <TableBody>
                 {cart.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       Your cart is empty.
                     </TableCell>
                   </TableRow>
@@ -456,7 +457,7 @@ export default function EditSalePage() {
                           min="0"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right font-mono">
                         Rs. {(item.quantity * item.price).toLocaleString()}
                       </TableCell>
                       <TableCell>

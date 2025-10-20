@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, PlusCircle, Trash2, Undo2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, PlusCircle, Trash2, Undo2, RotateCcw } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -29,13 +29,32 @@ import {
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from '@/hooks/use-toast';
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [isResetting, setIsResetting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     getPurchases().then(setPurchases);
-  }, [])
+  }, []);
+
+  const handleReset = () => {
+    getPurchases().then(setPurchases);
+    toast({ title: "Purchases Reset", description: "The purchase history has been reset to its initial state." });
+    setIsResetting(false);
+  };
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
     switch (status) {
@@ -60,12 +79,17 @@ export default function PurchasesPage() {
               View all past purchases from your dealers.
             </CardDescription>
           </div>
-           <Button asChild>
-            <Link href="/purchase/new">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Purchase
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsResetting(true)}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset
+            </Button>
+            <Button asChild>
+              <Link href="/purchase/new">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  New Purchase
+              </Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -131,6 +155,21 @@ export default function PurchasesPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      <AlertDialog open={isResetting} onOpenChange={setIsResetting}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will reset the purchase history to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReset}>Reset Data</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }

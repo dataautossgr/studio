@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye } from 'lucide-react';
+import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye, RotateCcw } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -45,6 +45,7 @@ export default function CustomersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -84,6 +85,12 @@ export default function CustomersPage() {
     setCustomerToDelete(null);
   };
 
+  const handleReset = () => {
+    getCustomers().then(setCustomers);
+    toast({ title: "Customers Reset", description: "The customer list has been reset to its initial state." });
+    setIsResetting(false);
+  }
+
   const getBalanceVariant = (balance: number): "default" | "secondary" | "destructive" => {
     if (balance > 0) return 'destructive'; // Customer owes us
     if (balance < 0) return 'secondary'; // We owe customer (advance)
@@ -100,10 +107,15 @@ export default function CustomersPage() {
               Manage your registered customers.
             </CardDescription>
           </div>
-           <Button onClick={handleAddCustomer}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Customer
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsResetting(true)}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset
             </Button>
+            <Button onClick={handleAddCustomer}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Customer
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -188,6 +200,21 @@ export default function CustomersPage() {
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={() => customerToDelete && handleDeleteCustomer(customerToDelete.id)}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={isResetting} onOpenChange={setIsResetting}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will reset the customer list to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset}>Reset Data</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

@@ -23,6 +23,7 @@ import {
   FileText,
   TrendingUp,
   DollarSign,
+  RotateCcw,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -105,6 +106,7 @@ export default function ExpensesPage() {
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(
     null
   );
+  const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -167,6 +169,12 @@ export default function ExpensesPage() {
     setExpenseToDelete(null);
   };
 
+  const handleReset = () => {
+    setExpenses(mockExpenses);
+    toast({ title: "Expenses Reset", description: "The expense list has been reset to its initial state." });
+    setIsResetting(false);
+  };
+
   const reportCards = [
     {
       title: "Today's Total Expense",
@@ -189,10 +197,15 @@ export default function ExpensesPage() {
             Track and manage all your business expenses.
             </p>
         </div>
-        <Button onClick={handleAddExpense}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Expense
-        </Button>
+        <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsResetting(true)}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset
+            </Button>
+            <Button onClick={handleAddExpense}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Expense
+            </Button>
+        </div>
       </div>
 
        <div className="grid gap-4 md:grid-cols-2">
@@ -315,6 +328,21 @@ export default function ExpensesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={isResetting} onOpenChange={setIsResetting}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will reset the expense list to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReset}>Reset Data</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }

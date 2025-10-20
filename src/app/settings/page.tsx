@@ -6,19 +6,35 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Cloud, Download, Upload, Save } from 'lucide-react';
+import { Cloud, Download, Upload, Save, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useStoreSettings } from '@/context/store-settings-context';
 import Image from 'next/image';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function SettingsPage() {
   const { settings, setSettings } = useStoreSettings();
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
@@ -34,6 +50,18 @@ export default function SettingsPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleResetData = () => {
+    // This is a placeholder. In a real app, this would trigger
+    // a global state reset or clear local storage.
+    console.log("Resetting all local data...");
+    toast({
+      title: "Local Data Reset",
+      description: "All application data has been reset to its initial state.",
+    });
+    // For now, we can just reload the page to simulate a reset with mock data
+    window.location.reload();
   };
 
   return (
@@ -184,7 +212,43 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="lg:col-span-3 border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            <CardDescription>
+              These actions are permanent and cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+             <div className="flex items-center justify-between rounded-lg border border-destructive/50 p-4">
+                <div>
+                    <h3 className="font-semibold">Reset All Local Data</h3>
+                    <p className="text-sm text-muted-foreground">Erase all sales, inventory, and customer data from this device.</p>
+                </div>
+                <Button variant="destructive" onClick={() => setIsResetDialogOpen(true)}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Reset Data
+                </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+       <AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will permanently delete all local application data, including sales, inventory, customers, and settings. This action cannot be undone and will not affect your cloud backup.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleResetData}>Yes, Reset Everything</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye } from 'lucide-react';
+import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye, RotateCcw } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -45,6 +45,7 @@ export default function DealersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [dealerToDelete, setDealerToDelete] = useState<Dealer | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -79,6 +80,12 @@ export default function DealersPage() {
     setDealerToDelete(null);
   };
 
+  const handleReset = () => {
+    getDealers().then(setDealers);
+    toast({ title: "Dealers Reset", description: "The dealer list has been reset to its initial state." });
+    setIsResetting(false);
+  };
+
   const getBalanceVariant = (balance: number): "default" | "secondary" | "destructive" => {
     if (balance > 0) return 'destructive'; // We owe the dealer
     if (balance < 0) return 'secondary'; // Dealer owes us (advance)
@@ -95,10 +102,15 @@ export default function DealersPage() {
               Manage your suppliers and dealers.
             </CardDescription>
           </div>
-           <Button onClick={handleAddDealer}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Dealer
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsResetting(true)}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset
             </Button>
+            <Button onClick={handleAddDealer}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Dealer
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -183,6 +195,21 @@ export default function DealersPage() {
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={() => dealerToDelete && handleDeleteDealer(dealerToDelete.id)}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={isResetting} onOpenChange={setIsResetting}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will reset the dealer list to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset}>Reset Data</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

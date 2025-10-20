@@ -44,6 +44,8 @@ export interface Dealer {
     name: string;
     company: string;
     phone: string;
+    address?: string;
+    balance: number;
 }
 
 export interface Purchase {
@@ -137,9 +139,9 @@ const mockSales: Sale[] = [
 ];
 
 const mockDealers: Dealer[] = [
-    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567' },
-    { id: 'DLR002', name: 'Nadeem Sons', company: 'Nadeem & Sons Trading', phone: '0321-7654321' },
-    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334' },
+    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567', balance: 24000, address: 'Montgomery Road, Lahore' },
+    { id: 'DLR002', name: 'Nadeem Butt', company: 'Nadeem & Sons Trading', phone: '0321-7654321', balance: 55000, address: 'Badami Bagh, Lahore' },
+    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334', balance: 8000, address: 'Mcleod Road, Lahore' },
 ];
 
 const mockPurchases: Purchase[] = [
@@ -194,7 +196,14 @@ export const getProductCategories = async (): Promise<string[]> => {
 }
 
 export const getDealers = async (): Promise<Dealer[]> => {
-    return new Promise(resolve => setTimeout(() => resolve(mockDealers), 500));
+    // We update the balances based on purchases for more realistic data
+    const updatedDealers = mockDealers.map(dealer => {
+        const unpaidPurchasesTotal = mockPurchases
+            .filter(p => p.dealer.id === dealer.id && (p.status === 'Unpaid' || p.status === 'Partial'))
+            .reduce((acc, p) => acc + p.total, 0); // This is simplified, partial payments aren't tracked
+        return { ...dealer, balance: unpaidPurchasesTotal };
+    })
+    return new Promise(resolve => setTimeout(() => resolve(updatedDealers), 500));
 };
 
 export const getPurchases = async (): Promise<Purchase[]> => {

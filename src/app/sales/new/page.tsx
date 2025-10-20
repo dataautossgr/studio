@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, PlusCircle } from 'lucide-react';
-import { getProducts, type Product } from '@/lib/data';
+import { getProducts, getCustomers, type Product, type Customer } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -43,6 +43,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { useRouter } from 'next/navigation';
 
 
 interface CartItem {
@@ -59,17 +60,22 @@ const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay
 export default function NewSalePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>(
     'walk-in'
   );
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
   const [status, setStatus] = useState<'Paid' | 'Unpaid'>('Paid');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>('cash');
   const [onlinePaymentSource, setOnlinePaymentSource] = useState('');
+  const router = useRouter();
+
 
   useEffect(() => {
     getProducts().then(setProducts);
+    getCustomers().then(setCustomers);
   }, []);
 
   const handleProductSelect = (product: Product) => {
@@ -141,9 +147,11 @@ export default function NewSalePage() {
               <Label>Customer Type</Label>
               <Select
                 value={customerType}
-                onValueChange={(val: 'walk-in' | 'registered') =>
-                  setCustomerType(val)
-                }
+                onValueChange={(val: 'walk-in' | 'registered') => {
+                    setCustomerType(val);
+                    setSelectedCustomer(null);
+                    setCustomerName('');
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -155,21 +163,43 @@ export default function NewSalePage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerName">
-                {customerType === 'walk-in'
-                  ? 'Customer Name'
-                  : 'Search Customer'}
-              </Label>
-              <Input
-                id="customerName"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder={
-                  customerType === 'walk-in'
-                    ? 'e.g., John Doe'
-                    : 'Search by name or phone...'
-                }
-              />
+                <Label htmlFor="customerName">
+                    {customerType === 'walk-in' ? 'Customer Name' : 'Search Customer'}
+                </Label>
+                {customerType === 'walk-in' ? (
+                    <Input
+                        id="customerName"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="e.g., John Doe"
+                    />
+                ) : (
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                                {selectedCustomer ? selectedCustomer.name : 'Select a customer...'}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput placeholder="Search by name or phone..." />
+                                <CommandList>
+                                    <CommandEmpty>No customers found.</CommandEmpty>
+                                    <CommandGroup>
+                                        {customers.filter(c => c.type === 'registered').map((customer) => (
+                                            <CommandItem
+                                                key={customer.id}
+                                                onSelect={() => setSelectedCustomer(customer)}
+                                            >
+                                                {customer.name} ({customer.phone})
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                )}
             </div>
           </div>
           
@@ -363,7 +393,7 @@ export default function NewSalePage() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
-          <Button variant="outline">Cancel</Button>
+          <Button variant="outline" onClick={() => router.push('/sales')}>Cancel</Button>
           <Button>Save Sale</Button>
         </CardFooter>
       </Card>

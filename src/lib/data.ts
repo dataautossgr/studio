@@ -19,13 +19,20 @@ export interface Product {
   imageHint: string;
 }
 
+export interface Customer {
+    id: string;
+    name: string;
+    phone: string;
+    vehicleDetails: string;
+    balance: number;
+    type: 'walk-in' | 'registered';
+    address?: string;
+}
+
 export interface Sale {
     id: string;
     invoice: string;
-    customer: {
-        name: string;
-        type: 'walk-in' | 'registered';
-    };
+    customer: Customer;
     date: string;
     total: number;
     status: 'Paid' | 'Unpaid' | 'Partial';
@@ -86,11 +93,19 @@ const mockProducts: Product[] = productData.map((p, index) => {
     }
 });
 
+const mockCustomers: Customer[] = [
+    { id: 'CUST001', name: 'Ali Khan', phone: '0301-1112233', vehicleDetails: 'Toyota Corolla 2022', balance: 1450, type: 'registered', address: 'DHA Phase 5, Lahore' },
+    { id: 'CUST002', name: 'Usman Autos', phone: '0322-4455667', vehicleDetails: 'Suzuki Mehran 2018', balance: 0, type: 'registered' },
+    { id: 'CUST003', name: 'Zahid Pervaiz', phone: '0345-9988776', vehicleDetails: 'Honda Civic 2021', balance: 0, type: 'registered' },
+    { id: 'CUST004', name: 'Walk-in Customer', phone: '', vehicleDetails: '', balance: 0, type: 'walk-in' },
+];
+
+
 const mockSales: Sale[] = [
     {
         id: 'SALE001',
         invoice: 'INV-2024-001',
-        customer: { name: 'Ali Khan', type: 'registered' },
+        customer: mockCustomers[0],
         date: '2024-07-20T10:30:00Z',
         total: 1700,
         status: 'Paid',
@@ -103,7 +118,7 @@ const mockSales: Sale[] = [
     {
         id: 'SALE002',
         invoice: 'INV-2024-002',
-        customer: { name: 'Walk-in Customer', type: 'walk-in' },
+        customer: mockCustomers[3],
         date: '2024-07-20T11:45:00Z',
         total: 6000,
         status: 'Paid',
@@ -116,7 +131,7 @@ const mockSales: Sale[] = [
     {
         id: 'SALE003',
         invoice: 'INV-2024-003',
-        customer: { name: 'Usman Autos', type: 'registered' },
+        customer: mockCustomers[1],
         date: '2024-07-21T09:15:00Z',
         total: 1450,
         status: 'Unpaid',
@@ -128,7 +143,7 @@ const mockSales: Sale[] = [
      {
         id: 'SALE004',
         invoice: 'INV-2024-004',
-        customer: { name: 'Walk-in Customer', type: 'walk-in' },
+        customer: mockCustomers[3],
         date: '2024-07-22T14:00:00Z',
         total: 5500,
         status: 'Partial',
@@ -187,7 +202,40 @@ export const getProducts = async (): Promise<Product[]> => {
 };
 
 export const getSales = async (): Promise<Sale[]> => {
-    return new Promise(resolve => setTimeout(() => resolve(mockSales), 500));
+    // We update the balances based on sales for more realistic data
+    const updatedCustomers = [...mockCustomers];
+    updatedCustomers.forEach(c => c.balance = 0); // Reset balances
+
+    mockSales.forEach(sale => {
+        if (sale.status === 'Unpaid' || sale.status === 'Partial') {
+            const customer = updatedCustomers.find(c => c.id === sale.customer.id);
+            if (customer) {
+                customer.balance += sale.total; // Simplified, doesn't account for partial payments
+            }
+        }
+    });
+
+    const salesWithUpdatedCustomers = mockSales.map(sale => {
+        const customer = updatedCustomers.find(c => c.id === sale.customer.id);
+        return customer ? { ...sale, customer } : sale;
+    });
+
+    return new Promise(resolve => setTimeout(() => resolve(salesWithUpdatedCustomers), 500));
+};
+
+export const getCustomers = async (): Promise<Customer[]> => {
+    const updatedCustomers = [...mockCustomers];
+    updatedCustomers.forEach(c => c.balance = 0); // Reset balances
+
+    mockSales.forEach(sale => {
+        if (sale.status === 'Unpaid' || sale.status === 'Partial') {
+            const customer = updatedCustomers.find(c => c.id === sale.customer.id);
+            if (customer) {
+                customer.balance += sale.total; // Simplified, doesn't account for partial payments
+            }
+        }
+    });
+    return new Promise(resolve => setTimeout(() => resolve(updatedCustomers), 500));
 };
 
 export const getProductCategories = async (): Promise<string[]> => {

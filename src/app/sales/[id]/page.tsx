@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, PlusCircle } from 'lucide-react';
-import { getProducts, type Product, getSales, type Sale } from '@/lib/data';
+import { getProducts, getCustomers, type Product, type Customer, getSales, type Sale } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -61,9 +61,9 @@ export default function EditSalePage() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>(
-    'walk-in'
-  );
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
   const [status, setStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
@@ -76,21 +76,30 @@ export default function EditSalePage() {
 
   useEffect(() => {
     getProducts().then(setProducts);
+    getCustomers().then(setCustomers);
     if (saleId !== 'new') {
         getSales().then(allSales => {
             const currentSale = allSales.find(s => s.id === saleId);
             if (currentSale) {
                 setSale(currentSale);
-                setCustomerName(currentSale.customer.name);
                 setCustomerType(currentSale.customer.type);
+                if (currentSale.customer.type === 'registered') {
+                    setSelectedCustomer(currentSale.customer);
+                } else {
+                    setCustomerName(currentSale.customer.name);
+                }
                 setStatus(currentSale.status);
-                setDiscount(currentSale.total - currentSale.items.reduce((sum, i) => sum + i.price * i.quantity, 0));
+                // Note: Discount calculation might need adjustment based on how it's stored.
+                // This is a simple calculation assuming total is final amount.
+                const subtotal = currentSale.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+                setDiscount(subtotal - currentSale.total);
+
                 setCart(currentSale.items.map(item => ({
                     id: item.productId,
                     name: item.name,
                     quantity: item.quantity,
                     price: item.price,
-                    costPrice: 0, // Mock cost price
+                    costPrice: 0, // Mock cost price, as it's not in sale data
                     isOneTime: !products.some(p => p.id === item.productId)
                 })));
 
@@ -176,13 +185,15 @@ export default function EditSalePage() {
         <CardContent className="space-y-6">
           {/* Customer Section */}
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
+             <div className="space-y-2">
               <Label>Customer Type</Label>
               <Select
                 value={customerType}
-                onValueChange={(val: 'walk-in' | 'registered') =>
-                  setCustomerType(val)
-                }
+                onValueChange={(val: 'walk-in' | 'registered') => {
+                    setCustomerType(val);
+                    setSelectedCustomer(null);
+                    setCustomerName('');
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -194,21 +205,43 @@ export default function EditSalePage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerName">
-                {customerType === 'walk-in'
-                  ? 'Customer Name'
-                  : 'Search Customer'}
-              </Label>
-              <Input
-                id="customerName"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder={
-                  customerType === 'walk-in'
-                    ? 'e.g., John Doe'
-                    : 'Search by name or phone...'
-                }
-              />
+                <Label htmlFor="customerName">
+                    {customerType === 'walk-in' ? 'Customer Name' : 'Search Customer'}
+                </Label>
+                {customerType === 'walk-in' ? (
+                    <Input
+                        id="customerName"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="e.g., John Doe"
+                    />
+                ) : (
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                                {selectedCustomer ? selectedCustomer.name : 'Select a customer...'}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput placeholder="Search by name or phone..." />
+                                <CommandList>
+                                    <CommandEmpty>No customers found.</CommandEmpty>
+                                    <CommandGroup>
+                                        {customers.filter(c => c.type === 'registered').map((customer) => (
+                                            <CommandItem
+                                                key={customer.id}
+                                                onSelect={() => setSelectedCustomer(customer)}
+                                            >
+                                                {customer.name} ({customer.phone})
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                )}
             </div>
           </div>
           

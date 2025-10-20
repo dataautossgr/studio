@@ -49,6 +49,17 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
 
 interface CartItem {
   id: string;
@@ -84,6 +95,7 @@ export default function SaleFormPage() {
 
 
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const params = useParams();
@@ -233,6 +245,32 @@ export default function SaleFormPage() {
     toast({ title: "Success", description: "New customer has been registered." });
     setIsCustomerDialogOpen(false);
   };
+
+  const handleSaveAndPrint = () => {
+    handleSaveSale(true);
+  };
+  
+  const handleSaveOnly = () => {
+    handleSaveSale(false);
+  };
+
+  const handleSaveSale = (print = false) => {
+    // This is where you would normally save the data to a backend.
+    // For now, we'll just show a toast.
+    toast({
+      title: "Sale Saved",
+      description: `Invoice for ${customerType === 'walk-in' ? customerName : selectedCustomer?.name} has been saved.`,
+    });
+
+    if (print) {
+      // In a real app, you'd generate a proper invoice here before printing.
+      setTimeout(() => window.print(), 500); 
+    }
+    
+    setIsPrintDialogOpen(false);
+    // After saving, you might want to redirect the user
+    // router.push('/sales');
+  };
   
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const finalAmount = subtotal - discount;
@@ -379,7 +417,7 @@ export default function SaleFormPage() {
                                     </p>
                                 </div>
                                 <span className="text-sm font-mono text-muted-foreground ml-4">
-                                    Rs. {product.costPrice.toLocaleString()}
+                                    {product.costPrice.toLocaleString()}
                                 </span>
                             </div>
                             </CommandItem>
@@ -595,7 +633,7 @@ export default function SaleFormPage() {
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => router.push('/sales')}>Cancel</Button>
-          <Button>Save Sale</Button>
+          <Button onClick={() => setIsPrintDialogOpen(true)}>Save Sale</Button>
         </CardFooter>
       </Card>
       <CustomerDialog 
@@ -604,6 +642,22 @@ export default function SaleFormPage() {
         onSave={handleSaveNewCustomer}
         customer={null}
       />
+      <AlertDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Print Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+                The sale has been saved. Do you want to print an invoice?
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleSaveOnly}>Save Only</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveAndPrint}>Print & Save</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </div>
   );
 }
+
+    

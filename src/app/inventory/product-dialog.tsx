@@ -1,5 +1,6 @@
 'use client';
-import type { Product, Unit } from '@/lib/data';
+import type { Product, Unit, Dealer } from '@/lib/data';
+import { getDealers } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,8 @@ const productSchema = z.object({
   unit: z.enum(units),
   lowStockThreshold: z.coerce.number().int().min(0),
   imageUrl: z.string().optional(),
+  dealerId: z.string().optional(),
+  location: z.string().optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -57,25 +60,36 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
     resolver: zodResolver(productSchema),
   });
 
+  const [dealers, setDealers] = useState<Dealer[]>([]);
   const imageUrl = watch('imageUrl');
 
   useEffect(() => {
-    if (product) {
-      reset(product);
-    } else {
-      reset({
-        name: '',
-        description: '',
-        category: '',
-        brand: '',
-        model: '',
-        costPrice: 0,
-        salePrice: 0,
-        stock: 0,
-        unit: 'piece',
-        lowStockThreshold: 10,
-        imageUrl: '',
-      });
+    if(isOpen) {
+        getDealers().then(setDealers);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (product) {
+        reset(product);
+      } else {
+        reset({
+          name: '',
+          description: '',
+          category: '',
+          brand: '',
+          model: '',
+          costPrice: 0,
+          salePrice: 0,
+          stock: 0,
+          unit: 'piece',
+          lowStockThreshold: 10,
+          imageUrl: '',
+          dealerId: '',
+          location: '',
+        });
+      }
     }
   }, [product, reset, isOpen]);
 
@@ -152,6 +166,29 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
                  <div className="grid grid-cols-2 items-center gap-4">
                     <Label htmlFor="model" className="text-right">Model</Label>
                     <Input id="model" {...register('model')} />
+                </div>
+            </div>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 items-center gap-4">
+                    <Label htmlFor="dealerId" className="text-right">Dealer</Label>
+                    <Controller
+                        name="dealerId"
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select dealer" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {dealers.map(d => <SelectItem key={d.id} value={d.id}>{d.company}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
+                 <div className="grid grid-cols-2 items-center gap-4">
+                    <Label htmlFor="location" className="text-right">Location</Label>
+                    <Input id="location" {...register('location')} placeholder="e.g. Shelf A-3" />
                 </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

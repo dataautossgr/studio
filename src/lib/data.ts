@@ -17,6 +17,8 @@ export interface Product {
   lowStockThreshold: number;
   imageUrl: string;
   imageHint: string;
+  dealerId?: string;
+  location?: string;
 }
 
 export interface Customer {
@@ -72,16 +74,22 @@ export interface Purchase {
 }
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
-  { name: 'Spark Plugs (4-pack)', category: 'Engine Parts', brand: 'NGK', model: 'BKR6E-11', costPrice: 800, salePrice: 1200, stock: 50, unit: 'piece', lowStockThreshold: 10 },
-  { name: 'Oil Filter', category: 'Filters', brand: 'Guard', model: 'GDO-118', costPrice: 350, salePrice: 500, stock: 8, unit: 'piece', lowStockThreshold: 20 },
-  { name: 'Front Brake Pads', category: 'Brakes', brand: 'Toyota Genuine', model: '04465-YZZR3', costPrice: 4500, salePrice: 6000, stock: 30, unit: 'piece', lowStockThreshold: 5 },
-  { name: 'AGS Battery', category: 'Batteries', brand: 'AGS', model: 'GL-48', costPrice: 7000, salePrice: 8500, stock: 15, unit: 'piece', lowStockThreshold: 3 },
-  { name: 'Air Filter', category: 'Filters', brand: 'Leppon', model: 'LA-261', costPrice: 400, salePrice: 650, stock: 80, unit: 'piece', lowStockThreshold: 15 },
-  { name: 'Timing Belt', category: 'Engine Parts', brand: 'Gates', model: 'T145', costPrice: 2200, salePrice: 3000, stock: 4, unit: 'piece', lowStockThreshold: 5 },
-  { name: 'Radiator Coolant (1L)', category: 'Fluids', brand: 'ZIC', model: 'Super A', costPrice: 600, salePrice: 800, stock: 100, unit: 'litre', lowStockThreshold: 25 },
-  { name: 'Headlight Bulb', category: 'Lighting', brand: 'Philips', model: 'H4', costPrice: 250, salePrice: 400, stock: 200, unit: 'piece', lowStockThreshold: 50 },
-  { name: 'Wiper Blades (Pair)', category: 'Exterior', brand: 'Bosch', model: 'Clear Advantage', costPrice: 1000, salePrice: 1500, stock: 9, unit: 'piece', lowStockThreshold: 10 },
-  { name: 'Synthetic Engine Oil (4L)', category: 'Fluids', brand: 'Shell', model: 'Helix Ultra 5W-40', costPrice: 4800, salePrice: 5500, stock: 35, unit: 'litre', lowStockThreshold: 10 },
+  { name: 'Spark Plugs (4-pack)', category: 'Engine Parts', brand: 'NGK', model: 'BKR6E-11', costPrice: 800, salePrice: 1200, stock: 50, unit: 'piece', lowStockThreshold: 10, dealerId: 'DLR001', location: 'Shelf A-1' },
+  { name: 'Oil Filter', category: 'Filters', brand: 'Guard', model: 'GDO-118', costPrice: 350, salePrice: 500, stock: 8, unit: 'piece', lowStockThreshold: 20, dealerId: 'DLR002', location: 'Shelf B-3' },
+  { name: 'Front Brake Pads', category: 'Brakes', brand: 'Toyota Genuine', model: '04465-YZZR3', costPrice: 4500, salePrice: 6000, stock: 30, unit: 'piece', lowStockThreshold: 5, dealerId: 'DLR001', location: 'Shelf C-2' },
+  { name: 'AGS Battery', category: 'Batteries', brand: 'AGS', model: 'GL-48', costPrice: 7000, salePrice: 8500, stock: 15, unit: 'piece', lowStockThreshold: 3, dealerId: 'DLR003', location: 'Floor Area' },
+  { name: 'Air Filter', category: 'Filters', brand: 'Leppon', model: 'LA-261', costPrice: 400, salePrice: 650, stock: 80, unit: 'piece', lowStockThreshold: 15, dealerId: 'DLR002', location: 'Shelf B-4' },
+  { name: 'Timing Belt', category: 'Engine Parts', brand: 'Gates', model: 'T145', costPrice: 2200, salePrice: 3000, stock: 4, unit: 'piece', lowStockThreshold: 5, dealerId: 'DLR001', location: 'Shelf A-2' },
+  { name: 'Radiator Coolant (1L)', category: 'Fluids', brand: 'ZIC', model: 'Super A', costPrice: 600, salePrice: 800, stock: 100, unit: 'litre', lowStockThreshold: 25, location: 'Shelf D-1' },
+  { name: 'Headlight Bulb', category: 'Lighting', brand: 'Philips', model: 'H4', costPrice: 250, salePrice: 400, stock: 200, unit: 'piece', lowStockThreshold: 50, location: 'Shelf E-1' },
+  { name: 'Wiper Blades (Pair)', category: 'Exterior', brand: 'Bosch', model: 'Clear Advantage', costPrice: 1000, salePrice: 1500, stock: 9, unit: 'piece', lowStockThreshold: 10, dealerId: 'DLR003', location: 'Hanging Rack 1' },
+  { name: 'Synthetic Engine Oil (4L)', category: 'Fluids', brand: 'Shell', model: 'Helix Ultra 5W-40', costPrice: 4800, salePrice: 5500, stock: 35, unit: 'litre', lowStockThreshold: 10, dealerId: 'DLR002', location: 'Shelf D-2' },
+];
+
+const mockDealers: Dealer[] = [
+    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567', balance: 24000, address: 'Montgomery Road, Lahore' },
+    { id: 'DLR002', name: 'Nadeem Butt', company: 'Nadeem & Sons Trading', phone: '0321-7654321', balance: 55000, address: 'Badami Bagh, Lahore' },
+    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334', balance: 8000, address: 'Mcleod Road, Lahore' },
 ];
 
 const mockProducts: Product[] = productData.map((p, index) => {
@@ -155,11 +163,7 @@ const mockSales: Sale[] = [
     }
 ];
 
-const mockDealers: Dealer[] = [
-    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567', balance: 24000, address: 'Montgomery Road, Lahore' },
-    { id: 'DLR002', name: 'Nadeem Butt', company: 'Nadeem & Sons Trading', phone: '0321-7654321', balance: 55000, address: 'Badami Bagh, Lahore' },
-    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334', balance: 8000, address: 'Mcleod Road, Lahore' },
-];
+
 
 const mockPurchases: Purchase[] = [
     {

@@ -160,8 +160,8 @@ export default function InventoryPage() {
                         <span className="sr-only">Image</span>
                         </TableHead>
                         <TableHead>Name</TableHead>
-                        <TableHead>Brand</TableHead>
-                        <TableHead className="hidden md:table-cell">Model</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead className="hidden md:table-cell">Brand & Model</TableHead>
                         <TableHead className="text-right">Purchase Cost</TableHead>
                         <TableHead className="text-right">Sales Cost</TableHead>
                         <TableHead className="text-center">Stock</TableHead>
@@ -189,8 +189,8 @@ export default function InventoryPage() {
                               <Badge variant="secondary" className="ml-2">Low Stock</Badge>
                            )}
                         </TableCell>
-                         <TableCell>{product.brand}</TableCell>
-                        <TableCell className="hidden md:table-cell">{product.model}</TableCell>
+                         <TableCell>{product.location}</TableCell>
+                        <TableCell className="hidden md:table-cell">{product.brand} - {product.model}</TableCell>
                         <TableCell className="text-right">Rs. {product.costPrice.toLocaleString()}</TableCell>
                         <TableCell className="text-right">Rs. {product.salePrice.toLocaleString()}</TableCell>
                         <TableCell className="text-center">{product.stock}</TableCell>

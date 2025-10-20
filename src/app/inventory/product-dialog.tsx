@@ -63,7 +63,7 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
   });
 
   const firestore = useFirestore();
-  const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
+  const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
   const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
   const imageUrl = watch('imageUrl');
 
@@ -106,6 +106,7 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
   const onSubmit = (data: ProductFormData) => {
     onSave({
         ...data,
+        dealerId: data.dealerId === '__none__' ? '' : data.dealerId,
         imageUrl: data.imageUrl || product?.imageUrl || 'https://picsum.photos/seed/placeholder/64/64',
         imageHint: product?.imageHint || 'product'
     });
@@ -178,7 +179,7 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
                                     <SelectValue placeholder="Select dealer" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">None</SelectItem>
+                                    <SelectItem value="__none__">None</SelectItem>
                                     {dealers?.map(d => <SelectItem key={d.id} value={d.id}>{d.company}</SelectItem>)}
                                 </SelectContent>
                             </Select>

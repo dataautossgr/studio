@@ -52,6 +52,7 @@ export default function PurchasesPage() {
     to: endOfDay(new Date()),
   });
   const [isResetting, setIsResetting] = useState(false);
+  const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -74,10 +75,32 @@ export default function PurchasesPage() {
 
   const handleReset = () => {
     getPurchases().then(initialPurchases => {
-        setAllPurchases(initialPurchases);
-        toast({ title: "All Purchases Reset", description: "The purchase history has been reset to its initial state." });
-        setIsResetting(false);
+        if (resetDateRange?.from) {
+            const from = startOfDay(resetDateRange.from);
+            const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
+
+            const purchasesToKeep = allPurchases.filter(p => {
+                const purchaseDate = new Date(p.date);
+                return purchaseDate < from || purchaseDate > to;
+            });
+            
+            const originalPurchasesInRange = initialPurchases.filter(p => {
+                const purchaseDate = new Date(p.date);
+                return purchaseDate >= from && purchaseDate <= to;
+            });
+
+            const newPurchases = [...purchasesToKeep, ...originalPurchasesInRange].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            setAllPurchases(newPurchases);
+            toast({ title: "Purchases Reset", description: `Purchases from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
+
+        } else {
+            setAllPurchases(initialPurchases);
+            toast({ title: "All Purchases Reset", description: "The purchase history has been reset to its initial state." });
+        }
     });
+    setResetDateRange(undefined);
+    setIsResetting(false);
   };
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
@@ -133,9 +156,31 @@ export default function PurchasesPage() {
                   />
               </PopoverContent>
             </Popover>
-            <Button variant="outline" onClick={() => setIsResetting(true)}>
-              <RotateCcw className="mr-2 h-4 w-4" /> Reset
-            </Button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon">
+                      <RotateCcw className="h-4 w-4" />
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                  <div className="p-4 space-y-4">
+                      <p className="text-sm text-muted-foreground">Select a date range to reset data for that period. Leave blank to reset all data.</p>
+                      <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={resetDateRange?.from}
+                          selected={resetDateRange}
+                          onSelect={setResetDateRange}
+                          numberOfMonths={1}
+                      />
+                      <Button variant="destructive" className="w-full" onClick={() => setIsResetting(true)}>
+                          Reset Data
+                      </Button>
+                  </div>
+              </PopoverContent>
+            </Popover>
+            
             <Button asChild>
               <Link href="/purchase/new">
                   <PlusCircle className="mr-2 h-4 w-4" />
@@ -214,7 +259,11 @@ export default function PurchasesPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
             <AlertDialogDescription>
-                 This will reset the entire purchase history to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                {resetDateRange?.from
+                    ? `This will reset purchase data from ${format(resetDateRange.from, 'PPP')} ${resetDateRange.to ? `to ${format(resetDateRange.to, 'PPP')}` : ''}. Any changes you've made in this period will be lost.`
+                    : "This will reset the entire purchase history to its original state. Any changes you've made will be lost."
+                }
+                {' '}This will not affect your cloud backup.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

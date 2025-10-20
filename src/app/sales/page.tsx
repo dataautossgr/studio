@@ -53,6 +53,7 @@ export default function SalesPage() {
     to: endOfDay(new Date())
   });
   const [isResetting, setIsResetting] = useState(false);
+  const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -75,10 +76,32 @@ export default function SalesPage() {
 
   const handleReset = () => {
     getSales().then(initialSales => {
-        setAllSales(initialSales);
-        toast({ title: "All Sales Reset", description: "The sales history has been reset to its initial state." });
-        setIsResetting(false);
+        if (resetDateRange?.from) {
+            const from = startOfDay(resetDateRange.from);
+            const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
+
+            const salesToKeep = allSales.filter(sale => {
+                const saleDate = new Date(sale.date);
+                return saleDate < from || saleDate > to;
+            });
+            
+            const originalSalesInRange = initialSales.filter(sale => {
+                const saleDate = new Date(sale.date);
+                return saleDate >= from && saleDate <= to;
+            });
+
+            const newSales = [...salesToKeep, ...originalSalesInRange].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            setAllSales(newSales);
+            toast({ title: "Sales Reset", description: `Sales from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
+
+        } else {
+            setAllSales(initialSales);
+            toast({ title: "All Sales Reset", description: "The sales history has been reset to its initial state." });
+        }
     });
+    setResetDateRange(undefined);
+    setIsResetting(false);
   };
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
@@ -134,9 +157,31 @@ export default function SalesPage() {
                   />
               </PopoverContent>
             </Popover>
-            <Button variant="outline" onClick={() => setIsResetting(true)}>
-              <RotateCcw className="mr-2 h-4 w-4" /> Reset
-            </Button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon">
+                      <RotateCcw className="h-4 w-4" />
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                  <div className="p-4 space-y-4">
+                      <p className="text-sm text-muted-foreground">Select a date range to reset data for that period. Leave blank to reset all data.</p>
+                      <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={resetDateRange?.from}
+                          selected={resetDateRange}
+                          onSelect={setResetDateRange}
+                          numberOfMonths={1}
+                      />
+                      <Button variant="destructive" className="w-full" onClick={() => setIsResetting(true)}>
+                          Reset Data
+                      </Button>
+                  </div>
+              </PopoverContent>
+            </Popover>
+
             <Button asChild>
               <Link href="/sales/new">
                   <PlusCircle className="mr-2 h-4 w-4" />
@@ -219,7 +264,11 @@ export default function SalesPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
             <AlertDialogDescription>
-                This will reset the entire sales history to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                {resetDateRange?.from
+                    ? `This will reset sales data from ${format(resetDateRange.from, 'PPP')} ${resetDateRange.to ? `to ${format(resetDateRange.to, 'PPP')}` : ''}. Any changes you've made in this period will be lost.`
+                    : "This will reset the entire sales history to its original state. Any changes you've made will be lost."
+                }
+                {' '}This will not affect your cloud backup.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

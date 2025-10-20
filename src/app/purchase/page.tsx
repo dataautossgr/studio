@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, PlusCircle, Trash2, Undo2, RotateCcw } from 'lucide-react';
+import { MoreHorizontal, Pencil, PlusCircle, Trash2, Undo2, RotateCcw, CalendarDays } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -26,7 +26,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
@@ -40,10 +40,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [isResetting, setIsResetting] = useState(false);
+  const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -51,9 +55,32 @@ export default function PurchasesPage() {
   }, []);
 
   const handleReset = () => {
-    getPurchases().then(setPurchases);
-    toast({ title: "Purchases Reset", description: "The purchase history has been reset to its initial state." });
-    setIsResetting(false);
+    getPurchases().then(initialPurchases => {
+        if (resetDateRange?.from) {
+            const from = startOfDay(resetDateRange.from);
+            const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
+
+            const purchasesToKeep = purchases.filter(p => {
+                const purchaseDate = new Date(p.date);
+                return purchaseDate < from || purchaseDate > to;
+            });
+            
+            const originalPurchasesInRange = initialPurchases.filter(p => {
+                const purchaseDate = new Date(p.date);
+                return purchaseDate >= from && purchaseDate <= to;
+            });
+
+            const newPurchases = [...purchasesToKeep, ...originalPurchasesInRange].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            setPurchases(newPurchases);
+            toast({ title: "Purchases Reset", description: `Purchases from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
+        } else {
+            setPurchases(initialPurchases);
+            toast({ title: "All Purchases Reset", description: "The purchase history has been reset to its initial state." });
+        }
+        setResetDateRange(undefined);
+        setIsResetting(false);
+    });
   };
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
@@ -79,7 +106,36 @@ export default function PurchasesPage() {
               View all past purchases from your dealers.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+             <Popover>
+              <PopoverTrigger asChild>
+                  <Button variant="outline">
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {resetDateRange?.from ? (
+                          resetDateRange.to ? (
+                              <>
+                                  {format(resetDateRange.from, "LLL dd, y")} -{" "}
+                                  {format(resetDateRange.to, "LLL dd, y")}
+                              </>
+                          ) : (
+                              format(resetDateRange.from, "LLL dd, y")
+                          )
+                      ) : (
+                          <span>Pick a date range</span>
+                      )}
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={resetDateRange?.from}
+                      selected={resetDateRange}
+                      onSelect={setResetDateRange}
+                      numberOfMonths={2}
+                  />
+              </PopoverContent>
+            </Popover>
             <Button variant="outline" onClick={() => setIsResetting(true)}>
               <RotateCcw className="mr-2 h-4 w-4" /> Reset
             </Button>
@@ -161,7 +217,11 @@ export default function PurchasesPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
             <AlertDialogDescription>
-                This will reset the purchase history to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                 {resetDateRange?.from
+                    ? `This will reset purchase data from ${format(resetDateRange.from, 'PPP')} ${resetDateRange.to ? `to ${format(resetDateRange.to, 'PPP')}` : ''}. Any changes you've made in this period will be lost.`
+                    : "This will reset the entire purchase history to its original state. Any changes you've made will be lost."
+                }
+                {' '}This will not affect your cloud backup.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

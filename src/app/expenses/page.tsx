@@ -24,6 +24,7 @@ import {
   TrendingUp,
   DollarSign,
   RotateCcw,
+  CalendarDays,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -33,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { useEffect, useState, useMemo } from 'react';
 import { ExpenseDialog, type ExpenseFormData } from './expense-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +49,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
+
 
 export interface Expense {
   id: string;
@@ -107,6 +112,7 @@ export default function ExpensesPage() {
     null
   );
   const [isResetting, setIsResetting] = useState(false);
+  const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -153,7 +159,7 @@ export default function ExpensesPage() {
         ...expenseData,
         id: `EXP${Date.now()}`,
       };
-      setExpenses([newExpense, ...expenses]);
+      setExpenses([newExpense, ...expenses].sort((a,b) => b.date.getTime() - a.date.getTime()));
       toast({ title: 'Success', description: 'Expense added successfully.' });
     }
     setIsDialogOpen(false);
@@ -170,8 +176,29 @@ export default function ExpensesPage() {
   };
 
   const handleReset = () => {
-    setExpenses(mockExpenses);
-    toast({ title: "Expenses Reset", description: "The expense list has been reset to its initial state." });
+     if (resetDateRange?.from) {
+        const from = startOfDay(resetDateRange.from);
+        const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
+
+        const expensesToKeep = expenses.filter(exp => {
+            const expenseDate = new Date(exp.date);
+            return expenseDate < from || expenseDate > to;
+        });
+        
+        const originalExpensesInRange = mockExpenses.filter(exp => {
+            const expenseDate = new Date(exp.date);
+            return expenseDate >= from && expenseDate <= to;
+        });
+
+        const newExpenses = [...expensesToKeep, ...originalExpensesInRange].sort((a,b) => b.date.getTime() - a.date.getTime());
+        
+        setExpenses(newExpenses);
+        toast({ title: "Expenses Reset", description: `Expenses from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
+    } else {
+        setExpenses(mockExpenses);
+        toast({ title: "All Expenses Reset", description: "The expense list has been reset to its initial state." });
+    }
+    setResetDateRange(undefined);
     setIsResetting(false);
   };
 
@@ -197,7 +224,36 @@ export default function ExpensesPage() {
             Track and manage all your business expenses.
             </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                  <Button variant="outline">
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {resetDateRange?.from ? (
+                          resetDateRange.to ? (
+                              <>
+                                  {format(resetDateRange.from, "LLL dd, y")} -{" "}
+                                  {format(resetDateRange.to, "LLL dd, y")}
+                              </>
+                          ) : (
+                              format(resetDateRange.from, "LLL dd, y")
+                          )
+                      ) : (
+                          <span>Pick a date range</span>
+                      )}
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={resetDateRange?.from}
+                      selected={resetDateRange}
+                      onSelect={setResetDateRange}
+                      numberOfMonths={2}
+                  />
+              </PopoverContent>
+            </Popover>
             <Button variant="outline" onClick={() => setIsResetting(true)}>
               <RotateCcw className="mr-2 h-4 w-4" /> Reset
             </Button>
@@ -334,7 +390,11 @@ export default function ExpensesPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
             <AlertDialogDescription>
-                This will reset the expense list to its original state. Any changes you've made will be lost. This will not affect your cloud backup.
+                 {resetDateRange?.from
+                    ? `This will reset expense data from ${format(resetDateRange.from, 'PPP')} ${resetDateRange.to ? `to ${format(resetDateRange.to, 'PPP')}` : ''}. Any changes you've made in this period will be lost.`
+                    : "This will reset the entire expense list to its original state. Any changes you've made will be lost."
+                }
+                {' '}This will not affect your cloud backup.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -1,3 +1,6 @@
+
+'use client';
+
 import {
   Card,
   CardContent,
@@ -5,17 +8,58 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { DollarSign, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, Users, Package, CreditCard } from 'lucide-react';
 import { SalesChart } from './sales-chart';
-
-const reportCards = [
-    { title: "Today's Sales", value: "Rs. 12,450", icon: DollarSign, change: "+15.2% from yesterday" },
-    { title: "Today's Orders", value: "32", icon: ShoppingBag, change: "+8 orders from yesterday" },
-    { title: "New Customers", value: "4", icon: Users, change: "+1 from yesterday" },
-    { title: "Profit", value: "Rs. 3,120", icon: TrendingUp, change: "+20% from yesterday" },
-]
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from 'react';
+import { getSales, getProducts, getCustomers, getDealers, type Sale, type Product } from '@/lib/data';
+import { format } from 'date-fns';
 
 export default function ReportsPage() {
+    const [sales, setSales] = useState<Sale[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
+    
+    useEffect(() => {
+        getSales().then(setSales);
+        getProducts().then(setProducts);
+    }, []);
+
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
+    const totalProfit = sales.reduce((sum, sale) => {
+        const cost = sale.items.reduce((itemSum, item) => {
+            const product = products.find(p => p.id === item.productId);
+            return itemSum + (product ? product.costPrice * item.quantity : 0);
+        }, 0);
+        return sum + (sale.total - cost);
+    }, 0);
+
+    const topSellingProducts = products
+        .map(p => {
+            const sold = sales.flatMap(s => s.items)
+                              .filter(i => i.productId === p.id)
+                              .reduce((sum, i) => sum + i.quantity, 0);
+            return { ...p, sold };
+        })
+        .filter(p => p.sold > 0)
+        .sort((a, b) => b.sold - a.sold)
+        .slice(0, 5);
+
+
+    const reportCards = [
+        { title: "Total Revenue", value: `Rs. ${totalRevenue.toLocaleString()}`, icon: DollarSign, change: "+15.2% from last month" },
+        { title: "Total Profit", value: `Rs. ${totalProfit.toLocaleString()}`, icon: TrendingUp, change: "+20% from last month" },
+        { title: "Total Sales", value: sales.length.toString(), icon: ShoppingBag, change: "+8 orders from last month" },
+        { title: "Total Products Sold", value: sales.flatMap(s => s.items).reduce((sum, i) => sum + i.quantity, 0).toString(), icon: Package, change: "" },
+    ];
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
         <div>
@@ -40,11 +84,11 @@ export default function ReportsPage() {
             ))}
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-            <Card>
+        <div className="grid gap-8 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
                 <CardHeader>
-                    <CardTitle>Weekly Sales</CardTitle>
-                    <CardDescription>A summary of your sales over the last 7 days.</CardDescription>
+                    <CardTitle>Sales Over Time</CardTitle>
+                    <CardDescription>A summary of your sales over the last 6 months.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <SalesChart />
@@ -56,7 +100,22 @@ export default function ReportsPage() {
                     <CardDescription>Your most popular items this month.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <p className="text-sm text-muted-foreground">Report content coming soon.</p>
+                   <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Product</TableHead>
+                                <TableHead className="text-right">Units Sold</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {topSellingProducts.map(p => (
+                                <TableRow key={p.id}>
+                                    <TableCell className="font-medium">{p.name}</TableCell>
+                                    <TableCell className="text-right">{p.sold}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                   </Table>
                 </CardContent>
             </Card>
         </div>

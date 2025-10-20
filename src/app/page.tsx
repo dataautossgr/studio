@@ -1,3 +1,4 @@
+
 import {
   Card,
   CardContent,
@@ -7,7 +8,7 @@ import {
 } from '@/components/ui/card';
 import { CreditCard, DollarSign, Package, TrendingUp, Users } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
-import { getSales, getProducts } from '@/lib/data';
+import { getSales, getProducts, getCustomers, getDealers } from '@/lib/data';
 import {
   Table,
   TableBody,
@@ -20,9 +21,13 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
 export default async function DashboardPage() {
-  const sales = (await getSales()).slice(0, 5);
+  const sales = (await getSales());
   const products = await getProducts();
+  const customers = await getCustomers();
+  const dealers = await getDealers();
+
   const lowStockCount = products.filter(p => p.stock <= p.lowStockThreshold).length;
+  const pendingPayments = customers.reduce((acc, c) => acc + c.balance, 0);
 
   const reportCards = [
     {
@@ -50,10 +55,10 @@ export default async function DashboardPage() {
       change: lowStockCount > 0 ? `${lowStockCount} items need attention` : 'All items are in stock',
     },
     {
-      title: 'Pending Payments',
-      value: 'Rs. 0',
+      title: 'Pending Customer Payments',
+      value: `Rs. ${pendingPayments.toLocaleString()}`,
       icon: Users,
-      change: 'No pending payments',
+      change: `${customers.filter(c => c.balance > 0).length} customers have dues`,
     },
   ];
 
@@ -111,7 +116,7 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sales.map((sale) => (
+                {sales.slice(0,5).map((sale) => (
                   <TableRow key={sale.id}>
                     <TableCell>
                       <div className="font-medium">{sale.customer.name}</div>

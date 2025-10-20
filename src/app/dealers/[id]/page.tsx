@@ -51,7 +51,7 @@ export interface Transaction {
     debit: number;
     credit: number;
     balance: number;
-    paymentDetails?: Omit<PaymentFormData, 'amount'>;
+    paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
 }
 
 export default function DealerLedgerPage() {

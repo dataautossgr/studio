@@ -13,21 +13,23 @@ import { Label } from '@/components/ui/label';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import type { Transaction } from './page';
+import Image from 'next/image';
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
   paymentDate: z.date(),
   paymentMethod: z.enum(['Cash', 'Bank Transfer', 'Cheque']),
   notes: z.string().optional(),
+  receiptImageUrl: z.string().optional(),
 });
 
 export type PaymentFormData = z.infer<typeof paymentSchema>;
@@ -41,11 +43,13 @@ interface PaymentDialogProps {
 }
 
 export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }: PaymentDialogProps) {
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PaymentFormData>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
   });
 
   const isEditing = !!payment;
+  const paymentMethod = watch('paymentMethod');
+  const receiptImageUrl = watch('receiptImageUrl');
 
   useEffect(() => {
     if (isOpen) {
@@ -54,7 +58,8 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
             amount: payment.credit,
             paymentDate: new Date(payment.date),
             paymentMethod: payment.paymentDetails.paymentMethod,
-            notes: payment.paymentDetails.notes
+            notes: payment.paymentDetails.notes,
+            receiptImageUrl: payment.paymentDetails.receiptImageUrl,
         });
       } else {
         reset({
@@ -62,10 +67,22 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
             paymentDate: new Date(),
             paymentMethod: 'Cash',
             notes: '',
+            receiptImageUrl: '',
         });
       }
     }
   }, [isOpen, reset, payment, isEditing]);
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setValue('receiptImageUrl', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const onSubmit = (data: PaymentFormData) => {
     onSave(data);
@@ -147,6 +164,27 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
                     )}
                 />
             </div>
+            {paymentMethod === 'Bank Transfer' && (
+              <div className="space-y-2">
+                <Label htmlFor="receipt-upload">Upload Receipt (Optional)</Label>
+                <div className="flex items-center gap-4">
+                  {receiptImageUrl ? (
+                     <Image
+                        src={receiptImageUrl}
+                        alt="Receipt preview"
+                        width={64}
+                        height={64}
+                        className="rounded-md aspect-square object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <Input id="receipt-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs" />
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" {...register('notes')} placeholder="Optional payment notes or reference..." />

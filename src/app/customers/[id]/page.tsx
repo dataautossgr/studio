@@ -50,7 +50,7 @@ export interface Transaction {
     debit: number;
     credit: number;
     balance: number;
-    paymentDetails?: Omit<PaymentFormData, 'amount'>;
+    paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
 }
 
 export default function CustomerLedgerPage() {
@@ -120,7 +120,6 @@ export default function CustomerLedgerPage() {
 
 
                 // This is a simplified balance calculation for UI display.
-                // A real implementation would require starting from an initial balance and calculating forward.
                 let currentBalance = currentCustomer.balance;
                 const finalTransactions = allTransactions.map(tx => {
                     const txWithBalance = {...tx, balance: currentBalance};

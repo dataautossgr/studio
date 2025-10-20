@@ -47,7 +47,7 @@ export default function RootLayout({
                       Data Autos
                     </h2>
                     <p className="text-xs text-sidebar-foreground/70">
-                      POS System
+                      POS by hamxa tech 🐧 (03173890161)
                     </p>
                   </div>
                 </div>

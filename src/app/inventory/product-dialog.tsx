@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 
@@ -63,7 +63,8 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
   });
 
   const firestore = useFirestore();
-  const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(collection(firestore, 'dealers'));
+  const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
+  const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
   const imageUrl = watch('imageUrl');
 
 

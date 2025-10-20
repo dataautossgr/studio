@@ -1,0 +1,484 @@
+{
+  "entities": {
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents an automotive item in the inventory.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the product."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the product."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the product."
+        },
+        "costPrice": {
+          "type": "number",
+          "description": "Cost price of the product."
+        },
+        "salePrice": {
+          "type": "number",
+          "description": "Sale price of the product."
+        },
+        "stockQty": {
+          "type": "number",
+          "description": "Current stock quantity of the product."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the product image."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last update to the product information.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "costPrice",
+        "salePrice",
+        "stockQty",
+        "updatedAt"
+      ]
+    },
+    "Sale": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sale",
+      "type": "object",
+      "description": "Represents a sale transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sale."
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Name of the customer."
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total amount of the sale."
+        },
+        "paymentMode": {
+          "type": "string",
+          "description": "Payment mode used for the sale (e.g., Cash, Credit)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the sale was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "totalAmount",
+        "paymentMode",
+        "createdAt"
+      ]
+    },
+    "SaleItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SaleItem",
+      "type": "object",
+      "description": "Represents an item included in a sale.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sale item."
+        },
+        "saleId": {
+          "type": "string",
+          "description": "Reference to Sale. (Relationship: Sale 1:N SaleItem)"
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to Product. (Relationship: Product 1:N SaleItem)"
+        },
+        "qty": {
+          "type": "number",
+          "description": "Quantity of the product sold."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product at the time of sale."
+        }
+      },
+      "required": [
+        "id",
+        "saleId",
+        "productId",
+        "qty",
+        "price"
+      ]
+    },
+    "Dealer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Dealer",
+      "type": "object",
+      "description": "Represents a dealer or supplier.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the dealer."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the dealer."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the dealer."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the dealer."
+        },
+        "balance": {
+          "type": "number",
+          "description": "Current balance of the dealer."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Purchase": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Purchase",
+      "type": "object",
+      "description": "Represents a purchase from a dealer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the purchase."
+        },
+        "dealerId": {
+          "type": "string",
+          "description": "Reference to Dealer. (Relationship: Dealer 1:N Purchase)"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total amount of the purchase."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the purchase was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "dealerId",
+        "totalAmount",
+        "createdAt"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the customer."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the customer."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the customer."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the customer."
+        },
+        "balance": {
+          "type": "number",
+          "description": "Current balance of the customer."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "CashSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CashSession",
+      "type": "object",
+      "description": "Represents a daily cash session.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the cash session."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the cash session.",
+          "format": "date"
+        },
+        "openingCash": {
+          "type": "number",
+          "description": "Opening cash balance for the session."
+        },
+        "closingCash": {
+          "type": "number",
+          "description": "Closing cash balance for the session."
+        },
+        "totalSales": {
+          "type": "number",
+          "description": "Total sales amount during the session."
+        },
+        "expenses": {
+          "type": "number",
+          "description": "Total expenses during the session."
+        },
+        "variance": {
+          "type": "number",
+          "description": "Variance between expected and actual closing cash."
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "openingCash",
+        "closingCash",
+        "totalSales",
+        "expenses",
+        "variance"
+      ]
+    },
+    "BankTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BankTransaction",
+      "type": "object",
+      "description": "Represents a bank transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the bank transaction."
+        },
+        "fromAccount": {
+          "type": "string",
+          "description": "Account from which the transaction originated."
+        },
+        "toAccount": {
+          "type": "string",
+          "description": "Account to which the transaction was directed."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the transaction."
+        },
+        "note": {
+          "type": "string",
+          "description": "Notes about the transaction."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the transaction was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "fromAccount",
+        "toAccount",
+        "amount",
+        "createdAt"
+      ]
+    },
+    "Setting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Setting",
+      "type": "object",
+      "description": "Represents a system setting.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the setting."
+        },
+        "key": {
+          "type": "string",
+          "description": "Key of the setting."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value of the setting."
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "value"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Stores product information.",
+          "params": [
+            {
+              "name": "productId",
+              "description": "Unique identifier for the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sales/{saleId}",
+        "definition": {
+          "entityName": "Sale",
+          "schema": {
+            "$ref": "#/backend/entities/Sale"
+          },
+          "description": "Stores sale transaction information.",
+          "params": [
+            {
+              "name": "saleId",
+              "description": "Unique identifier for the sale."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sale_items/{saleItemId}",
+        "definition": {
+          "entityName": "SaleItem",
+          "schema": {
+            "$ref": "#/backend/entities/SaleItem"
+          },
+          "description": "Stores individual items within a sale.",
+          "params": [
+            {
+              "name": "saleItemId",
+              "description": "Unique identifier for the sale item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/dealers/{dealerId}",
+        "definition": {
+          "entityName": "Dealer",
+          "schema": {
+            "$ref": "#/backend/entities/Dealer"
+          },
+          "description": "Stores dealer/supplier information.",
+          "params": [
+            {
+              "name": "dealerId",
+              "description": "Unique identifier for the dealer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/purchases/{purchaseId}",
+        "definition": {
+          "entityName": "Purchase",
+          "schema": {
+            "$ref": "#/backend/entities/Purchase"
+          },
+          "description": "Stores purchase information from dealers.",
+          "params": [
+            {
+              "name": "purchaseId",
+              "description": "Unique identifier for the purchase."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Stores customer information.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "Unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/cash_sessions/{cashSessionId}",
+        "definition": {
+          "entityName": "CashSession",
+          "schema": {
+            "$ref": "#/backend/entities/CashSession"
+          },
+          "description": "Stores daily cash session information.",
+          "params": [
+            {
+              "name": "cashSessionId",
+              "description": "Unique identifier for the cash session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/bank_transactions/{bankTransactionId}",
+        "definition": {
+          "entityName": "BankTransaction",
+          "schema": {
+            "$ref": "#/backend/entities/BankTransaction"
+          },
+          "description": "Stores bank transaction information.",
+          "params": [
+            {
+              "name": "bankTransactionId",
+              "description": "Unique identifier for the bank transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/settings/{settingId}",
+        "definition": {
+          "entityName": "Setting",
+          "schema": {
+            "$ref": "#/backend/entities/Setting"
+          },
+          "description": "Stores system settings.",
+          "params": [
+            {
+              "name": "settingId",
+              "description": "Unique identifier for the setting."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "Given the hybrid nature of the application (offline-first with Firebase sync), and the zero-security development mode, the data structure is designed to mirror the SQLite database schema as closely as possible, facilitating straightforward synchronization. Since authentication is disabled in the development phase, all data is essentially public. However, I'll still adhere to the principle of path-based ownership and segregation in case security rules are added later. For example, creating path based collections for each Entity i.e Products, Sales, Dealers, Purchases, Customers, CashSession, BankTransaction and Settings. Since the requirements ask for offline access and zero security, the decision is to forego denormalization until the app is closer to release."
+  }
+}

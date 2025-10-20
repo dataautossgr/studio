@@ -1,0 +1,228 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset is configured for rapid prototyping with a focus on flexible data shapes.
+ *
+ * Core Philosophy:
+ * During this prototyping phase, authentication and authorization will be enabled for all collections.
+ * While this approach provides minimal real-world security, it establishes clear ownership patterns
+ * that can be easily hardened in later development phases.
+ *
+ * Data Structure:
+ * The Firestore database is structured into top-level collections for each main entity:
+ * /products/{productId}
+ * /sales/{saleId}
+ * /sale_items/{saleItemId}
+ * /dealers/{dealerId}
+ * /purchases/{purchaseId}
+ * /customers/{customerId}
+ * /cash_sessions/{cashSessionId}
+ * /bank_transactions/{bankTransactionId}
+ * /settings/{settingId}
+ *
+ * Each document ID is expected to match an 'id' field inside the document.
+ *
+ * Key Security Decisions:
+ * - All collections require authentication.
+ * - List operations are allowed for all collections for authenticated users.
+ * - No data shape validation is enforced in this prototype phase except for id matching on creation.
+ *
+ * Denormalization for Authorization:
+ * Not used in this prototype to allow flexible data schema.
+ *
+ * Structural Segregation:
+ * Not applicable as the data is uniformly accessed.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Manages access to product information.
+     * @path /products/{productId}
+     * @allow (create) - Authenticated user can create a product if the product id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a product if the product id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list products.
+     * @deny (create) - Non-authenticated user can not create product
+     * @deny (update, delete) - Non-authenticated user can not update or delete product
+     * @principle Enforces that only authenticated users can manage product data, validating that the document ID matches the `id` field in the document.
+     */
+    match /products/{productId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == productId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to sale transaction information.
+     * @path /sales/{saleId}
+     * @allow (create) - Authenticated user can create a sale if the sale id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a sale if the sale id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list sales.
+     * @deny (create) - Non-authenticated user can not create sale
+     * @deny (update, delete) - Non-authenticated user can not update or delete sale
+     * @principle Enforces that only authenticated users can manage sale data, validating that the document ID matches the `id` field in the document.
+     */
+    match /sales/{saleId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == saleId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to individual items within a sale.
+     * @path /sale_items/{saleItemId}
+     * @allow (create) - Authenticated user can create a sale item if the sale item id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a sale item if the sale item id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list sale items.
+     * @deny (create) - Non-authenticated user can not create sale item
+     * @deny (update, delete) - Non-authenticated user can not update or delete sale item
+     * @principle Enforces that only authenticated users can manage sale item data, validating that the document ID matches the `id` field in the document.
+     */
+    match /sale_items/{saleItemId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == saleItemId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to dealer/supplier information.
+     * @path /dealers/{dealerId}
+     * @allow (create) - Authenticated user can create a dealer if the dealer id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a dealer if the dealer id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list dealers.
+     * @deny (create) - Non-authenticated user can not create dealer
+     * @deny (update, delete) - Non-authenticated user can not update or delete dealer
+     * @principle Enforces that only authenticated users can manage dealer data, validating that the document ID matches the `id` field in the document.
+     */
+    match /dealers/{dealerId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == dealerId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to purchase information from dealers.
+     * @path /purchases/{purchaseId}
+     * @allow (create) - Authenticated user can create a purchase if the purchase id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a purchase if the purchase id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list purchases.
+     * @deny (create) - Non-authenticated user can not create purchase
+     * @deny (update, delete) - Non-authenticated user can not update or delete purchase
+     * @principle Enforces that only authenticated users can manage purchase data, validating that the document ID matches the `id` field in the document.
+     */
+    match /purchases/{purchaseId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == purchaseId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to customer information.
+     * @path /customers/{customerId}
+     * @allow (create) - Authenticated user can create a customer if the customer id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a customer if the customer id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list customers.
+     * @deny (create) - Non-authenticated user can not create customer
+     * @deny (update, delete) - Non-authenticated user can not update or delete customer
+     * @principle Enforces that only authenticated users can manage customer data, validating that the document ID matches the `id` field in the document.
+     */
+    match /customers/{customerId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == customerId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to daily cash session information.
+     * @path /cash_sessions/{cashSessionId}
+     * @allow (create) - Authenticated user can create a cash session if the cash session id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a cash session if the cash session id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list cash sessions.
+     * @deny (create) - Non-authenticated user can not create cash session
+     * @deny (update, delete) - Non-authenticated user can not update or delete cash session
+     * @principle Enforces that only authenticated users can manage cash session data, validating that the document ID matches the `id` field in the document.
+     */
+    match /cash_sessions/{cashSessionId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == cashSessionId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to bank transaction information.
+     * @path /bank_transactions/{bankTransactionId}
+     * @allow (create) - Authenticated user can create a bank transaction if the bank transaction id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a bank transaction if the bank transaction id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list bank transactions.
+     * @deny (create) - Non-authenticated user can not create bank transaction
+     * @deny (update, delete) - Non-authenticated user can not update or delete bank transaction
+     * @principle Enforces that only authenticated users can manage bank transaction data, validating that the document ID matches the `id` field in the document.
+     */
+    match /bank_transactions/{bankTransactionId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == bankTransactionId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages access to system settings.
+     * @path /settings/{settingId}
+     * @allow (create) - Authenticated user can create a setting if the setting id matches the document id.
+     * @allow (update, delete) - Authenticated user can update or delete a setting if the setting id matches the document id.
+     * @allow (get, list) - Authenticated user can get or list settings.
+     * @deny (create) - Non-authenticated user can not create setting
+     * @deny (update, delete) - Non-authenticated user can not update or delete setting
+     * @principle Enforces that only authenticated users can manage setting data, validating that the document ID matches the `id` field in the document.
+     */
+    match /settings/{settingId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == settingId;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+  }
+}

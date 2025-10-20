@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { getProducts, getCustomers, type Product, type Customer, getSales, type Sale } from '@/lib/data';
+import { getProducts, getCustomers, getSales, getPurchases, getDealers, type Product, type Customer, type Sale, type Purchase, type Dealer } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -67,6 +67,9 @@ export default function EditSalePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [dealers, setDealers] = useState<Dealer[]>([]);
+  
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -88,10 +91,19 @@ export default function EditSalePage() {
   const saleId = params.id as string;
 
   useEffect(() => {
-    getProducts().then(setProducts);
-    getCustomers().then(setCustomers);
-    if (saleId !== 'new') {
-        getSales().then(allSales => {
+    Promise.all([
+        getProducts(),
+        getCustomers(),
+        getSales(),
+        getPurchases(),
+        getDealers()
+    ]).then(([productsData, customersData, allSales, purchasesData, dealersData]) => {
+        setProducts(productsData);
+        setCustomers(customersData);
+        setPurchases(purchasesData);
+        setDealers(dealersData);
+
+        if (saleId !== 'new') {
             const currentSale = allSales.find(s => s.id === saleId);
             if (currentSale) {
                 setSale(currentSale);
@@ -105,14 +117,17 @@ export default function EditSalePage() {
                 const subtotal = currentSale.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
                 setDiscount(subtotal - currentSale.total);
 
-                setCart(currentSale.items.map(item => ({
-                    id: item.productId,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price,
-                    costPrice: 0, 
-                    isOneTime: !products.some(p => p.id === item.productId)
-                })));
+                setCart(currentSale.items.map(item => {
+                    const product = productsData.find(p => p.id === item.productId);
+                    return {
+                        id: item.productId,
+                        name: item.name,
+                        quantity: item.quantity,
+                        price: item.price,
+                        costPrice: product?.costPrice || 0, 
+                        isOneTime: !product
+                    };
+                }));
 
                 if (currentSale.status === 'Paid') {
                     setPaymentMethod(currentSale.paymentMethod || 'cash');
@@ -131,9 +146,27 @@ export default function EditSalePage() {
             } else {
                  router.push('/sales');
             }
-        });
-    }
-  }, [saleId, router, products]);
+        }
+    });
+  }, [saleId, router]);
+
+
+  const displayProducts = useMemo(() => {
+    return products.map(product => {
+        const productPurchases = purchases
+            .filter(p => p.items.some(item => item.productId === product.id))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const lastPurchase = productPurchases[0];
+        const dealer = lastPurchase ? dealers.find(d => d.id === lastPurchase.dealer.id) : null;
+        
+        return {
+            ...product,
+            lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yy') : 'N/A',
+            lastPurchaseDealer: dealer ? dealer.company : 'N/A',
+        }
+    })
+  }, [products, purchases, dealers]);
 
 
   const handleProductSelect = (product: Product) => {
@@ -329,12 +362,25 @@ export default function EditSalePage() {
                       <CommandList>
                         <CommandEmpty>No products found.</CommandEmpty>
                         <CommandGroup>
-                          {products.map((product) => (
+                          {displayProducts.map((product) => (
                             <CommandItem
                               key={product.id}
                               onSelect={() => handleProductSelect(product)}
                             >
-                              {product.name} ({product.brand})
+                              <div className="flex w-full justify-between items-center">
+                                <div>
+                                    <p className="font-medium">{product.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {product.lastPurchaseDealer !== 'N/A' 
+                                            ? `From ${product.lastPurchaseDealer} on ${product.lastPurchaseDate}`
+                                            : 'No purchase history'
+                                        }
+                                    </p>
+                                </div>
+                                <span className="text-sm font-mono text-muted-foreground ml-4">
+                                    Rs. {product.costPrice.toLocaleString()}
+                                </span>
+                            </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -406,7 +452,7 @@ export default function EditSalePage() {
                             updateCartItem(item.id, 'price', parseFloat(e.target.value) || 0)
                           }
                           className="w-24"
-                          readOnly={!item.isOneTime && !products.find(p => p.id === item.id)}
+                          readOnly={!item.isOneTime}
                           min="0"
                         />
                       </TableCell>

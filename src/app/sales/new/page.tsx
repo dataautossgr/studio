@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon } from 'lucide-react';
-import { getProducts, getCustomers, type Product, type Customer } from '@/lib/data';
+import { getProducts, getCustomers, getDealers, getPurchases, type Product, type Customer, type Dealer, type Purchase } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -66,6 +66,9 @@ export default function NewSalePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [dealers, setDealers] = useState<Dealer[]>([]);
+
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -84,9 +87,35 @@ export default function NewSalePage() {
   const router = useRouter();
 
   useEffect(() => {
-    getProducts().then(setProducts);
-    getCustomers().then(setCustomers);
+    Promise.all([
+      getProducts(),
+      getCustomers(),
+      getPurchases(),
+      getDealers()
+    ]).then(([productsData, customersData, purchasesData, dealersData]) => {
+        setProducts(productsData);
+        setCustomers(customersData);
+        setPurchases(purchasesData);
+        setDealers(dealersData);
+    });
   }, []);
+
+  const displayProducts = useMemo(() => {
+    return products.map(product => {
+        const productPurchases = purchases
+            .filter(p => p.items.some(item => item.productId === product.id))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const lastPurchase = productPurchases[0];
+        const dealer = lastPurchase ? dealers.find(d => d.id === lastPurchase.dealer.id) : null;
+        
+        return {
+            ...product,
+            lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yy') : 'N/A',
+            lastPurchaseDealer: dealer ? dealer.company : 'N/A',
+        }
+    })
+  }, [products, purchases, dealers]);
 
   const handleProductSelect = (product: Product) => {
     const existingItem = cart.find((item) => item.id === product.id);
@@ -279,12 +308,25 @@ export default function NewSalePage() {
                       <CommandList>
                         <CommandEmpty>No products found.</CommandEmpty>
                         <CommandGroup>
-                          {products.map((product) => (
+                          {displayProducts.map((product) => (
                             <CommandItem
                               key={product.id}
                               onSelect={() => handleProductSelect(product)}
                             >
-                              {product.name} ({product.brand})
+                               <div className="flex w-full justify-between items-center">
+                                <div>
+                                    <p className="font-medium">{product.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {product.lastPurchaseDealer !== 'N/A' 
+                                            ? `From ${product.lastPurchaseDealer} on ${product.lastPurchaseDate}`
+                                            : 'No purchase history'
+                                        }
+                                    </p>
+                                </div>
+                                <span className="text-sm font-mono text-muted-foreground ml-4">
+                                    Rs. {product.costPrice.toLocaleString()}
+                                </span>
+                            </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>

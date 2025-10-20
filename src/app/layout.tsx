@@ -1,17 +1,10 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarInset,
-  SidebarProvider,
-} from '@/components/ui/sidebar';
-import { MainNav } from '@/components/main-nav';
-import { Header } from '@/components/header';
-import { AppLogo } from '@/components/icons';
+import { StoreSettingsProvider } from '@/context/store-settings-context';
+import { SidebarLayout } from '@/components/sidebar-layout';
 
 export const metadata: Metadata = {
   title: 'Data Autos POS System',
@@ -37,32 +30,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SidebarProvider>
-            <Sidebar>
-              <SidebarHeader>
-                <div className="flex items-center gap-2.5 p-2">
-                  <AppLogo />
-                  <div className="flex flex-col">
-                    <h2 className="text-lg font-bold tracking-tight text-sidebar-foreground">
-                      Data Autos
-                    </h2>
-                    <p className="text-xs text-sidebar-foreground/70">
-                      POS by hamxa tech 🐧 (03173890161)
-                    </p>
-                  </div>
-                </div>
-              </SidebarHeader>
-              <SidebarContent>
-                <MainNav />
-              </SidebarContent>
-            </Sidebar>
-            <SidebarInset>
-              <Header />
-              <main className="min-h-[calc(100vh-4rem)]">
-                {children}
-              </main>
-            </SidebarInset>
-          </SidebarProvider>
+          <StoreSettingsProvider>
+            <SidebarLayout>
+              {children}
+            </SidebarLayout>
+          </StoreSettingsProvider>
           <Toaster />
         </ThemeProvider>
       </body>

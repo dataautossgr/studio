@@ -14,8 +14,28 @@ import { Switch } from '@/components/ui/switch';
 import { Cloud, Download, Upload, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useStoreSettings } from '@/context/store-settings-context';
+import Image from 'next/image';
 
 export default function SettingsPage() {
+  const { settings, setSettings } = useStoreSettings();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setSettings(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSettings(prev => ({ ...prev, logo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       <div>
@@ -34,40 +54,56 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="flex items-start gap-6">
+                <div className="space-y-2">
+                    <Label>Store Logo</Label>
+                    <div className="relative w-24 h-24 rounded-md border flex items-center justify-center bg-muted">
+                        {settings.logo ? (
+                            <Image src={settings.logo} alt="Store Logo" layout="fill" className="object-contain rounded-md" />
+                        ) : (
+                            <span className="text-xs text-muted-foreground">No Logo</span>
+                        )}
+                    </div>
+                    <Input id="logo-upload" type="file" accept="image/*" className="text-xs" onChange={handleLogoChange}/>
+                </div>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 flex-1">
+                    <div className="space-y-2">
+                        <Label htmlFor="storeName">Store Name</Label>
+                        <Input id="storeName" value={settings.storeName} onChange={handleInputChange} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input id="email" type="email" value={settings.email} onChange={handleInputChange} />
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="storeName">Store Name</Label>
-                <Input id="storeName" defaultValue="Data Autos" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" defaultValue="admin@dataautos.com" />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="ownerName">Owner Name</Label>
-                <Input id="ownerName" defaultValue="Ameer Hamza" />
+                <Input id="ownerName" value={settings.ownerName} onChange={handleInputChange} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="coOwnerName">Co-Owner Name (Optional)</Label>
-                <Input id="coOwnerName" placeholder="Enter co-owner name" />
+                <Input id="coOwnerName" value={settings.coOwnerName} onChange={handleInputChange} placeholder="Enter co-owner name" />
               </div>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="address">Store Address</Label>
-                <Textarea id="address" placeholder="Enter your full store address" />
+                <Textarea id="address" value={settings.address} onChange={handleInputChange} placeholder="Enter your full store address" />
               </div>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="contact1">Contact Number 1</Label>
-                <Input id="contact1" defaultValue="0317-3890161" />
+                <Input id="contact1" value={settings.contact1} onChange={handleInputChange}/>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contact2">Contact Number 2</Label>
-                <Input id="contact2" placeholder="Optional" />
+                <Input id="contact2" value={settings.contact2} onChange={handleInputChange} placeholder="Optional" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contact3">Contact Number 3</Label>
-                <Input id="contact3" placeholder="Optional" />
+                <Input id="contact3" value={settings.contact3} onChange={handleInputChange} placeholder="Optional" />
               </div>
             </div>
              <div className="flex justify-end">

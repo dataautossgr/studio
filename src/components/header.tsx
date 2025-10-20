@@ -14,8 +14,12 @@ import { SidebarTrigger } from './ui/sidebar';
 import { ThemeToggle } from './theme-toggle';
 import { LogOut, Settings, User } from 'lucide-react';
 import Link from 'next/link';
+import { useStoreSettings } from '@/context/store-settings-context';
 
 export function Header() {
+  const { settings } = useStoreSettings();
+  const ownerInitials = settings.ownerName.split(' ').map(n => n[0]).join('').toUpperCase();
+
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
       <div className="flex items-center gap-2">
@@ -28,17 +32,17 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
               <Avatar className="h-9 w-9">
-                <AvatarImage src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="@user" />
-                <AvatarFallback>AH</AvatarFallback>
+                <AvatarImage src="/placeholder-user.jpg" alt={settings.ownerName} />
+                <AvatarFallback>{ownerInitials}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Ameer Hamza</p>
+                <p className="text-sm font-medium leading-none">{settings.ownerName}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  admin@hamxatech.com
+                  {settings.email}
                 </p>
               </div>
             </DropdownMenuLabel>

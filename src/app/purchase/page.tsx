@@ -74,8 +74,8 @@ export default function PurchasesPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Dealer</TableHead>
                 <TableHead>Invoice #</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-center">Status</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -89,11 +89,11 @@ export default function PurchasesPage() {
                   </TableCell>
                   <TableCell>{purchase.dealer.name}</TableCell>
                   <TableCell className="font-medium">{purchase.invoiceNumber}</TableCell>
-                  <TableCell>Rs. {purchase.total.toLocaleString()}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">Rs. {purchase.total.toLocaleString()}</TableCell>
+                  <TableCell className="text-center">
                     <Badge variant={getStatusVariant(purchase.status)}>{purchase.status}</Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button

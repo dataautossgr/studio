@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar as CalendarIcon, Trash2, Search } from 'lucide-react';
+import { Calendar as CalendarIcon, Trash2, Search, PlusCircle } from 'lucide-react';
 import { getProducts, getDealers, getPurchases, type Product, type Dealer, type Purchase } from '@/lib/data';
 import {
   Popover,
@@ -52,6 +52,7 @@ interface PurchaseItem {
   name: string;
   quantity: number;
   costPrice: number;
+  isNew?: boolean;
 }
 
 export default function PurchaseFormPage() {
@@ -82,13 +83,13 @@ export default function PurchaseFormPage() {
                     setInvoiceNumber(currentPurchase.invoiceNumber);
                     setPurchaseDate(new Date(currentPurchase.date));
                     setStatus(currentPurchase.status);
-                    setPurchaseItems(currentPurchase.items);
+                    setPurchaseItems(currentPurchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)})));
                 } else {
                     router.push('/purchase');
                 }
             });
         }
-    }, [purchaseId, isNew, router]);
+    }, [purchaseId, isNew, router, products]);
 
     const handleProductSelect = (product: Product) => {
         const existingItem = purchaseItems.find((item) => item.productId === product.id);
@@ -107,13 +108,28 @@ export default function PurchaseFormPage() {
               productId: product.id,
               name: product.name,
               quantity: 1,
-              costPrice: product.costPrice
+              costPrice: product.costPrice,
+              isNew: false,
             },
           ]);
         }
     };
+    
+    const addNewProduct = () => {
+        const newId = `new-${Date.now()}`;
+        setPurchaseItems([
+            ...purchaseItems,
+            {
+                productId: newId,
+                name: 'New Product',
+                quantity: 1,
+                costPrice: 0,
+                isNew: true,
+            }
+        ]);
+    };
 
-    const updatePurchaseItem = (productId: string, field: 'quantity' | 'costPrice', value: number) => {
+    const updatePurchaseItem = (productId: string, field: 'name' | 'quantity' | 'costPrice', value: string | number) => {
         setPurchaseItems(
             purchaseItems.map((item) => (item.productId === productId ? { ...item, [field]: value } : item))
         );
@@ -186,31 +202,36 @@ export default function PurchaseFormPage() {
 
             <div className="space-y-2">
                 <Label>Add Products</Label>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
-                            <Search className="mr-2 h-4 w-4" /> Search inventory to add products...
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command>
-                            <CommandInput placeholder="Search for product..." />
-                            <CommandList>
-                                <CommandEmpty>No products found.</CommandEmpty>
-                                <CommandGroup>
-                                {products.map((product) => (
-                                    <CommandItem
-                                    key={product.id}
-                                    onSelect={() => handleProductSelect(product)}
-                                    >
-                                    {product.name} ({product.brand})
-                                    </CommandItem>
-                                ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
+                <div className="flex gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                                <Search className="mr-2 h-4 w-4" /> Search inventory to add products...
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput placeholder="Search for product by name, brand, model..." />
+                                <CommandList>
+                                    <CommandEmpty>No products found.</CommandEmpty>
+                                    <CommandGroup>
+                                    {products.map((product) => (
+                                        <CommandItem
+                                        key={product.id}
+                                        onSelect={() => handleProductSelect(product)}
+                                        >
+                                        {product.name} ({product.brand})
+                                        </CommandItem>
+                                    ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                    <Button variant="secondary" onClick={addNewProduct}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> New Product
+                    </Button>
+                </div>
             </div>
 
             <div className="border rounded-md">
@@ -234,7 +255,17 @@ export default function PurchaseFormPage() {
                         ) : (
                             purchaseItems.map(item => (
                                 <TableRow key={item.productId}>
-                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell className="font-medium">
+                                        {item.isNew ? (
+                                            <Input
+                                                value={item.name}
+                                                onChange={(e) => updatePurchaseItem(item.productId, 'name', e.target.value)}
+                                                placeholder="Enter product name"
+                                            />
+                                        ) : (
+                                            item.name
+                                        )}
+                                    </TableCell>
                                     <TableCell>
                                         <Input 
                                             type="number" 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -221,13 +222,12 @@ export default function RepairJobFormPage() {
 
     const batch = writeBatch(firestore);
     
-    const jobPayload: Omit<RepairJob, 'id' | 'jobId'> = {
+    const jobPayload: Omit<RepairJob, 'id' | 'jobId' | 'closedAt'> & { closedAt?: string } = {
       customer: doc(firestore, 'customers', selectedCustomer.id),
       vehicleInfo,
       mechanic,
       status: status,
       createdAt: createdAt.toISOString(),
-      closedAt: status === 'Completed' || status === 'Cancelled' ? new Date().toISOString() : undefined,
       total: totalAmount,
       items: items.map(i => ({
           productId: i.id,
@@ -236,6 +236,11 @@ export default function RepairJobFormPage() {
           price: i.price,
       })),
     };
+    
+    if (status === 'Completed' || status === 'Cancelled') {
+        jobPayload.closedAt = new Date().toISOString();
+    }
+
 
     if (isNew) {
       const newJobRef = doc(collection(firestore, 'repair_jobs'));
@@ -530,3 +535,5 @@ export default function RepairJobFormPage() {
     </div>
   );
 }
+
+    

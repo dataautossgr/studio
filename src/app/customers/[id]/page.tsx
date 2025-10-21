@@ -41,8 +41,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { PaymentFormData } from './payment-dialog';
 import Link from 'next/link';
-import { useDoc, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, where, writeBatch, increment, deleteDoc, runTransaction } from 'firebase/firestore';
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where, runTransaction } from 'firebase/firestore';
 
 
 export interface Transaction {
@@ -74,8 +74,6 @@ export default function CustomerLedgerPage() {
 
     const salesQuery = useMemoFirebase(() => {
       if (!firestore || !customerId) return null;
-      // We need to query by customer ID string, not the reference, if sales store the ID.
-      // Assuming sales.customer is a DocumentReference.
       const custRef = doc(firestore, 'customers', customerId);
       return query(collection(firestore, 'sales'), where('customer', '==', custRef));
     }, [firestore, customerId]);
@@ -89,7 +87,7 @@ export default function CustomerLedgerPage() {
     const { data: customerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
 
     useEffect(() => {
-      if (customerSales && customerPayments) {
+      if (customerSales && customerPayments && customer) {
         const salesTransactions: Transaction[] = customerSales.map(s => ({
           id: s.id,
           date: s.date,
@@ -119,19 +117,21 @@ export default function CustomerLedgerPage() {
         const allTransactions = [...salesTransactions, ...paymentTransactions]
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
-        let runningBalance = 0;
+        let runningBalance = customer.balance;
+        
+        // To calculate historical balance correctly, we need the balance *before* the last transaction.
+        const totalCredits = paymentTransactions.reduce((sum, tx) => sum + tx.credit, 0);
+        const totalDebits = salesTransactions.reduce((sum, tx) => sum + tx.debit, 0);
+        let startingBalance = customer.balance - totalDebits + totalCredits;
+        
         const finalTransactions = allTransactions.map(tx => {
-          runningBalance += tx.debit - tx.credit;
-          return { ...tx, balance: runningBalance };
+          startingBalance += tx.debit - tx.credit;
+          return { ...tx, balance: startingBalance };
         });
-
-        // The final running balance should match the customer's balance.
-        // If not, it indicates a sync issue, but for UI, we rely on this calculation.
-        // We can also update the customer's balance here if we want to enforce consistency.
         
         setTransactions(finalTransactions.reverse());
       }
-    }, [customerSales, customerPayments]);
+    }, [customerSales, customerPayments, customer]);
 
 
     const handleSavePayment = async (paymentData: PaymentFormData) => {
@@ -148,9 +148,13 @@ export default function CustomerLedgerPage() {
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
                     // Editing an existing payment
                     const paymentRef = doc(firestore, 'payments', transactionToEdit.id);
-                    const oldAmount = transactionToEdit.credit;
+                    const oldPaymentDoc = await transaction.get(paymentRef);
+                    if (!oldPaymentDoc.exists()) {
+                        throw new Error("Payment to edit not found!");
+                    }
+                    const oldAmount = oldPaymentDoc.data().amount || 0;
                     const newAmount = paymentData.amount;
-                    const difference = oldAmount - newAmount; // e.g., Old 500, New 700. Diff = -200. Balance should decrease by 200.
+                    const difference = newAmount - oldAmount; // if new is > old, diff is positive. Balance should decrease.
 
                     transaction.update(paymentRef, {
                         amount: newAmount,
@@ -160,7 +164,7 @@ export default function CustomerLedgerPage() {
                         receiptImageUrl: paymentData.receiptImageUrl,
                     });
 
-                    transaction.update(customerRef, { balance: currentBalance + difference });
+                    transaction.update(customerRef, { balance: currentBalance - difference });
                      toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
 
                 } else {
@@ -210,17 +214,23 @@ export default function CustomerLedgerPage() {
                     throw new Error("Customer not found!");
                 }
                 const currentBalance = customerDoc.data().balance || 0;
+                let ref, amount;
 
                 if (transactionToDelete.type === 'Payment') {
-                    const paymentRef = doc(firestore, 'payments', transactionToDelete.id);
-                    transaction.delete(paymentRef);
-                    // Deleting a payment increases the customer's balance (they owe more)
-                    transaction.update(customerRef, { balance: currentBalance + transactionToDelete.credit });
+                    ref = doc(firestore, 'payments', transactionToDelete.id);
+                    amount = transactionToDelete.credit;
+                     // Deleting a payment increases the customer's balance (they owe more)
+                    transaction.update(customerRef, { balance: currentBalance + amount });
                 } else { // Sale
-                    const saleRef = doc(firestore, 'sales', transactionToDelete.id);
-                    transaction.delete(saleRef);
+                    ref = doc(firestore, 'sales', transactionToDelete.id);
+                    amount = transactionToDelete.debit;
                     // Deleting a sale decreases the customer's balance (they owe less)
-                    transaction.update(customerRef, { balance: currentBalance - transactionToDelete.debit });
+                    transaction.update(customerRef, { balance: currentBalance - amount });
+                }
+                
+                const docToDelete = await transaction.get(ref);
+                if(docToDelete.exists()) {
+                   transaction.delete(ref);
                 }
              });
              toast({ title: "Transaction Deleted", description: "The transaction has been removed and balance updated." });
@@ -312,7 +322,7 @@ export default function CustomerLedgerPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={() => handleEdit(tx)} disabled={tx.type === 'Sale'}>
+                                            <DropdownMenuItem onSelect={() => handleEdit(tx)}>
                                                 <Pencil className="mr-2 h-4 w-4" />
                                                 Edit
                                             </DropdownMenuItem>
@@ -355,5 +365,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
-    

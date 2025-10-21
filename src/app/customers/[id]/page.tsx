@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getCustomers, getSales, type Customer, type Sale } from '@/lib/data';
+import { type Customer, type Sale } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -41,6 +41,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { PaymentFormData } from './payment-dialog';
 import Link from 'next/link';
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
+
 
 export interface Transaction {
     id: string;
@@ -54,93 +57,81 @@ export interface Transaction {
 }
 
 export default function CustomerLedgerPage() {
-    const [customer, setCustomer] = useState<Customer | null>(null);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-    const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
-    const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
-
     const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
+    const firestore = useFirestore();
+
     const customerId = params.id as string;
 
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+    const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+    const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+    const customerRef = useMemoFirebase(() => customerId ? doc(firestore, 'customers', customerId) : null, [firestore, customerId]);
+    const { data: customer, isLoading: isCustomerLoading } = useDoc<Customer>(customerRef);
+
+    const salesQuery = useMemoFirebase(() => {
+      if (!customerRef) return null;
+      return query(collection(firestore, 'sales'), where('customer', '==', customerRef));
+    }, [firestore, customerRef]);
+    const { data: customerSales, isLoading: areSalesLoading } = useCollection<Sale>(salesQuery);
+
     useEffect(() => {
-        Promise.all([getCustomers(), getSales()]).then(([allCustomers, allSales]) => {
-            const currentCustomer = allCustomers.find(c => c.id === customerId);
-            setCustomer(currentCustomer || null);
+        if (customer && customerSales) {
+            const salesTransactions: Transaction[] = customerSales.map(s => ({
+                id: s.id,
+                date: s.date,
+                type: 'Sale',
+                reference: s.invoice,
+                debit: s.total,
+                credit: 0,
+                balance: 0 // Will be calculated later
+            }));
 
-            if (currentCustomer) {
-                const mockPayments = [
-                    { id: 'PAY001', date: '2024-07-22T18:00:00Z', amount: 1000, paymentMethod: 'Cash' as const, notes: 'Advance for next service' },
-                ];
-
-                const salesTransactions: Transaction[] = allSales
-                    .filter(s => s.customer.id === customerId)
-                    .map(s => ({
-                        id: s.id,
-                        date: s.date,
-                        type: 'Sale',
-                        reference: s.invoice,
-                        debit: s.total,
-                        credit: 0,
-                        balance: 0 // Will be calculated later
-                    }));
-
-                const paymentTransactions: Transaction[] = mockPayments.map((p, i) => ({
-                    id: p.id,
-                    date: p.date,
-                    type: 'Payment',
-                    reference: `RECV-00${i + 1}`,
-                    debit: 0,
-                    credit: p.amount,
-                    balance: 0, // Will be calculated later
-                    paymentDetails: {
-                      paymentDate: new Date(p.date),
-                      paymentMethod: p.paymentMethod,
-                      notes: p.notes,
-                    }
-                }));
-                
-                const allTransactions = [...salesTransactions, ...paymentTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                
-                let runningBalance = currentCustomer.balance; // Start with the total balance
-                // To calculate historical balance, we need to reverse the logic. Start from the oldest transaction.
-                const reversedTx = [...allTransactions].reverse();
-                const txsWithBalance = reversedTx.map(tx => {
-                    let balanceBeforeTx = runningBalance;
-                    if (tx.type === 'Sale') {
-                        balanceBeforeTx = runningBalance - tx.debit;
-                    } else { // Payment
-                        balanceBeforeTx = runningBalance + tx.credit;
-                    }
-                    runningBalance = balanceBeforeTx;
-                    return { ...tx, balance: balanceBeforeTx };
-                }).reverse();
-
-
-                // This is a simplified balance calculation for UI display.
-                let currentBalance = currentCustomer.balance;
-                const finalTransactions = allTransactions.map(tx => {
-                    const txWithBalance = {...tx, balance: currentBalance};
-                    if (tx.type === 'Sale') {
-                        currentBalance -= tx.debit;
-                    } else {
-                        currentBalance += tx.credit;
-                    }
-                    return txWithBalance;
-                });
-                
-                setTransactions(finalTransactions);
-            }
-        });
-    }, [customerId, toast]);
+            // MOCK PAYMENTS - This will be replaced with real data later
+            const mockPayments = [
+                { id: 'PAY001', date: '2024-07-22T18:00:00Z', amount: 1000, paymentMethod: 'Cash' as const, notes: 'Advance for next service' },
+            ];
+            
+            const paymentTransactions: Transaction[] = mockPayments.map((p, i) => ({
+                id: p.id,
+                date: p.date,
+                type: 'Payment',
+                reference: `RECV-00${i + 1}`,
+                debit: 0,
+                credit: p.amount,
+                balance: 0, // Will be calculated later
+                paymentDetails: {
+                  paymentDate: new Date(p.date),
+                  paymentMethod: p.paymentMethod,
+                  notes: p.notes,
+                }
+            }));
+            
+            const allTransactions = [...salesTransactions, ...paymentTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            let currentBalance = customer.balance;
+            const finalTransactions = allTransactions.map(tx => {
+                const txWithBalance = {...tx, balance: currentBalance};
+                if (tx.type === 'Sale') {
+                    currentBalance -= tx.debit;
+                } else {
+                    currentBalance += tx.credit;
+                }
+                return txWithBalance;
+            });
+            
+            setTransactions(finalTransactions);
+        }
+    }, [customer, customerSales]);
 
     const handleSavePayment = (paymentData: PaymentFormData) => {
         if (!customer) return;
 
         if (transactionToEdit && transactionToEdit.type === 'Payment') {
-            // Edit existing payment
+            // Edit existing payment - MOCK
             const updatedTransactions = transactions.map(tx => 
                 tx.id === transactionToEdit.id 
                 ? { ...tx, credit: paymentData.amount, date: paymentData.paymentDate.toISOString(), paymentDetails: paymentData } 
@@ -149,7 +140,7 @@ export default function CustomerLedgerPage() {
             setTransactions(updatedTransactions);
             toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
         } else {
-            // Add new payment
+            // Add new payment - MOCK
             const newPayment: Transaction = {
                 id: `PAY-${Date.now()}`,
                 date: paymentData.paymentDate.toISOString(),
@@ -161,7 +152,7 @@ export default function CustomerLedgerPage() {
                 paymentDetails: paymentData
             };
             setTransactions([newPayment, ...transactions]);
-            setCustomer({...customer, balance: customer.balance - paymentData.amount });
+            // In a real scenario, you would update customer balance in Firestore
             toast({ title: "Payment Added", description: "The payment has been recorded." });
         }
 
@@ -180,7 +171,7 @@ export default function CustomerLedgerPage() {
 
     const handleDelete = () => {
         if (!transactionToDelete) return;
-
+        // This is a mock delete, will need firestore logic
         setTransactions(transactions.filter(tx => tx.id !== transactionToDelete.id));
         toast({ title: "Transaction Deleted", description: "The transaction has been removed." });
         setTransactionToDelete(null);
@@ -191,9 +182,14 @@ export default function CustomerLedgerPage() {
         return 'default';
     }
 
-    if (!customer) {
+    if (isCustomerLoading || areSalesLoading) {
         return <div className="p-8">Loading customer information...</div>;
     }
+    
+    if (!customer) {
+        return <div className="p-8">Customer not found.</div>;
+    }
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">

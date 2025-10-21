@@ -72,9 +72,9 @@ export default function DashboardPage() {
     
     const todaysProfit = todaysSales.reduce((acc, sale) => {
         const saleCost = sale.items.reduce((itemSum, item) => {
-            const product = products.find(p => p.id === item.productId);
+            const productDoc = products.find(p => p.id === item.productId);
             // Assume cost is 0 if product not found for profit calculation
-            return itemSum + ((product?.costPrice || 0) * item.quantity);
+            return itemSum + ((productDoc?.costPrice || 0) * item.quantity);
         }, 0);
 
         if (sale.status === 'Paid') {

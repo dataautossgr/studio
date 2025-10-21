@@ -38,12 +38,11 @@ import {
 import {
   collection,
   doc,
-  serverTimestamp,
   writeBatch,
   getDoc,
   DocumentReference,
 } from 'firebase/firestore';
-import type { Customer, Product, RepairJob, RepairJobItem } from '@/lib/data';
+import type { Customer, Product, RepairJob, Sale } from '@/lib/data';
 import { CustomerDialog } from '@/app/customers/customer-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -234,7 +233,8 @@ export default function RepairJobFormPage() {
       toast({ title: 'Temporary Bill Created', description: `Bill ${newJobId} has been created.` });
       router.push(`/repair-jobs/${newJobRef.id}`);
     } else {
-      batch.update(jobRef!, jobPayload);
+      if (!jobRef) return;
+      batch.update(jobRef, jobPayload);
       toast({ title: 'Temporary Bill Updated', description: `Bill ${jobData?.jobId} has been updated.` });
     }
 
@@ -243,6 +243,64 @@ export default function RepairJobFormPage() {
     } catch (error) {
         console.error("Error saving job:", error);
         toast({ variant: "destructive", title: "Error", description: "Could not save the bill." });
+    }
+  };
+
+  const handleFinalizeAndBill = async () => {
+    if (!firestore || !selectedCustomer || items.length === 0 || !jobRef) {
+        toast({
+            variant: "destructive",
+            title: "Cannot Finalize",
+            description: "A customer must be selected and the bill cannot be empty."
+        });
+        return;
+    }
+
+    const batch = writeBatch(firestore);
+
+    // 1. Create a new Sale document
+    const newSaleRef = doc(collection(firestore, 'sales'));
+    const newSale: Omit<Sale, 'id'> = {
+        invoice: `INV-${Date.now()}`,
+        customer: doc(firestore, 'customers', selectedCustomer.id),
+        date: new Date().toISOString(),
+        total: totalAmount,
+        status: 'Unpaid', // Default to Unpaid, can be changed in the sales screen
+        items: items.map(i => ({
+            productId: i.id,
+            name: i.name,
+            quantity: i.quantity,
+            price: i.price,
+        })),
+    };
+    batch.set(newSaleRef, newSale);
+
+    // 2. Update customer balance
+    batch.update(doc(firestore, 'customers', selectedCustomer.id), {
+        balance: (selectedCustomer.balance || 0) + totalAmount
+    });
+
+    // 3. Update product stock for non-one-time items
+    items.forEach(item => {
+        if (!item.isOneTime) {
+            const productRef = doc(firestore, 'products', item.id);
+            batch.update(productRef, { stock: item.stock - item.quantity });
+        }
+    });
+
+    // 4. Update the repair job status to 'Completed'
+    batch.update(jobRef, { status: 'Completed', closedAt: new Date().toISOString() });
+
+    try {
+        await batch.commit();
+        toast({
+            title: "Bill Finalized!",
+            description: `Temporary bill ${jobData?.jobId} has been converted to Sale ${newSale.invoice}.`
+        });
+        router.push(`/sales/${newSaleRef.id}`);
+    } catch (error) {
+        console.error("Error finalizing bill:", error);
+        toast({ variant: "destructive", title: "Finalization Failed", description: "Could not finalize the bill." });
     }
   };
   
@@ -439,7 +497,7 @@ export default function RepairJobFormPage() {
                     <Save className="mr-2 h-4 w-4" />
                     {isNew ? 'Create Bill' : 'Save Changes'}
                 </Button>
-                <Button disabled>Finalize & Bill</Button>
+                <Button onClick={handleFinalizeAndBill} disabled={isNew || isLoading}>Finalize & Bill</Button>
             </div>
         </CardFooter>
       </Card>

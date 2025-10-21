@@ -324,6 +324,23 @@
         "key",
         "value"
       ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment received from a customer.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID for the payment." },
+        "customer": { "type": "string", "description": "Reference to the Customer document." },
+        "amount": { "type": "number", "description": "Amount paid." },
+        "date": { "type": "string", "format": "date-time", "description": "Timestamp of the payment." },
+        "paymentMethod": { "type": "string", "enum": ["Cash", "Bank Transfer", "Cheque"] },
+        "notes": { "type": "string", "description": "Optional notes for the payment." },
+        "receiptImageUrl": { "type": "string", "description": "URL for an optional receipt image." },
+        "reference": { "type": "string", "description": "A reference number for the payment." }
+      },
+      "required": ["id", "customer", "amount", "date", "paymentMethod"]
     }
   },
   "auth": {
@@ -477,8 +494,25 @@
             }
           ]
         }
+      },
+      {
+        "path": "/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores customer payment information.",
+          "params": [
+            {
+              "name": "paymentId",
+              "description": "Unique identifier for the payment."
+            }
+          ]
+        }
       }
     ],
     "reasoning": "Given the hybrid nature of the application (offline-first with Firebase sync), and the zero-security development mode, the data structure is designed to mirror the SQLite database schema as closely as possible, facilitating straightforward synchronization. Since authentication is disabled in the development phase, all data is essentially public. However, I'll still adhere to the principle of path-based ownership and segregation in case security rules are added later. For example, creating path based collections for each Entity i.e Products, Sales, Dealers, Purchases, Customers, CashSession, BankTransaction and Settings. Since the requirements ask for offline access and zero security, the decision is to forego denormalization until the app is closer to release."
   }
 }
+    

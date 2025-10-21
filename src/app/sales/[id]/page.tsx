@@ -60,7 +60,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useFirestore, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch, getDoc } from 'firebase/firestore';
 
 
 interface CartItem {
@@ -95,6 +95,7 @@ export default function SaleFormPage() {
 
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [isWalkInUnpaidDialogOpen, setIsWalkInUnpaidDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const params = useParams();
@@ -103,7 +104,6 @@ export default function SaleFormPage() {
 
   const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
   const customersCollection = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
-  const salesCollection = useMemoFirebase(() => collection(firestore, 'sales'), [firestore]);
   
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
@@ -112,10 +112,9 @@ export default function SaleFormPage() {
   const isNew = saleId === 'new';
 
  useEffect(() => {
-    if (customersLoading || productsLoading || isNew) return;
+    if (customersLoading || productsLoading || !firestore || isNew) return;
 
     const fetchSale = async () => {
-        const { getDoc } = await import('firebase/firestore');
         const saleRef = doc(firestore, 'sales', saleId);
         const saleSnap = await getDoc(saleRef);
 
@@ -124,7 +123,7 @@ export default function SaleFormPage() {
             setSale(currentSale);
 
             const customerRef = currentSale.customer as any;
-            if (customerRef) {
+            if (customerRef && customerRef.id) {
                 const customerSnap = await getDoc(customerRef);
                 if (customerSnap.exists()) {
                     const customerData = { id: customerSnap.id, ...customerSnap.data() } as Customer;
@@ -142,19 +141,21 @@ export default function SaleFormPage() {
             const subtotal = currentSale.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
             setDiscount(subtotal - currentSale.total);
 
-            const cartItems = await Promise.all(currentSale.items.map(async (item) => {
-                const product = products?.find(p => p.id === item.productId);
-                return {
-                    id: item.productId,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price,
-                    costPrice: product?.costPrice || 0,
-                    stock: product?.stock || 0,
-                    isOneTime: !product
-                };
-            }));
-            setCart(cartItems);
+            if (products) {
+              const cartItems = await Promise.all(currentSale.items.map(async (item) => {
+                  const product = products.find(p => p.id === item.productId);
+                  return {
+                      id: item.productId,
+                      name: item.name,
+                      quantity: item.quantity,
+                      price: item.price,
+                      costPrice: product?.costPrice || 0,
+                      stock: product?.stock || 0,
+                      isOneTime: !product
+                  };
+              }));
+              setCart(cartItems);
+            }
 
             if (currentSale.status === 'Paid') {
                 setPaymentMethod(currentSale.paymentMethod || 'cash');
@@ -176,7 +177,7 @@ export default function SaleFormPage() {
     };
 
     fetchSale();
-  }, [saleId, isNew, router, firestore, customers, products, customersLoading, productsLoading]);
+  }, [saleId, isNew, router, firestore, products, customersLoading, productsLoading]);
 
 
   const handleProductSelect = (product: Product) => {
@@ -249,14 +250,14 @@ export default function SaleFormPage() {
   };
 
   const handleSaveAndPrint = () => {
-    handleSaveSale(true);
+    preSaveValidation(true);
   };
   
   const handleSaveOnly = () => {
-    handleSaveSale(false);
+    preSaveValidation(false);
   };
 
-  const handleSaveSale = async (print = false) => {
+  const preSaveValidation = (print: boolean) => {
     if (!saleDate) {
         toast({ variant: "destructive", title: "Validation Error", description: "Please select a sale date." });
         return;
@@ -274,9 +275,23 @@ export default function SaleFormPage() {
         return;
     }
 
+    // New logic for walk-in unpaid
+    if (customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial')) {
+        setIsWalkInUnpaidDialogOpen(true);
+    } else {
+        handleSaveSale(print);
+    }
+  };
+
+
+  const handleSaveSale = async (print = false) => {
+    if (!firestore || !saleDate) return;
+
     const finalSaleDate = new Date(saleDate);
     const [hours, minutes] = saleTime.split(':').map(Number);
     finalSaleDate.setHours(hours, minutes);
+
+    const dueAmount = finalAmount - (status === 'Partial' ? partialAmount : 0);
 
     const saleData = {
         date: finalSaleDate.toISOString(),
@@ -297,40 +312,40 @@ export default function SaleFormPage() {
     const batch = writeBatch(firestore);
 
     let customerRef;
+
     if (customerType === 'registered' && selectedCustomer) {
         customerRef = doc(firestore, 'customers', selectedCustomer.id);
-        let balanceChange = 0;
-        if(status === 'Unpaid') {
-            balanceChange = finalAmount;
-        } else if (status === 'Partial') {
-            balanceChange = finalAmount - partialAmount;
-        }
-
-        if (balanceChange > 0) {
+        if (status !== 'Paid') {
+            const balanceChange = isNew ? dueAmount : dueAmount - ((sale?.total || 0) - (sale?.partialAmountPaid || 0));
             batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + balanceChange });
         }
     } else {
+        // This case handles walk-in customers (paid or converting to registered)
+        const isConvertingToRegistered = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
         customerRef = doc(collection(firestore, 'customers'));
         batch.set(customerRef, {
             name: customerName,
-            type: 'walk-in',
-            balance: 0,
+            phone: '',
+            vehicleDetails: '',
+            type: isConvertingToRegistered ? 'registered' : 'walk-in',
+            balance: isConvertingToRegistered ? dueAmount : 0,
         });
     }
 
     cart.forEach(item => {
-        if (!item.isOneTime) {
+        if (!item.isOneTime && item.stock !== undefined) {
             const productRef = doc(firestore, 'products', item.id);
             const newStock = item.stock - item.quantity;
             batch.update(productRef, { stock: newStock });
         }
     });
     
-    const finalSaleData = { ...saleData, customer: customerRef };
+    const finalSaleData: any = { ...saleData, customer: customerRef };
     
     if (isNew) {
         const newSaleRef = doc(collection(firestore, 'sales'));
-        batch.set(newSaleRef, {...finalSaleData, invoice: `INV-${Date.now()}`});
+        finalSaleData.invoice = `INV-${Date.now()}`;
+        batch.set(newSaleRef, finalSaleData);
     } else {
         const saleRef = doc(firestore, 'sales', saleId);
         batch.update(saleRef, finalSaleData);
@@ -364,7 +379,7 @@ export default function SaleFormPage() {
   const finalAmount = subtotal - discount;
   const changeToReturn = paymentMethod === 'cash' && cashReceived > finalAmount ? cashReceived - finalAmount : 0;
   
-  const pageTitle = isNew ? 'Create New Sale' : `Edit Sale - ${sale?.invoice}`;
+  const pageTitle = isNew ? 'Create New Sale' : `Edit Sale - ${sale?.invoice || ''}`;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -425,7 +440,11 @@ export default function SaleFormPage() {
                                             {customers?.filter(c => c.type === 'registered').map((customer) => (
                                                 <CommandItem
                                                     key={customer.id}
-                                                    onSelect={() => setSelectedCustomer(customer)}
+                                                    onSelect={() => {
+                                                        setSelectedCustomer(customer)
+                                                        const popoverTrigger = document.querySelector('[aria-controls="radix-14"]');
+                                                        if (popoverTrigger instanceof HTMLElement) popoverTrigger.click();
+                                                    }}
                                                 >
                                                     {customer.name} ({customer.phone})
                                                 </CommandItem>
@@ -739,11 +758,32 @@ export default function SaleFormPage() {
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-            <AlertDialogAction onClick={handleSaveAndPrint}>Save & Print</AlertDialogAction>
-            <AlertDialogCancel onClick={handleSaveOnly}>Save Only</AlertDialogCancel>
+            <AlertDialogAction onClick={() => preSaveValidation(true)}>Save & Print</AlertDialogAction>
+            <AlertDialogCancel onClick={() => preSaveValidation(false)}>Save Only</AlertDialogCancel>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+     <AlertDialog open={isWalkInUnpaidDialogOpen} onOpenChange={setIsWalkInUnpaidDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Unpaid Sale for Walk-in Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+                This sale is marked as unpaid. Do you want to register '{customerName}' as a new customer to track their balance?
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => {
+                    setIsWalkInUnpaidDialogOpen(false);
+                    handleSaveSale(false); // isPrint is false, can be connected to print dialog later
+                }}>
+                    Yes, Register Customer
+                </AlertDialogAction>
+                <AlertDialogCancel>No, Cancel Sale</AlertDialogCancel>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
     </div>
   );
 }
+
+    

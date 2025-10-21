@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Search } from 'lucide-react';
-import { getProducts, getCustomers, getSales, getPurchases, getDealers, type Product, type Customer, type Sale, type Purchase, type Dealer } from '@/lib/data';
+import { type Product, type Customer, type Sale } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -59,6 +59,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useFirestore, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 
 interface CartItem {
@@ -67,6 +69,7 @@ interface CartItem {
   quantity: number;
   price: number;
   costPrice: number;
+  stock: number;
   isOneTime: boolean;
 }
 
@@ -76,10 +79,6 @@ const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay
 export default function SaleFormPage() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [dealers, setDealers] = useState<Dealer[]>([]);
   
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -100,86 +99,84 @@ export default function SaleFormPage() {
 
   const params = useParams();
   const router = useRouter();
+  const firestore = useFirestore();
+
+  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
+  const customersCollection = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
+  const salesCollection = useMemoFirebase(() => collection(firestore, 'sales'), [firestore]);
+  
+  const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
+  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
+
   const saleId = params.id as string;
   const isNew = saleId === 'new';
 
-  useEffect(() => {
-    Promise.all([
-        getProducts(),
-        getCustomers(),
-        getSales(),
-        getPurchases(),
-        getDealers()
-    ]).then(([productsData, customersData, allSales, purchasesData, dealersData]) => {
-        setProducts(productsData);
-        setCustomers(customersData);
-        setPurchases(purchasesData);
-        setDealers(dealersData);
+ useEffect(() => {
+    if (customersLoading || productsLoading || isNew) return;
 
-        if (!isNew) {
-            const currentSale = allSales.find(s => s.id === saleId);
-            if (currentSale) {
-                setSale(currentSale);
-                setCustomerType(currentSale.customer.type);
-                if (currentSale.customer.type === 'registered') {
-                    setSelectedCustomer(currentSale.customer);
-                } else {
-                    setCustomerName(currentSale.customer.name);
+    const fetchSale = async () => {
+        const { getDoc } = await import('firebase/firestore');
+        const saleRef = doc(firestore, 'sales', saleId);
+        const saleSnap = await getDoc(saleRef);
+
+        if (saleSnap.exists()) {
+            const currentSale = saleSnap.data() as Sale;
+            setSale(currentSale);
+
+            const customerRef = currentSale.customer as any;
+            if (customerRef) {
+                const customerSnap = await getDoc(customerRef);
+                if (customerSnap.exists()) {
+                    const customerData = { id: customerSnap.id, ...customerSnap.data() } as Customer;
+                     setCustomerType(customerData.type);
+                    if (customerData.type === 'registered') {
+                        setSelectedCustomer(customerData);
+                    } else {
+                        setCustomerName(customerData.name);
+                    }
                 }
-                setStatus(currentSale.status);
-                const subtotal = currentSale.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-                setDiscount(subtotal - currentSale.total);
-
-                setCart(currentSale.items.map(item => {
-                    const product = productsData.find(p => p.id === item.productId);
-                    return {
-                        id: item.productId,
-                        name: item.name,
-                        quantity: item.quantity,
-                        price: item.price,
-                        costPrice: product?.costPrice || 0, 
-                        isOneTime: !product
-                    };
-                }));
-
-                if (currentSale.status === 'Paid') {
-                    setPaymentMethod(currentSale.paymentMethod || 'cash');
-                    setOnlinePaymentSource(currentSale.onlinePaymentSource || '');
-                } else {
-                    setPaymentMethod(null);
-                }
-                if (currentSale.status === 'Partial') {
-                    setPartialAmount(currentSale.partialAmountPaid || 0);
-                }
-                
-                const transactionDate = new Date(currentSale.date);
-                setSaleDate(transactionDate);
-                setSaleTime(format(transactionDate, 'HH:mm'));
-
-            } else {
-                 router.push('/sales');
             }
-        }
-    });
-  }, [saleId, router, isNew]);
 
 
-  const displayProducts = useMemo(() => {
-    return products.map(product => {
-        const productPurchases = purchases
-            .filter(p => p.items.some(item => item.productId === product.id))
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        const lastPurchase = productPurchases[0];
-        const dealer = lastPurchase ? dealers.find(d => d.id === lastPurchase.dealer.id) : null;
-        
-        return {
-            ...product,
-            lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yy') : 'N/A',
-            lastPurchaseDealer: dealer ? dealer.company : 'N/A',
+            setStatus(currentSale.status);
+            const subtotal = currentSale.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+            setDiscount(subtotal - currentSale.total);
+
+            const cartItems = await Promise.all(currentSale.items.map(async (item) => {
+                const product = products?.find(p => p.id === item.productId);
+                return {
+                    id: item.productId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    costPrice: product?.costPrice || 0,
+                    stock: product?.stock || 0,
+                    isOneTime: !product
+                };
+            }));
+            setCart(cartItems);
+
+            if (currentSale.status === 'Paid') {
+                setPaymentMethod(currentSale.paymentMethod || 'cash');
+                setOnlinePaymentSource(currentSale.onlinePaymentSource || '');
+            } else {
+                setPaymentMethod(null);
+            }
+            if (currentSale.status === 'Partial') {
+                setPartialAmount(currentSale.partialAmountPaid || 0);
+            }
+            
+            const transactionDate = new Date(currentSale.date);
+            setSaleDate(transactionDate);
+            setSaleTime(format(transactionDate, 'HH:mm'));
+
+        } else {
+             router.push('/sales');
         }
-    })
-  }, [products, purchases, dealers]);
+    };
+
+    fetchSale();
+  }, [saleId, isNew, router, firestore, customers, products, customersLoading, productsLoading]);
 
 
   const handleProductSelect = (product: Product) => {
@@ -201,6 +198,7 @@ export default function SaleFormPage() {
           quantity: 1,
           price: product.salePrice,
           costPrice: product.costPrice,
+          stock: product.stock,
           isOneTime: false,
         },
       ]);
@@ -217,6 +215,7 @@ export default function SaleFormPage() {
         quantity: 1,
         price: 0,
         costPrice: 0,
+        stock: 0,
         isOneTime: true,
       },
     ]);
@@ -233,17 +232,20 @@ export default function SaleFormPage() {
   };
 
   const handleSaveNewCustomer = (customerData: Omit<Customer, 'id' | 'balance' | 'type'>) => {
-    const newCustomer: Customer = { 
+    const newCustomerWithDefaults = { 
       ...customerData, 
-      id: `CUST${Date.now()}`, 
       balance: 0,
-      type: 'registered'
+      type: 'registered' as const
     };
-    const updatedCustomers = [...customers, newCustomer];
-    setCustomers(updatedCustomers);
-    setSelectedCustomer(newCustomer);
-    toast({ title: "Success", description: "New customer has been registered." });
-    setIsCustomerDialogOpen(false);
+    addDocumentNonBlocking(collection(firestore, 'customers'), newCustomerWithDefaults)
+        .then(docRef => {
+            if(docRef) {
+                const newCustomer = { ...newCustomerWithDefaults, id: docRef.id };
+                setSelectedCustomer(newCustomer);
+                toast({ title: "Success", description: "New customer has been registered." });
+                setIsCustomerDialogOpen(false);
+            }
+        });
   };
 
   const handleSaveAndPrint = () => {
@@ -254,27 +256,113 @@ export default function SaleFormPage() {
     handleSaveSale(false);
   };
 
-  const handleSaveSale = (print = false) => {
-    // This is where you would normally save the data to a backend.
-    // For now, we'll just show a toast.
-    toast({
-      title: "Sale Saved",
-      description: `Invoice for ${customerType === 'walk-in' ? customerName : selectedCustomer?.name} has been saved.`,
-    });
-
-    if (print) {
-      // In a real app, you'd generate a proper invoice here before printing.
-      setTimeout(() => window.print(), 500); 
+  const handleSaveSale = async (print = false) => {
+    if (!saleDate) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Please select a sale date." });
+        return;
     }
+    if (cart.length === 0) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Cart cannot be empty." });
+        return;
+    }
+     if (customerType === 'registered' && !selectedCustomer) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Please select a registered customer." });
+        return;
+    }
+    if (customerType === 'walk-in' && !customerName) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Please enter a name for the walk-in customer." });
+        return;
+    }
+
+    const finalSaleDate = new Date(saleDate);
+    const [hours, minutes] = saleTime.split(':').map(Number);
+    finalSaleDate.setHours(hours, minutes);
+
+    const saleData = {
+        date: finalSaleDate.toISOString(),
+        total: finalAmount,
+        status: status,
+        discount,
+        items: cart.map(item => ({
+            productId: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+        })),
+        paymentMethod: status === 'Paid' ? paymentMethod : null,
+        onlinePaymentSource: status === 'Paid' && paymentMethod === 'online' ? onlinePaymentSource : '',
+        partialAmountPaid: status === 'Partial' ? partialAmount : 0,
+    };
     
-    setIsPrintDialogOpen(false);
-    // After saving, you might want to redirect the user
-    // router.push('/sales');
+    const batch = writeBatch(firestore);
+
+    let customerRef;
+    if (customerType === 'registered' && selectedCustomer) {
+        customerRef = doc(firestore, 'customers', selectedCustomer.id);
+        let balanceChange = 0;
+        if(status === 'Unpaid') {
+            balanceChange = finalAmount;
+        } else if (status === 'Partial') {
+            balanceChange = finalAmount - partialAmount;
+        }
+
+        if (balanceChange > 0) {
+            batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + balanceChange });
+        }
+    } else {
+        customerRef = doc(collection(firestore, 'customers'));
+        batch.set(customerRef, {
+            name: customerName,
+            type: 'walk-in',
+            balance: 0,
+        });
+    }
+
+    cart.forEach(item => {
+        if (!item.isOneTime) {
+            const productRef = doc(firestore, 'products', item.id);
+            const newStock = item.stock - item.quantity;
+            batch.update(productRef, { stock: newStock });
+        }
+    });
+    
+    const finalSaleData = { ...saleData, customer: customerRef };
+    
+    if (isNew) {
+        const newSaleRef = doc(collection(firestore, 'sales'));
+        batch.set(newSaleRef, {...finalSaleData, invoice: `INV-${Date.now()}`});
+    } else {
+        const saleRef = doc(firestore, 'sales', saleId);
+        batch.update(saleRef, finalSaleData);
+    }
+
+    try {
+        await batch.commit();
+        toast({
+          title: "Sale Saved",
+          description: `Invoice has been saved successfully.`,
+        });
+
+        if (print) {
+          // In a real app, you'd generate a proper invoice here before printing.
+          setTimeout(() => window.print(), 500); 
+        }
+        
+        setIsPrintDialogOpen(false);
+        router.push('/sales');
+    } catch (error) {
+        console.error("Error saving sale:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to save sale. Please try again.",
+        });
+    }
   };
   
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const finalAmount = subtotal - discount;
-  const changeToReturn = cashReceived > finalAmount ? cashReceived - finalAmount : 0;
+  const changeToReturn = paymentMethod === 'cash' && cashReceived > finalAmount ? cashReceived - finalAmount : 0;
   
   const pageTitle = isNew ? 'Create New Sale' : `Edit Sale - ${sale?.invoice}`;
 
@@ -334,7 +422,7 @@ export default function SaleFormPage() {
                                     <CommandList>
                                         <CommandEmpty>No customers found.</CommandEmpty>
                                         <CommandGroup>
-                                            {customers.filter(c => c.type === 'registered').map((customer) => (
+                                            {customers?.filter(c => c.type === 'registered').map((customer) => (
                                                 <CommandItem
                                                     key={customer.id}
                                                     onSelect={() => setSelectedCustomer(customer)}
@@ -404,7 +492,7 @@ export default function SaleFormPage() {
                       <CommandList>
                         <CommandEmpty>No products found.</CommandEmpty>
                         <CommandGroup>
-                          {displayProducts.map((product) => (
+                          {products?.map((product) => (
                             <CommandItem
                               key={product.id}
                               onSelect={() => handleProductSelect(product)}
@@ -645,7 +733,7 @@ export default function SaleFormPage() {
       <AlertDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
-            <AlertDialogTitle>Print Invoice</AlertDialogTitle>
+            <AlertDialogTitle>Save Sale</AlertDialogTitle>
             <AlertDialogDescription>
                 Do you want to print an invoice for this sale?
             </AlertDialogDescription>

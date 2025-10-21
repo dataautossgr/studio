@@ -1,6 +1,5 @@
 'use client';
-import { getSales } from '@/lib/data';
-import type { Sale } from '@/lib/data';
+import { type Sale } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -29,7 +28,7 @@ import {
   } from '@/components/ui/dropdown-menu';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,10 +43,24 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
+
+interface EnrichedSale extends Omit<Sale, 'customer'> {
+    customer: {
+        id: string;
+        name: string;
+    }
+}
 
 export default function SalesPage() {
-  const [allSales, setAllSales] = useState<Sale[]>([]);
-  const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
+  const firestore = useFirestore();
+  const salesCollection = useMemoFirebase(() => collection(firestore, 'sales'), [firestore]);
+  const { data: allSales, isLoading, error } = useCollection<Sale>(salesCollection);
+  
+  const [enrichedSales, setEnrichedSales] = useState<EnrichedSale[]>([]);
+  const [filteredSales, setFilteredSales] = useState<EnrichedSale[]>([]);
+  
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date())
@@ -55,52 +68,57 @@ export default function SalesPage() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (!allSales) return;
+
+    const enrichSalesData = async () => {
+        const enriched = await Promise.all(allSales.map(async (sale) => {
+            let customerName = 'Walk-in Customer';
+            let customerId = 'walk-in';
+
+            if (sale.customer && typeof sale.customer === 'object' && 'id' in sale.customer) {
+                const customerRef = sale.customer as DocumentReference;
+                try {
+                    const customerSnap = await getDoc(customerRef);
+                    if (customerSnap.exists()) {
+                        customerName = customerSnap.data().name;
+                        customerId = customerSnap.id;
+                    }
+                } catch(e) {
+                    console.error("Error fetching customer", e);
+                }
+            }
+            return {
+                ...sale,
+                customer: { id: customerId, name: customerName }
+            };
+        }));
+        setEnrichedSales(enriched);
+    };
+
+    enrichSalesData();
+}, [allSales]);
+
 
   useEffect(() => {
-    getSales().then(setAllSales);
-  }, []);
-
-  useEffect(() => {
+    let salesToFilter = enrichedSales;
     if (dateRange?.from) {
         const from = startOfDay(dateRange.from);
         const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-        const filtered = allSales.filter(sale => {
+        const filtered = salesToFilter.filter(sale => {
             const saleDate = new Date(sale.date);
             return saleDate >= from && saleDate <= to;
         });
         setFilteredSales(filtered);
     } else {
-        setFilteredSales(allSales); // Show all if no date is selected
+        setFilteredSales(salesToFilter); // Show all if no date is selected
     }
-  }, [dateRange, allSales]);
+  }, [dateRange, enrichedSales]);
 
   const handleReset = () => {
-    getSales().then(initialSales => {
-        if (resetDateRange?.from) {
-            const from = startOfDay(resetDateRange.from);
-            const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
-
-            const salesToKeep = allSales.filter(sale => {
-                const saleDate = new Date(sale.date);
-                return saleDate < from || saleDate > to;
-            });
-            
-            const originalSalesInRange = initialSales.filter(sale => {
-                const saleDate = new Date(sale.date);
-                return saleDate >= from && saleDate <= to;
-            });
-
-            const newSales = [...salesToKeep, ...originalSalesInRange].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            
-            setAllSales(newSales);
-            toast({ title: "Sales Reset", description: `Sales from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
-
-        } else {
-            setAllSales(initialSales);
-            toast({ title: "All Sales Reset", description: "The sales history has been reset to its initial state." });
-        }
-    });
-    setResetDateRange(undefined);
+    // This function needs to be adapted for Firestore
+    toast({ title: "Resetting...", description: "This feature is being updated for Firestore." });
     setIsResetting(false);
   };
 
@@ -205,6 +223,11 @@ export default function SalesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && (
+                <TableRow>
+                    <TableCell colSpan={6} className="text-center">Loading sales...</TableCell>
+                </TableRow>
+              )}
               {filteredSales.map((sale) => (
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium">{sale.invoice}</TableCell>

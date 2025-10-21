@@ -104,11 +104,18 @@ export default function RepairJobFormPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [vehicleInfo, setVehicleInfo] = useState('');
   const [mechanic, setMechanic] = useState('');
-  const [createdAt, setCreatedAt] = useState<Date>(new Date());
+  const [createdAt, setCreatedAt] = useState<Date | null>(null);
   const [items, setItems] = useState<BillItem[]>([]);
   const [status, setStatus] = useState<RepairJob['status']>('In Progress');
 
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+
+  // Effect to set initial date on client to avoid hydration mismatch
+  useEffect(() => {
+    if (isNew) {
+      setCreatedAt(new Date());
+    }
+  }, [isNew]);
 
   // Effect to populate form when editing an existing job
   useEffect(() => {
@@ -203,11 +210,11 @@ export default function RepairJobFormPage() {
 
 
   const handleSaveJob = async () => {
-    if (!firestore || !selectedCustomer || !vehicleInfo) {
+    if (!firestore || !selectedCustomer || !vehicleInfo || !createdAt) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
-        description: 'Please select a customer and enter vehicle info.',
+        description: 'Please select a customer, enter vehicle info, and ensure a date is set.',
       });
       return;
     }
@@ -390,7 +397,7 @@ export default function RepairJobFormPage() {
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={createdAt} onSelect={(d) => setCreatedAt(d || new Date())} initialFocus />
+                            <Calendar mode="single" selected={createdAt || undefined} onSelect={(d) => setCreatedAt(d || new Date())} initialFocus />
                         </PopoverContent>
                         </Popover>
                     </div>

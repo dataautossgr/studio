@@ -91,7 +91,7 @@ export default function InvoicePage() {
                     <h1 className="text-2xl font-bold">{settings.storeName}</h1>
                 )}
                 {settings.ownerName && <p className="font-semibold text-muted-foreground">{settings.ownerName}</p>}
-                <p className="text-muted-foreground text-sm max-w-xs mt-2">{settings.address}</p>
+                {settings.address && <p className="text-muted-foreground text-sm max-w-xs mt-2">{settings.address}</p>}
                 <div className="text-muted-foreground text-sm mt-1">
                     {settings.contact1 && <p>{settings.contact1}</p>}
                     {settings.contact2 && <p>{settings.contact2}</p>}

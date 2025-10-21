@@ -69,11 +69,11 @@ export default function CustomerLedgerPage() {
     const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-    const customerRef = useMemoFirebase(() => customerId ? doc(firestore, 'customers', customerId) : null, [firestore, customerId]);
+    const customerRef = useMemoFirebase(() => customerId && firestore ? doc(firestore, 'customers', customerId) : null, [firestore, customerId]);
     const { data: customer, isLoading: isCustomerLoading } = useDoc<Customer>(customerRef);
 
     const salesQuery = useMemoFirebase(() => {
-      if (!customerRef) return null;
+      if (!customerRef || !firestore) return null;
       return query(collection(firestore, 'sales'), where('customer', '==', customerRef));
     }, [firestore, customerRef]);
     const { data: customerSales, isLoading: areSalesLoading } = useCollection<Sale>(salesQuery);
@@ -121,9 +121,19 @@ export default function CustomerLedgerPage() {
                     currentBalance += tx.credit;
                 }
                 return txWithBalance;
-            });
+            }).reverse(); // Reverse to show oldest first for correct balance calculation, then reverse back
             
-            setTransactions(finalTransactions);
+            let runningBalance = finalTransactions.length > 0 ? finalTransactions[0].balance - (finalTransactions[0].type === 'Sale' ? finalTransactions[0].debit : -finalTransactions[0].credit) : customer.balance;
+            const chronologicalTransactions = finalTransactions.reverse().map(tx => {
+                if (tx.type === 'Sale') {
+                    runningBalance += tx.debit;
+                } else {
+                    runningBalance -= tx.credit;
+                }
+                return {...tx, balance: runningBalance};
+            });
+
+            setTransactions(chronologicalTransactions);
         }
     }, [customer, customerSales]);
 
@@ -298,3 +308,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    

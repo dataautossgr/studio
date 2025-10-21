@@ -377,12 +377,11 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
-    "rules": "rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n\n    // Generic rule: Allow read/write access to any authenticated user for most collections\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n\n    // Specific rules can be placed here if needed in the future, for example:\n    // match /products/{productId} {\n    //   allow read: if true;\n    //   allow write: if request.auth != null; // Example: only admins\n    // }\n  }\n}",
+    "rules": "rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n\n    // Generic rule: Allow read/write access to any authenticated user for most collections\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n\n    // Specific rules for repair jobs\n    match /repair_jobs/{jobId} {\n      allow read, write: if request.auth != null;\n    }\n\n    match /repair_job_items/{jobItemId} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}",
     "structure": [
       {
         "path": "/products/{productId}",

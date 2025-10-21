@@ -15,10 +15,20 @@ import { ThemeToggle } from './theme-toggle';
 import { LogOut, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export function Header() {
   const { settings } = useStoreSettings();
   const ownerInitials = settings.ownerName.split(' ').map(n => n[0]).join('').toUpperCase();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
@@ -60,7 +70,7 @@ export function Header() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2" />
               <span>Log out</span>
             </DropdownMenuItem>

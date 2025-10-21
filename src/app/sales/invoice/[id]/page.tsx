@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -85,12 +86,17 @@ export default function InvoicePage() {
             <div className="flex justify-between items-start">
               <div>
                 {settings.logo ? (
-                    <Image src={settings.logo} alt={settings.storeName} width={100} height={100} className="object-contain" />
+                    <Image src={settings.logo} alt={settings.storeName} width={100} height={100} className="object-contain mb-2" />
                 ) : (
                     <h1 className="text-2xl font-bold">{settings.storeName}</h1>
                 )}
-                <p className="text-muted-foreground text-sm max-w-xs">{settings.address}</p>
-                <p className="text-muted-foreground text-sm">{settings.contact1}</p>
+                {settings.ownerName && <p className="font-semibold text-muted-foreground">{settings.ownerName}</p>}
+                <p className="text-muted-foreground text-sm max-w-xs mt-2">{settings.address}</p>
+                <div className="text-muted-foreground text-sm mt-1">
+                    {settings.contact1 && <p>{settings.contact1}</p>}
+                    {settings.contact2 && <p>{settings.contact2}</p>}
+                    {settings.contact3 && <p>{settings.contact3}</p>}
+                </div>
               </div>
               <div className="text-right">
                 <h2 className="text-3xl font-bold text-primary tracking-wider">INVOICE</h2>

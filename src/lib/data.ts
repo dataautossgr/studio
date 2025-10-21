@@ -87,6 +87,29 @@ export interface Purchase {
     }[];
 }
 
+export interface RepairJob {
+  id: string;
+  jobId: string;
+  customer: DocumentReference;
+  vehicleInfo: string;
+  mechanic: string;
+  notes?: string;
+  status: 'In Progress' | 'Paused' | 'Completed' | 'Cancelled';
+  createdAt: string;
+  closedAt?: string;
+  total: number;
+  items: RepairJobItem[];
+}
+
+export interface RepairJobItem {
+  productId: string;
+  name: string;
+  quantity: number;
+  price: number;
+  notes?: string;
+}
+
+
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
   { name: 'Spark Plugs (4-pack)', category: 'Engine Parts', brand: 'NGK', model: 'BKR6E-11', costPrice: 800, salePrice: 1200, stock: 50, unit: 'piece', lowStockThreshold: 10, dealerId: 'DLR001', location: 'Shelf A-1' },
   { name: 'Oil Filter', category: 'Filters', brand: 'Guard', model: 'GDO-118', costPrice: 350, salePrice: 500, stock: 8, unit: 'piece', lowStockThreshold: 20, dealerId: 'DLR002', location: 'Shelf B-3' },
@@ -231,3 +254,4 @@ export const seedInitialData = async (db: any) => {
     
     console.log("Data seeding complete.");
 };
+

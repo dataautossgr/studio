@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Building,
   Wallet,
+  Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -24,6 +25,7 @@ const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/inventory', label: 'Inventory', icon: Boxes },
   { href: '/sales', label: 'Sales', icon: Receipt },
+  { href: '/repair-jobs', label: 'Repair Jobs', icon: Wrench },
   { href: '/purchase', label: 'Purchase', icon: ShoppingBag },
   { href: '/dealers', label: 'Dealers', icon: Building },
   { href: '/customers', label: 'Customers', icon: Users },
@@ -61,3 +63,4 @@ export function MainNav() {
     </div>
   );
 }
+

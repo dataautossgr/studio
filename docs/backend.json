@@ -341,6 +341,39 @@
         "reference": { "type": "string", "description": "A reference number for the payment." }
       },
       "required": ["id", "customer", "amount", "date", "paymentMethod"]
+    },
+    "RepairJob": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RepairJob",
+      "type": "object",
+      "description": "Represents a single repair job for a car.",
+      "properties": {
+        "id": { "type": "string", "description": "Auto-generated unique ID (e.g., JOB-2025-001)." },
+        "customerId": { "type": "string", "description": "Reference to the Customer document." },
+        "vehicleInfo": { "type": "string", "description": "Car model, registration number, etc." },
+        "mechanic": { "type": "string", "description": "Name of the assigned mechanic." },
+        "notes": { "type": "string", "description": "Short description of the work." },
+        "status": { "type": "string", "enum": ["In Progress", "Paused", "Completed", "Cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the job was created." },
+        "closedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the job was finalized." },
+        "total": { "type": "number", "description": "Total bill amount for the job." }
+      },
+      "required": ["id", "customerId", "vehicleInfo", "status", "createdAt"]
+    },
+    "RepairJobItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RepairJobItem",
+      "type": "object",
+      "description": "Represents a single item (product/part) used in a repair job.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the job item." },
+        "jobId": { "type": "string", "description": "Reference to the RepairJob document." },
+        "productId": { "type": "string", "description": "Reference to the Product document." },
+        "quantity": { "type": "number" },
+        "price": { "type": "number", "description": "Price of the item at the time of job." },
+        "notes": { "type": "string", "description": "Optional notes for the item (e.g., 'Used in clutch')." }
+      },
+      "required": ["id", "jobId", "productId", "quantity", "price"]
     }
   },
   "auth": {
@@ -510,9 +543,40 @@
             }
           ]
         }
+      },
+      {
+        "path": "/repair_jobs/{jobId}",
+        "definition": {
+          "entityName": "RepairJob",
+          "schema": {
+            "$ref": "#/backend/entities/RepairJob"
+          },
+          "description": "Stores repair job information.",
+          "params": [
+            {
+              "name": "jobId",
+              "description": "Unique identifier for the repair job."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/repair_job_items/{jobItemId}",
+        "definition": {
+          "entityName": "RepairJobItem",
+          "schema": {
+            "$ref": "#/backend/entities/RepairJobItem"
+          },
+          "description": "Stores items for a specific repair job.",
+          "params": [
+            {
+              "name": "jobItemId",
+              "description": "Unique identifier for a repair job's item."
+            }
+          ]
+        }
       }
     ],
     "reasoning": "Given the hybrid nature of the application (offline-first with Firebase sync), and the zero-security development mode, the data structure is designed to mirror the SQLite database schema as closely as possible, facilitating straightforward synchronization. Since authentication is disabled in the development phase, all data is essentially public. However, I'll still adhere to the principle of path-based ownership and segregation in case security rules are added later. For example, creating path based collections for each Entity i.e Products, Sales, Dealers, Purchases, Customers, CashSession, BankTransaction and Settings. Since the requirements ask for offline access and zero security, the decision is to forego denormalization until the app is closer to release."
   }
 }
-    

@@ -82,10 +82,9 @@ export default function DashboardPage() {
         }
         if (sale.status === 'Partial') {
             const amountReceived = sale.partialAmountPaid || 0;
-            // Only calculate profit on the paid portion relative to its cost
-            const costRatio = sale.total > 0 ? saleCost / sale.total : 0;
-            const costOfPaidPortion = amountReceived * costRatio;
-            return acc + (amountReceived - costOfPaidPortion);
+            // Profit is the portion of money received minus the total cost of items.
+            // This can be negative if the partial payment doesn't cover the cost.
+            return acc + (amountReceived - saleCost);
         }
         return acc;
     }, 0);

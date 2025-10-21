@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { Printer, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
   customer: Customer | null;

@@ -1,4 +1,5 @@
 import { placeholderImages } from "./placeholder-images.json";
+import type { DocumentReference } from "firebase/firestore";
 
 export type Unit = 'piece' | 'cartoon' | 'ml' | 'litre' | 'kg' | 'g' | 'inch' | 'foot' | 'meter';
 
@@ -34,7 +35,7 @@ export interface Customer {
 export interface Sale {
     id: string;
     invoice: string;
-    customer: Customer;
+    customer: DocumentReference;
     date: string;
     total: number;
     status: 'Paid' | 'Unpaid' | 'Partial';
@@ -49,6 +50,18 @@ export interface Sale {
     partialAmountPaid?: number;
 }
 
+export interface Payment {
+  id: string;
+  customer: DocumentReference;
+  amount: number;
+  date: string;
+  paymentMethod: 'Cash' | 'Bank Transfer' | 'Cheque';
+  notes?: string;
+  receiptImageUrl?: string;
+  reference?: string;
+}
+
+
 export interface Dealer {
     id: string;
     name: string;
@@ -60,7 +73,7 @@ export interface Dealer {
 
 export interface Purchase {
     id: string;
-    dealer: Dealer;
+    dealer: DocumentReference;
     invoiceNumber: string;
     date: string;
     total: number;
@@ -87,10 +100,10 @@ const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
   { name: 'Synthetic Engine Oil (4L)', category: 'Fluids', brand: 'Shell', model: 'Helix Ultra 5W-40', costPrice: 4800, salePrice: 5500, stock: 35, unit: 'litre', lowStockThreshold: 10, dealerId: 'DLR002', location: 'Shelf D-2' },
 ];
 
-const mockDealers: Dealer[] = [
-    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567', balance: 24000, address: 'Montgomery Road, Lahore' },
-    { id: 'DLR002', name: 'Nadeem Butt', company: 'Nadeem & Sons Trading', phone: '0321-7654321', balance: 55000, address: 'Badami Bagh, Lahore' },
-    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334', balance: 8000, address: 'Mcleod Road, Lahore' },
+const mockDealers: Omit<Dealer, 'balance'>[] = [
+    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567', address: 'Montgomery Road, Lahore' },
+    { id: 'DLR002', name: 'Nadeem Butt', company: 'Nadeem & Sons Trading', phone: '0321-7654321', address: 'Badami Bagh, Lahore' },
+    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334', address: 'Mcleod Road, Lahore' },
 ];
 
 const mockProducts: Product[] = productData.map((p, index) => {
@@ -103,218 +116,118 @@ const mockProducts: Product[] = productData.map((p, index) => {
     }
 });
 
-const mockCustomers: Customer[] = [
-    { id: 'CUST001', name: 'Ali Khan', phone: '0301-1112233', vehicleDetails: 'Toyota Corolla 2022', balance: 1450, type: 'registered', address: 'DHA Phase 5, Lahore' },
-    { id: 'CUST002', name: 'Usman Autos', phone: '0322-4455667', vehicleDetails: 'Suzuki Mehran 2018', balance: 0, type: 'registered' },
-    { id: 'CUST003', name: 'Zahid Pervaiz', phone: '0345-9988776', vehicleDetails: 'Honda Civic 2021', balance: 0, type: 'registered' },
-    { id: 'CUST004', name: 'Walk-in Customer', phone: '', vehicleDetails: '', balance: 0, type: 'walk-in' },
+const mockCustomers: Omit<Customer, 'balance'>[] = [
+    { id: 'CUST001', name: 'Ali Khan', phone: '0301-1112233', vehicleDetails: 'Toyota Corolla 2022', type: 'registered', address: 'DHA Phase 5, Lahore' },
+    { id: 'CUST002', name: 'Usman Autos', phone: '0322-4455667', vehicleDetails: 'Suzuki Mehran 2018', type: 'registered' },
+    { id: 'CUST003', name: 'Zahid Pervaiz', phone: '0345-9988776', vehicleDetails: 'Honda Civic 2021', type: 'registered' },
+    { id: 'CUST004', name: 'Walk-in Customer', phone: '', vehicleDetails: '', type: 'walk-in' },
 ];
 
-
-const mockSales: Sale[] = [
-    {
-        id: 'SALE001',
-        invoice: 'INV-2024-001',
-        customer: mockCustomers[0],
-        date: '2024-07-20T10:30:00Z',
-        total: 1700,
-        status: 'Paid',
-        items: [
-            { productId: 'PROD1001', name: 'Spark Plugs (4-pack)', quantity: 1, price: 1200 },
-            { productId: 'PROD1002', name: 'Oil Filter', quantity: 1, price: 500 },
-        ],
-        paymentMethod: 'cash'
-    },
-    {
-        id: 'SALE002',
-        invoice: 'INV-2024-002',
-        customer: mockCustomers[3],
-        date: '2024-07-20T11:45:00Z',
-        total: 6000,
-        status: 'Paid',
-        items: [
-             { productId: 'PROD1003', name: 'Front Brake Pads', quantity: 1, price: 6000 },
-        ],
-        paymentMethod: 'online',
-        onlinePaymentSource: 'Easypaisa',
-    },
-    {
-        id: 'SALE003',
-        invoice: 'INV-2024-003',
-        customer: mockCustomers[1],
-        date: '2024-07-21T09:15:00Z',
-        total: 1450,
-        status: 'Unpaid',
-        items: [
-            { productId: 'PROD1005', name: 'Air Filter', quantity: 1, price: 650 },
-            { productId: 'PROD1008', name: 'Headlight Bulb', quantity: 2, price: 400 },
-        ],
-    },
-     {
-        id: 'SALE004',
-        invoice: 'INV-2024-004',
-        customer: mockCustomers[2],
-        date: '2024-07-22T14:00:00Z',
-        total: 5500,
-        status: 'Partial',
-        partialAmountPaid: 3000,
-        items: [
-            { productId: 'PROD1010', name: 'Synthetic Engine Oil (4L)', quantity: 1, price: 5500 },
-        ],
-    }
-];
-
-
-
-const mockPurchases: Purchase[] = [
-    {
-        id: 'PUR001',
-        dealer: mockDealers[0],
-        invoiceNumber: 'QN-5829',
-        date: '2024-07-18T14:00:00Z',
-        total: 24000,
-        status: 'Paid',
-        items: [
-            { productId: 'PROD1001', name: 'Spark Plugs (4-pack)', quantity: 30, costPrice: 800 },
-        ],
-    },
-    {
-        id: 'PUR002',
-        dealer: mockDealers[1],
-        invoiceNumber: 'NS-9812',
-        date: '2024-07-19T16:30:00Z',
-        total: 105000,
-        status: 'Partial',
-        items: [
-            { productId: 'PROD1004', name: 'AGS Battery', quantity: 15, costPrice: 7000 },
-        ],
-    },
-    {
-        id: 'PUR003',
-        dealer: mockDealers[2],
-        invoiceNumber: 'BT-0123',
-        date: '2024-07-22T11:00:00Z',
-        total: 8000,
-        status: 'Unpaid',
-        items: [
-            { productId: 'PROD1005', name: 'Air Filter', quantity: 20, costPrice: 400 },
-        ],
-    }
-];
-
-
-// Simulate async data fetching
-export const getProducts = async (): Promise<Product[]> => {
-  return new Promise(resolve => setTimeout(() => resolve(mockProducts), 500));
-};
-
-export const getSales = async (): Promise<Sale[]> => {
-    // We update the balances based on sales for more realistic data
-    const updatedCustomers = [...mockCustomers];
-    updatedCustomers.forEach(c => c.balance = 0); // Reset balances
-
-    mockSales.forEach(sale => {
-      if (sale.customer.type === 'registered') {
-        const customer = updatedCustomers.find(c => c.id === sale.customer.id);
-        if (customer) {
-            if (sale.status === 'Unpaid') {
-                customer.balance += sale.total;
-            } else if (sale.status === 'Partial' && sale.partialAmountPaid) {
-                customer.balance += (sale.total - sale.partialAmountPaid);
-            }
-        }
-      }
-    });
-
-    const salesWithUpdatedCustomers = mockSales.map(sale => {
-        const customer = updatedCustomers.find(c => c.id === sale.customer.id);
-        return customer ? { ...sale, customer } : sale;
-    });
-
-    return new Promise(resolve => setTimeout(() => resolve(salesWithUpdatedCustomers), 500));
-};
-
-export const getCustomers = async (): Promise<Customer[]> => {
-    const updatedCustomers = [...mockCustomers];
-    updatedCustomers.forEach(c => c.balance = 0); // Reset balances
-
-    mockSales.forEach(sale => {
-       if (sale.customer.type === 'registered') {
-        const customer = updatedCustomers.find(c => c.id === sale.customer.id);
-        if (customer) {
-            if (sale.status === 'Unpaid') {
-                customer.balance += sale.total;
-            } else if (sale.status === 'Partial' && sale.partialAmountPaid) {
-                customer.balance += (sale.total - sale.partialAmountPaid);
-            }
-        }
-       }
-    });
-    return new Promise(resolve => setTimeout(() => resolve(updatedCustomers), 500));
-};
-
-export const getProductCategories = async (): Promise<string[]> => {
-    const categories = [...new Set(mockProducts.map(p => p.category))];
-    return new Promise(resolve => setTimeout(() => resolve(['All', ...categories]), 200));
-}
-
-export const getDealers = async (): Promise<Dealer[]> => {
-    // We update the balances based on purchases for more realistic data
-    const updatedDealers = mockDealers.map(dealer => {
-        const unpaidPurchasesTotal = mockPurchases
-            .filter(p => p.dealer.id === dealer.id && (p.status === 'Unpaid' || p.status === 'Partial'))
-            .reduce((acc, p) => acc + p.total, 0); // This is simplified, partial payments aren't tracked
-        return { ...dealer, balance: unpaidPurchasesTotal };
-    })
-    return new Promise(resolve => setTimeout(() => resolve(updatedDealers), 500));
-};
-
-export const getPurchases = async (): Promise<Purchase[]> => {
-    return new Promise(resolve => setTimeout(() => resolve(mockPurchases), 500));
-};
 
 export const seedInitialData = async (db: any) => {
-    const { collection, addDoc, doc, setDoc } = await import('firebase/firestore');
+    const { collection, addDoc, doc, setDoc, writeBatch } = await import('firebase/firestore');
 
     console.log("Seeding initial data...");
 
+    const batch = writeBatch(db);
+
+    // Seed Products
     const productsCollection = collection(db, 'products');
     for (const product of mockProducts) {
-        await setDoc(doc(productsCollection, product.id), product);
+        batch.set(doc(productsCollection, product.id), product);
     }
-    console.log("Seeded products.");
+    console.log("Products queued for seeding.");
 
-    const customersCollection = collection(db, 'customers');
-     for (const customer of mockCustomers) {
-        await setDoc(doc(customersCollection, customer.id), customer);
-    }
-    console.log("Seeded customers.");
-
+    // Seed Dealers
     const dealersCollection = collection(db, 'dealers');
     for (const dealer of mockDealers) {
-        await setDoc(doc(dealersCollection, dealer.id), dealer);
+        batch.set(doc(dealersCollection, dealer.id), { ...dealer, balance: 0 });
     }
-    console.log("Seeded dealers.");
-    
-    const salesCollection = collection(db, 'sales');
-    for (const sale of mockSales) {
-       const saleToStore = {
-           ...sale,
-           customer: doc(db, 'customers', sale.customer.id)
-       }
-       await setDoc(doc(salesCollection, sale.id), saleToStore);
-    }
-    console.log("Seeded sales.");
+    console.log("Dealers queued for seeding.");
 
-    const purchasesCollection = collection(db, 'purchases');
-    for (const purchase of mockPurchases) {
-         const purchaseToStore = {
-           ...purchase,
-           dealer: doc(db, 'dealers', purchase.dealer.id)
-       }
-        await setDoc(doc(purchasesCollection, purchase.id), purchaseToStore);
+    // Seed Customers
+    const customersCollection = collection(db, 'customers');
+     for (const customer of mockCustomers) {
+        batch.set(doc(customersCollection, customer.id), { ...customer, balance: 0 });
     }
-    console.log("Seeded purchases.");
+    console.log("Customers queued for seeding.");
+    
+    // Commit initial batch
+    await batch.commit();
+    console.log("Products, Dealers, and Customers seeded.");
+    
+    // Now seed sales and purchases, which depend on the above
+    const salesBatch = writeBatch(db);
+    const salesCollection = collection(db, 'sales');
+    const mockSales = [
+        {
+            id: 'SALE001', invoice: 'INV-2024-001', customerId: 'CUST001', date: '2024-07-20T10:30:00Z', total: 1700, status: 'Paid' as const, 
+            items: [ { productId: 'PROD1001', name: 'Spark Plugs (4-pack)', quantity: 1, price: 1200 }, { productId: 'PROD1002', name: 'Oil Filter', quantity: 1, price: 500 } ],
+            paymentMethod: 'cash' as const
+        },
+        {
+            id: 'SALE002', invoice: 'INV-2024-002', customerId: 'CUST004', date: '2024-07-20T11:45:00Z', total: 6000, status: 'Paid' as const, 
+            items: [ { productId: 'PROD1003', name: 'Front Brake Pads', quantity: 1, price: 6000 } ],
+            paymentMethod: 'online' as const, onlinePaymentSource: 'Easypaisa'
+        },
+        {
+            id: 'SALE003', invoice: 'INV-2024-003', customerId: 'CUST001', date: '2024-07-21T09:15:00Z', total: 1450, status: 'Unpaid' as const, 
+            items: [ { productId: 'PROD1005', name: 'Air Filter', quantity: 1, price: 650 }, { productId: 'PROD1008', name: 'Headlight Bulb', quantity: 2, price: 400 } ],
+        },
+         {
+            id: 'SALE004', invoice: 'INV-2024-004', customerId: 'CUST002', date: '2024-07-22T14:00:00Z', total: 5500, status: 'Partial' as const, partialAmountPaid: 3000,
+            items: [ { productId: 'PROD1010', name: 'Synthetic Engine Oil (4L)', quantity: 1, price: 5500 } ],
+        }
+    ];
+
+    for (const sale of mockSales) {
+       const { id, customerId, ...saleData } = sale;
+       const saleToStore = {
+           ...saleData,
+           customer: doc(db, 'customers', customerId)
+       }
+       salesBatch.set(doc(salesCollection, id), saleToStore);
+
+       // Update customer balance for unpaid/partial
+       if (sale.status === 'Unpaid' || sale.status === 'Partial') {
+         const balance_change = sale.status === 'Unpaid' ? sale.total : sale.total - (sale.partialAmountPaid || 0);
+         salesBatch.update(doc(db, 'customers', customerId), { balance: balance_change });
+       }
+    }
+    await salesBatch.commit();
+    console.log("Seeded sales and updated customer balances.");
+
+    const purchasesBatch = writeBatch(db);
+    const purchasesCollection = collection(db, 'purchases');
+    const mockPurchases = [
+        {
+            id: 'PUR001', dealerId: 'DLR001', invoiceNumber: 'QN-5829', date: '2024-07-18T14:00:00Z', total: 24000, status: 'Paid' as const,
+            items: [ { productId: 'PROD1001', name: 'Spark Plugs (4-pack)', quantity: 30, costPrice: 800 } ],
+        },
+        {
+            id: 'PUR002', dealerId: 'DLR002', invoiceNumber: 'NS-9812', date: '2024-07-19T16:30:00Z', total: 105000, status: 'Partial' as const,
+            items: [ { productId: 'PROD1004', name: 'AGS Battery', quantity: 15, costPrice: 7000 } ],
+        },
+        {
+            id: 'PUR003', dealerId: 'DLR003', invoiceNumber: 'BT-0123', date: '2024-07-22T11:00:00Z', total: 8000, status: 'Unpaid' as const,
+            items: [ { productId: 'PROD1005', name: 'Air Filter', quantity: 20, costPrice: 400 } ],
+        }
+    ];
+
+    for (const purchase of mockPurchases) {
+         const {id, dealerId, ...purchaseData} = purchase;
+         const purchaseToStore = {
+           ...purchaseData,
+           dealer: doc(db, 'dealers', dealerId)
+         }
+        purchasesBatch.set(doc(purchasesCollection, id), purchaseToStore);
+
+        if (purchase.status === 'Unpaid' || purchase.status === 'Partial') {
+          purchasesBatch.update(doc(db, 'dealers', dealerId), { balance: purchase.total });
+        }
+    }
+    await purchasesBatch.commit();
+    console.log("Seeded purchases and updated dealer balances.");
     
     console.log("Data seeding complete.");
 };

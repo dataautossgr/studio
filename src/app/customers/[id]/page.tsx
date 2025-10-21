@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { type Customer, type Sale } from '@/lib/data';
+import { type Customer, type Sale, type Payment } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -41,8 +41,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { PaymentFormData } from './payment-dialog';
 import Link from 'next/link';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useDoc, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, where, writeBatch, increment } from 'firebase/firestore';
 
 
 export interface Transaction {
@@ -77,9 +77,15 @@ export default function CustomerLedgerPage() {
       return query(collection(firestore, 'sales'), where('customer', '==', customerRef));
     }, [firestore, customerRef]);
     const { data: customerSales, isLoading: areSalesLoading } = useCollection<Sale>(salesQuery);
+    
+    const paymentsQuery = useMemoFirebase(() => {
+      if (!customerRef || !firestore) return null;
+      return query(collection(firestore, 'payments'), where('customer', '==', customerRef));
+    }, [firestore, customerRef]);
+    const { data: customerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
 
     useEffect(() => {
-        if (customer && customerSales) {
+        if (customer && customerSales && customerPayments) {
             const salesTransactions: Transaction[] = customerSales.map(s => ({
                 id: s.id,
                 date: s.date,
@@ -87,44 +93,30 @@ export default function CustomerLedgerPage() {
                 reference: s.invoice,
                 debit: s.total,
                 credit: 0,
-                balance: 0 // Will be calculated later
+                balance: 0 
             }));
-
-            // MOCK PAYMENTS - This will be replaced with real data later
-            const mockPayments = [
-                { id: 'PAY001', date: '2024-07-22T18:00:00Z', amount: 1000, paymentMethod: 'Cash' as const, notes: 'Advance for next service' },
-            ];
             
-            const paymentTransactions: Transaction[] = mockPayments.map((p, i) => ({
+            const paymentTransactions: Transaction[] = customerPayments.map((p) => ({
                 id: p.id,
                 date: p.date,
                 type: 'Payment',
-                reference: `RECV-00${i + 1}`,
+                reference: p.reference || `PAY-${p.id.substring(0,6)}`,
                 debit: 0,
                 credit: p.amount,
-                balance: 0, // Will be calculated later
+                balance: 0,
                 paymentDetails: {
                   paymentDate: new Date(p.date),
                   paymentMethod: p.paymentMethod,
                   notes: p.notes,
+                  receiptImageUrl: p.receiptImageUrl,
                 }
             }));
             
-            const allTransactions = [...salesTransactions, ...paymentTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            const allTransactions = [...salesTransactions, ...paymentTransactions]
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             
-            let currentBalance = customer.balance;
+            let runningBalance = 0;
             const finalTransactions = allTransactions.map(tx => {
-                const txWithBalance = {...tx, balance: currentBalance};
-                if (tx.type === 'Sale') {
-                    currentBalance -= tx.debit;
-                } else {
-                    currentBalance += tx.credit;
-                }
-                return txWithBalance;
-            }).reverse(); // Reverse to show oldest first for correct balance calculation, then reverse back
-            
-            let runningBalance = finalTransactions.length > 0 ? finalTransactions[0].balance - (finalTransactions[0].type === 'Sale' ? finalTransactions[0].debit : -finalTransactions[0].credit) : customer.balance;
-            const chronologicalTransactions = finalTransactions.reverse().map(tx => {
                 if (tx.type === 'Sale') {
                     runningBalance += tx.debit;
                 } else {
@@ -133,36 +125,54 @@ export default function CustomerLedgerPage() {
                 return {...tx, balance: runningBalance};
             });
 
-            setTransactions(chronologicalTransactions);
+            setTransactions(finalTransactions.reverse());
         }
-    }, [customer, customerSales]);
+    }, [customer, customerSales, customerPayments]);
 
-    const handleSavePayment = (paymentData: PaymentFormData) => {
-        if (!customer) return;
+    const handleSavePayment = async (paymentData: PaymentFormData) => {
+        if (!customer || !firestore) return;
 
+        const paymentsCollection = collection(firestore, 'payments');
+        
         if (transactionToEdit && transactionToEdit.type === 'Payment') {
-            // Edit existing payment - MOCK
-            const updatedTransactions = transactions.map(tx => 
-                tx.id === transactionToEdit.id 
-                ? { ...tx, credit: paymentData.amount, date: paymentData.paymentDate.toISOString(), paymentDetails: paymentData } 
-                : tx
-            );
-            setTransactions(updatedTransactions);
-            toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
-        } else {
-            // Add new payment - MOCK
-            const newPayment: Transaction = {
-                id: `PAY-${Date.now()}`,
+            const paymentRef = doc(paymentsCollection, transactionToEdit.id);
+            const oldAmount = transactionToEdit.credit;
+            const newAmount = paymentData.amount;
+            const difference = oldAmount - newAmount; // if new is larger, diff is negative
+
+            const batch = writeBatch(firestore);
+            
+            batch.update(paymentRef, {
+                amount: newAmount,
                 date: paymentData.paymentDate.toISOString(),
-                type: 'Payment',
-                reference: `RECV-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-                debit: 0,
-                credit: paymentData.amount,
-                balance: 0, // Recalculated on display
-                paymentDetails: paymentData
+                paymentMethod: paymentData.paymentMethod,
+                notes: paymentData.notes,
+                receiptImageUrl: paymentData.receiptImageUrl,
+            });
+
+            batch.update(customerRef, { balance: increment(difference) });
+
+            await batch.commit();
+
+            toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
+
+        } else {
+            const newPayment: Omit<Payment, 'id'> = {
+                customer: customerRef,
+                amount: paymentData.amount,
+                date: paymentData.paymentDate.toISOString(),
+                paymentMethod: paymentData.paymentMethod,
+                notes: paymentData.notes || '',
+                receiptImageUrl: paymentData.receiptImageUrl || '',
+                reference: `RECV-${Date.now().toString().slice(-6)}`,
             };
-            setTransactions([newPayment, ...transactions]);
-            // In a real scenario, you would update customer balance in Firestore
+
+            const batch = writeBatch(firestore);
+            const newPaymentRef = doc(paymentsCollection);
+            batch.set(newPaymentRef, newPayment);
+            batch.update(customerRef, { balance: increment(-paymentData.amount) });
+            await batch.commit();
+            
             toast({ title: "Payment Added", description: "The payment has been recorded." });
         }
 
@@ -192,7 +202,7 @@ export default function CustomerLedgerPage() {
         return 'default';
     }
 
-    if (isCustomerLoading || areSalesLoading) {
+    if (isCustomerLoading || areSalesLoading || arePaymentsLoading) {
         return <div className="p-8">Loading customer information...</div>;
     }
     
@@ -308,5 +318,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
-    

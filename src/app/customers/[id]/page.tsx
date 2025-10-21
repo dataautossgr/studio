@@ -42,7 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { PaymentFormData } from './payment-dialog';
 import Link from 'next/link';
 import { useDoc, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, where, writeBatch, increment } from 'firebase/firestore';
+import { collection, doc, query, where, writeBatch, increment, deleteDoc, runTransaction } from 'firebase/firestore';
 
 
 export interface Transaction {
@@ -73,108 +73,119 @@ export default function CustomerLedgerPage() {
     const { data: customer, isLoading: isCustomerLoading } = useDoc<Customer>(customerRef);
 
     const salesQuery = useMemoFirebase(() => {
-      if (!customerRef || !firestore) return null;
-      return query(collection(firestore, 'sales'), where('customer', '==', customerRef));
-    }, [firestore, customerRef]);
+      if (!firestore || !customerId) return null;
+      // We need to query by customer ID string, not the reference, if sales store the ID.
+      // Assuming sales.customer is a DocumentReference.
+      const custRef = doc(firestore, 'customers', customerId);
+      return query(collection(firestore, 'sales'), where('customer', '==', custRef));
+    }, [firestore, customerId]);
     const { data: customerSales, isLoading: areSalesLoading } = useCollection<Sale>(salesQuery);
     
     const paymentsQuery = useMemoFirebase(() => {
-      if (!customerRef || !firestore) return null;
-      return query(collection(firestore, 'payments'), where('customer', '==', customerRef));
-    }, [firestore, customerRef]);
+      if (!firestore || !customerId) return null;
+      const custRef = doc(firestore, 'customers', customerId);
+      return query(collection(firestore, 'payments'), where('customer', '==', custRef));
+    }, [firestore, customerId]);
     const { data: customerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
 
     useEffect(() => {
-        if (customer && customerSales && customerPayments) {
-            const salesTransactions: Transaction[] = customerSales.map(s => ({
-                id: s.id,
-                date: s.date,
-                type: 'Sale',
-                reference: s.invoice,
-                debit: s.total,
-                credit: 0,
-                balance: 0 
-            }));
-            
-            const paymentTransactions: Transaction[] = customerPayments.map((p) => ({
-                id: p.id,
-                date: p.date,
-                type: 'Payment',
-                reference: p.reference || `PAY-${p.id.substring(0,6)}`,
-                debit: 0,
-                credit: p.amount,
-                balance: 0,
-                paymentDetails: {
-                  paymentDate: new Date(p.date),
-                  paymentMethod: p.paymentMethod,
-                  notes: p.notes,
-                  receiptImageUrl: p.receiptImageUrl,
-                }
-            }));
-            
-            const allTransactions = [...salesTransactions, ...paymentTransactions]
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            
-            let runningBalance = 0;
-            const finalTransactions = allTransactions.map(tx => {
-                if (tx.type === 'Sale') {
-                    runningBalance += tx.debit;
-                } else {
-                    runningBalance -= tx.credit;
-                }
-                return {...tx, balance: runningBalance};
-            });
+      if (customerSales && customerPayments) {
+        const salesTransactions: Transaction[] = customerSales.map(s => ({
+          id: s.id,
+          date: s.date,
+          type: 'Sale',
+          reference: s.invoice,
+          debit: s.total,
+          credit: 0,
+          balance: 0,
+        }));
+        
+        const paymentTransactions: Transaction[] = customerPayments.map(p => ({
+          id: p.id,
+          date: p.date,
+          type: 'Payment',
+          reference: p.reference || `PAY-${p.id.substring(0,6)}`,
+          debit: 0,
+          credit: p.amount,
+          balance: 0,
+          paymentDetails: {
+            paymentDate: new Date(p.date),
+            paymentMethod: p.paymentMethod,
+            notes: p.notes,
+            receiptImageUrl: p.receiptImageUrl,
+          }
+        }));
+        
+        const allTransactions = [...salesTransactions, ...paymentTransactions]
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        let runningBalance = 0;
+        const finalTransactions = allTransactions.map(tx => {
+          runningBalance += tx.debit - tx.credit;
+          return { ...tx, balance: runningBalance };
+        });
 
-            setTransactions(finalTransactions.reverse());
-        }
-    }, [customer, customerSales, customerPayments]);
+        // The final running balance should match the customer's balance.
+        // If not, it indicates a sync issue, but for UI, we rely on this calculation.
+        // We can also update the customer's balance here if we want to enforce consistency.
+        
+        setTransactions(finalTransactions.reverse());
+      }
+    }, [customerSales, customerPayments]);
+
 
     const handleSavePayment = async (paymentData: PaymentFormData) => {
-        if (!customer || !firestore) return;
+        if (!customerRef || !firestore) return;
 
-        const paymentsCollection = collection(firestore, 'payments');
-        
-        if (transactionToEdit && transactionToEdit.type === 'Payment') {
-            const paymentRef = doc(paymentsCollection, transactionToEdit.id);
-            const oldAmount = transactionToEdit.credit;
-            const newAmount = paymentData.amount;
-            const difference = oldAmount - newAmount; // if new is larger, diff is negative
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const customerDoc = await transaction.get(customerRef);
+                if (!customerDoc.exists()) {
+                    throw new Error("Customer not found!");
+                }
+                const currentBalance = customerDoc.data().balance || 0;
 
-            const batch = writeBatch(firestore);
-            
-            batch.update(paymentRef, {
-                amount: newAmount,
-                date: paymentData.paymentDate.toISOString(),
-                paymentMethod: paymentData.paymentMethod,
-                notes: paymentData.notes,
-                receiptImageUrl: paymentData.receiptImageUrl,
+                if (transactionToEdit && transactionToEdit.type === 'Payment') {
+                    // Editing an existing payment
+                    const paymentRef = doc(firestore, 'payments', transactionToEdit.id);
+                    const oldAmount = transactionToEdit.credit;
+                    const newAmount = paymentData.amount;
+                    const difference = oldAmount - newAmount; // e.g., Old 500, New 700. Diff = -200. Balance should decrease by 200.
+
+                    transaction.update(paymentRef, {
+                        amount: newAmount,
+                        date: paymentData.paymentDate.toISOString(),
+                        paymentMethod: paymentData.paymentMethod,
+                        notes: paymentData.notes,
+                        receiptImageUrl: paymentData.receiptImageUrl,
+                    });
+
+                    transaction.update(customerRef, { balance: currentBalance + difference });
+                     toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
+
+                } else {
+                    // Adding a new payment
+                    const newPaymentRef = doc(collection(firestore, 'payments'));
+                    const newPayment: Omit<Payment, 'id'> = {
+                        customer: customerRef,
+                        amount: paymentData.amount,
+                        date: paymentData.paymentDate.toISOString(),
+                        paymentMethod: paymentData.paymentMethod,
+                        notes: paymentData.notes || '',
+                        receiptImageUrl: paymentData.receiptImageUrl || '',
+                        reference: `RECV-${Date.now().toString().slice(-6)}`,
+                    };
+                    
+                    transaction.set(newPaymentRef, newPayment);
+                    transaction.update(customerRef, { balance: currentBalance - paymentData.amount });
+                    toast({ title: "Payment Added", description: "The payment has been recorded." });
+                }
             });
-
-            batch.update(customerRef, { balance: increment(difference) });
-
-            await batch.commit();
-
-            toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
-
-        } else {
-            const newPayment: Omit<Payment, 'id'> = {
-                customer: customerRef,
-                amount: paymentData.amount,
-                date: paymentData.paymentDate.toISOString(),
-                paymentMethod: paymentData.paymentMethod,
-                notes: paymentData.notes || '',
-                receiptImageUrl: paymentData.receiptImageUrl || '',
-                reference: `RECV-${Date.now().toString().slice(-6)}`,
-            };
-
-            const batch = writeBatch(firestore);
-            const newPaymentRef = doc(paymentsCollection);
-            batch.set(newPaymentRef, newPayment);
-            batch.update(customerRef, { balance: increment(-paymentData.amount) });
-            await batch.commit();
-            
-            toast({ title: "Payment Added", description: "The payment has been recorded." });
+        } catch (error) {
+            console.error("Payment transaction failed: ", error);
+            toast({ variant: "destructive", title: "Error", description: "Could not save the payment." });
         }
+
 
         setIsPaymentDialogOpen(false);
         setTransactionToEdit(null);
@@ -189,16 +200,42 @@ export default function CustomerLedgerPage() {
         }
     };
 
-    const handleDelete = () => {
-        if (!transactionToDelete) return;
-        // This is a mock delete, will need firestore logic
-        setTransactions(transactions.filter(tx => tx.id !== transactionToDelete.id));
-        toast({ title: "Transaction Deleted", description: "The transaction has been removed." });
+    const handleDelete = async () => {
+        if (!transactionToDelete || !customerRef || !firestore) return;
+
+        try {
+             await runTransaction(firestore, async (transaction) => {
+                const customerDoc = await transaction.get(customerRef);
+                if (!customerDoc.exists()) {
+                    throw new Error("Customer not found!");
+                }
+                const currentBalance = customerDoc.data().balance || 0;
+
+                if (transactionToDelete.type === 'Payment') {
+                    const paymentRef = doc(firestore, 'payments', transactionToDelete.id);
+                    transaction.delete(paymentRef);
+                    // Deleting a payment increases the customer's balance (they owe more)
+                    transaction.update(customerRef, { balance: currentBalance + transactionToDelete.credit });
+                } else { // Sale
+                    const saleRef = doc(firestore, 'sales', transactionToDelete.id);
+                    transaction.delete(saleRef);
+                    // Deleting a sale decreases the customer's balance (they owe less)
+                    transaction.update(customerRef, { balance: currentBalance - transactionToDelete.debit });
+                }
+             });
+             toast({ title: "Transaction Deleted", description: "The transaction has been removed and balance updated." });
+
+        } catch (error) {
+             console.error("Delete transaction failed: ", error);
+             toast({ variant: "destructive", title: "Error", description: "Could not delete the transaction." });
+        }
+
         setTransactionToDelete(null);
     }
 
     const getBalanceVariant = (balance: number): "default" | "secondary" | "destructive" => {
         if (balance > 0) return 'destructive';
+        if (balance < 0) return 'secondary';
         return 'default';
     }
 
@@ -221,8 +258,8 @@ export default function CustomerLedgerPage() {
                 </div>
                 <div className="text-right">
                     <p className="text-sm text-muted-foreground">Current Balance</p>
-                    <Badge variant={getBalanceVariant(customer.balance)} className="text-xl font-mono">
-                        Rs. {Math.abs(customer.balance).toLocaleString()}
+                     <Badge variant={getBalanceVariant(customer.balance)} className="text-xl font-mono">
+                       Rs. {Math.abs(customer.balance).toLocaleString()} {customer.balance < 0 ? ' (Adv)' : ''}
                     </Badge>
                 </div>
             </CardHeader>
@@ -275,7 +312,7 @@ export default function CustomerLedgerPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={() => handleEdit(tx)}>
+                                            <DropdownMenuItem onSelect={() => handleEdit(tx)} disabled={tx.type === 'Sale'}>
                                                 <Pencil className="mr-2 h-4 w-4" />
                                                 Edit
                                             </DropdownMenuItem>
@@ -306,7 +343,7 @@ export default function CustomerLedgerPage() {
                 <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will permanently delete the transaction with reference "{transactionToDelete?.reference}". This action cannot be undone.
+                    This will permanently delete the transaction with reference "{transactionToDelete?.reference}". This will also update the customer's balance. This action cannot be undone.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -318,3 +355,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    

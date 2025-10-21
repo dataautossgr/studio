@@ -346,17 +346,15 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "RepairJob",
       "type": "object",
-      "description": "Represents a single repair job for a car.",
+      "description": "Represents a temporary bill for accumulating products.",
       "properties": {
         "id": { "type": "string", "description": "Auto-generated unique ID (e.g., JOB-2025-001)." },
         "customerId": { "type": "string", "description": "Reference to the Customer document." },
         "vehicleInfo": { "type": "string", "description": "Car model, registration number, etc." },
-        "mechanic": { "type": "string", "description": "Name of the assigned mechanic." },
-        "notes": { "type": "string", "description": "Short description of the work." },
         "status": { "type": "string", "enum": ["In Progress", "Paused", "Completed", "Cancelled"] },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the job was created." },
-        "closedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the job was finalized." },
-        "total": { "type": "number", "description": "Total bill amount for the job." }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the bill was created." },
+        "closedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the bill was finalized into a sale." },
+        "total": { "type": "number", "description": "Total bill amount." }
       },
       "required": ["id", "customerId", "vehicleInfo", "status", "createdAt"]
     },
@@ -370,8 +368,7 @@
         "jobId": { "type": "string", "description": "Reference to the RepairJob document." },
         "productId": { "type": "string", "description": "Reference to the Product document." },
         "quantity": { "type": "number" },
-        "price": { "type": "number", "description": "Price of the item at the time of job." },
-        "notes": { "type": "string", "description": "Optional notes for the item (e.g., 'Used in clutch')." }
+        "price": { "type": "number", "description": "Price of the item at the time of job." }
       },
       "required": ["id", "jobId", "productId", "quantity", "price"]
     }
@@ -383,6 +380,7 @@
     ]
   },
   "firestore": {
+    "rules": "rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n\n    // Generic rule: Allow read/write access to any authenticated user for most collections\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n\n    // Specific rules can be placed here if needed in the future, for example:\n    // match /products/{productId} {\n    //   allow read: if true;\n    //   allow write: if request.auth != null; // Example: only admins\n    // }\n  }\n}",
     "structure": [
       {
         "path": "/products/{productId}",

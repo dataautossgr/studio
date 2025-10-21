@@ -16,7 +16,6 @@ import {
   MoreVertical,
   Filter,
   Car,
-  Wrench,
   User,
   Clock,
 } from 'lucide-react';
@@ -85,20 +84,20 @@ export default function RepairJobsPage() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Active Repair Jobs</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Active Temporary Bills</h1>
           <p className="text-muted-foreground">
-            Track and manage all ongoing vehicle repairs.
+            Track and manage all ongoing customer bills.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline">
             <Filter className="mr-2 h-4 w-4" />
-            Filter Jobs
+            Filter Bills
           </Button>
           <Button asChild>
             <Link href="/repair-jobs/new">
               <PlusCircle className="mr-2 h-4 w-4" />
-              New Job
+              New Bill
             </Link>
           </Button>
         </div>
@@ -128,15 +127,15 @@ export default function RepairJobsPage() {
 
       {!isLoading && activeJobs.length === 0 && (
          <div className="text-center py-20 border-2 border-dashed rounded-lg">
-            <Wrench className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">No Active Jobs</h3>
+            <Car className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-4 text-lg font-semibold">No Active Bills</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-                Get started by creating a new repair job.
+                Get started by creating a new temporary bill.
             </p>
             <Button asChild className="mt-6">
                 <Link href="/repair-jobs/new">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Create First Job
+                    Create First Bill
                 </Link>
             </Button>
         </div>
@@ -164,10 +163,6 @@ export default function RepairJobsPage() {
                     <span className="font-medium truncate">{job.vehicleInfo}</span>
                 </div>
                  <div className="flex items-center gap-3 text-sm">
-                    <Wrench className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate">{job.mechanic}</span>
-                </div>
-                 <div className="flex items-center gap-3 text-sm">
                     <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span>{formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}</span>
                 </div>
@@ -188,8 +183,8 @@ export default function RepairJobsPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem>Finalize & Bill</DropdownMenuItem>
-                    <DropdownMenuItem>Pause Job</DropdownMenuItem>
-                    <DropdownMenuItem>Cancel Job</DropdownMenuItem>
+                    <DropdownMenuItem>Pause Bill</DropdownMenuItem>
+                    <DropdownMenuItem>Cancel Bill</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -200,4 +195,3 @@ export default function RepairJobsPage() {
     </div>
   );
 }
-

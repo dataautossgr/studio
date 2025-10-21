@@ -28,6 +28,7 @@ import {
   Search,
   PlusCircle,
   Trash2,
+  User,
 } from 'lucide-react';
 import {
   useFirestore,
@@ -102,6 +103,7 @@ export default function RepairJobFormPage() {
   // Form State
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [vehicleInfo, setVehicleInfo] = useState('');
+  const [mechanic, setMechanic] = useState('');
   const [createdAt, setCreatedAt] = useState<Date>(new Date());
   const [items, setItems] = useState<BillItem[]>([]);
   const [status, setStatus] = useState<RepairJob['status']>('In Progress');
@@ -119,6 +121,7 @@ export default function RepairJobFormPage() {
           }
         }
         setVehicleInfo(jobData.vehicleInfo);
+        setMechanic(jobData.mechanic || '');
         setCreatedAt(new Date(jobData.createdAt));
         setStatus(jobData.status);
 
@@ -214,6 +217,7 @@ export default function RepairJobFormPage() {
     const jobPayload: Omit<RepairJob, 'id' | 'jobId'> = {
       customer: doc(firestore, 'customers', selectedCustomer.id),
       vehicleInfo,
+      mechanic,
       status: status,
       createdAt: createdAt.toISOString(),
       closedAt: status === 'Completed' || status === 'Cancelled' ? new Date().toISOString() : undefined,
@@ -234,7 +238,7 @@ export default function RepairJobFormPage() {
       router.push(`/repair-jobs/${newJobRef.id}`);
     } else {
       if (!jobRef) return;
-      batch.update(jobRef, jobPayload);
+      batch.update(jobRef, jobPayload as any); // Use `as any` to bypass strict type checking for partial updates
       toast({ title: 'Temporary Bill Updated', description: `Bill ${jobData?.jobId} has been updated.` });
     }
 
@@ -325,7 +329,7 @@ export default function RepairJobFormPage() {
                 </div>
             ) : (
                 <>
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Customer Selection */}
                     <div className="space-y-2">
                         <Label>Customer</Label>
@@ -361,6 +365,14 @@ export default function RepairJobFormPage() {
                         <div className="relative">
                             <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                             <Input id="vehicleInfo" value={vehicleInfo} onChange={(e) => setVehicleInfo(e.target.value)} placeholder="e.g., Corolla GLI, LEB-21-5555" className="pl-10" />
+                        </div>
+                    </div>
+                     {/* Mechanic Name */}
+                    <div className="space-y-2">
+                        <Label htmlFor="mechanic">Mechanic Name (Optional)</Label>
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input id="mechanic" value={mechanic} onChange={(e) => setMechanic(e.target.value)} placeholder="e.g., Akram Ustaad" className="pl-10" />
                         </div>
                     </div>
 

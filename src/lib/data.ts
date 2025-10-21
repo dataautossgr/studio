@@ -92,6 +92,7 @@ export interface RepairJob {
   jobId: string;
   customer: DocumentReference;
   vehicleInfo: string;
+  mechanic?: string;
   status: 'In Progress' | 'Paused' | 'Completed' | 'Cancelled';
   createdAt: string;
   closedAt?: string;

@@ -348,15 +348,17 @@
       "type": "object",
       "description": "Represents a temporary bill for accumulating products.",
       "properties": {
-        "id": { "type": "string", "description": "Auto-generated unique ID (e.g., JOB-2025-001)." },
-        "customerId": { "type": "string", "description": "Reference to the Customer document." },
+        "id": { "type": "string", "description": "Auto-generated unique ID." },
+        "jobId": { "type": "string", "description": "Human-readable job ID (e.g., JOB-2025-001)." },
+        "customer": { "type": "string", "description": "Reference to the Customer document." },
         "vehicleInfo": { "type": "string", "description": "Car model, registration number, etc." },
+        "mechanic": { "type": "string", "description": "Name of the assigned mechanic (optional)." },
         "status": { "type": "string", "enum": ["In Progress", "Paused", "Completed", "Cancelled"] },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the bill was created." },
         "closedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the bill was finalized into a sale." },
         "total": { "type": "number", "description": "Total bill amount." }
       },
-      "required": ["id", "customerId", "vehicleInfo", "status", "createdAt"]
+      "required": ["id", "jobId", "customer", "vehicleInfo", "status", "createdAt"]
     },
     "RepairJobItem": {
       "$schema": "http://json-schema.org/draft-07/schema#",

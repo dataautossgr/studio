@@ -158,6 +158,12 @@ export default function RepairJobsPage() {
                     <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span className="font-medium truncate">{job.customer?.name || 'N/A'}</span>
                 </div>
+                {job.mechanic && (
+                    <div className="flex items-center gap-3 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="font-medium truncate">{job.mechanic}</span>
+                    </div>
+                )}
                 <div className="flex items-center gap-3 text-sm">
                     <Car className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span className="font-medium truncate">{job.vehicleInfo}</span>

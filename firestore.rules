@@ -1,236 +1,199 @@
+/**
+ * @file Firestore Security Rules
+ * @core_philosophy This ruleset is generated in "prototyping mode" to allow for rapid iteration.
+ *   It assumes zero authentication and authorization for simplicity. All data is essentially public.
+ *   However, path-based access patterns are still enforced in case authorization needs to be added later.
+ * @data_structure The Firestore database is structured with top-level collections for each entity:
+ *   /products/{productId}, /sales/{saleId}, /sale_items/{saleItemId}, /dealers/{dealerId},
+ *   /purchases/{purchaseId}, /customers/{customerId}, /cash_sessions/{cashSessionId},
+ *   /bank_transactions/{bankTransactionId}, /settings/{settingId}, /payments/{paymentId},
+ *   /repair_jobs/{jobId}, and /repair_job_items/{jobItemId}.
+ * @key_security_decisions Authentication is disabled for the moment, so all read and write access
+ *   is generally allowed. However, in the interest of forward compatibility, we are explicitly defining
+ *   rules for each operation (get, list, create, update, delete) on each collection.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages general helper functions.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the current user is the owner of the resource.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the current user is the owner of the resource and the resource exists.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Allows anyone to list items.
-     */
-    function canList() {
-        return true;
-    }
-    /**
-     * @description Stores product information.
+     * @description Allows read and write access to products.
      * @path /products/{productId}
-     * @allow (get, list): Any user can read product data.
-     * @allow (create): Any authenticated user can create a product.
-     * @allow (update, delete): Any authenticated user can modify/delete a product.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /products/{productId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores sale transaction information.
+     * @description Allows read and write access to sales.
      * @path /sales/{saleId}
-     * @allow (get, list): Any user can read sale data.
-     * @allow (create): Any authenticated user can create a sale.
-     * @allow (update, delete): Any authenticated user can modify/delete a sale.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /sales/{saleId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores individual items within a sale.
+     * @description Allows read and write access to sale items.
      * @path /sale_items/{saleItemId}
-     * @allow (get, list): Any user can read sale item data.
-     * @allow (create): Any authenticated user can create a sale item.
-     * @allow (update, delete): Any authenticated user can modify/delete a sale item.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /sale_items/{saleItemId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores dealer/supplier information.
+     * @description Allows read and write access to dealers.
      * @path /dealers/{dealerId}
-     * @allow (get, list): Any user can read dealer data.
-     * @allow (create): Any authenticated user can create a dealer.
-     * @allow (update, delete): Any authenticated user can modify/delete a dealer.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /dealers/{dealerId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores purchase information from dealers.
+     * @description Allows read and write access to purchases.
      * @path /purchases/{purchaseId}
-     * @allow (get, list): Any user can read purchase data.
-     * @allow (create): Any authenticated user can create a purchase.
-     * @allow (update, delete): Any authenticated user can modify/delete a purchase.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /purchases/{purchaseId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores customer information.
+     * @description Allows read and write access to customers.
      * @path /customers/{customerId}
-     * @allow (get, list): Any user can read customer data.
-     * @allow (create): Any authenticated user can create a customer.
-     * @allow (update, delete): Any authenticated user can modify/delete a customer.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /customers/{customerId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores daily cash session information.
+     * @description Allows read and write access to cash sessions.
      * @path /cash_sessions/{cashSessionId}
-     * @allow (get, list): Any user can read cash session data.
-     * @allow (create): Any authenticated user can create a cash session.
-     * @allow (update, delete): Any authenticated user can modify/delete a cash session.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /cash_sessions/{cashSessionId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores bank transaction information.
+     * @description Allows read and write access to bank transactions.
      * @path /bank_transactions/{bankTransactionId}
-     * @allow (get, list): Any user can read bank transaction data.
-     * @allow (create): Any authenticated user can create a bank transaction.
-     * @allow (update, delete): Any authenticated user can modify/delete a bank transaction.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /bank_transactions/{bankTransactionId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores system settings.
+     * @description Allows read and write access to settings.
      * @path /settings/{settingId}
-     * @allow (get, list): Any user can read setting data.
-     * @allow (create): Any authenticated user can create a setting.
-     * @allow (update, delete): Any authenticated user can modify/delete a setting.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /settings/{settingId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores customer payment information.
+     * @description Allows read and write access to payments.
      * @path /payments/{paymentId}
-     * @allow (get, list): Any user can read payment data.
-     * @allow (create): Any authenticated user can create a payment.
-     * @allow (update, delete): Any authenticated user can modify/delete a payment.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /payments/{paymentId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores repair job information.
+     * @description Allows read and write access to repair jobs.
      * @path /repair_jobs/{jobId}
-     * @allow (get, list): Any user can read repair job data.
-     * @allow (create): Any authenticated user can create a repair job.
-     * @allow (update, delete): Any authenticated user can modify/delete a repair job.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /repair_jobs/{jobId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
 
     /**
-     * @description Stores items for a specific repair job.
+     * @description Allows read and write access to repair job items.
      * @path /repair_job_items/{jobItemId}
-     * @allow (get, list): Any user can read repair job item data.
-     * @allow (create): Any authenticated user can create a repair job item.
-     * @allow (update, delete): Any authenticated user can modify/delete a repair job item.
-     * @deny (create, update, delete): Non-authenticated users cannot modify data.
-     * @principle Open read access, authenticated write access.
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
      */
     match /repair_job_items/{jobItemId} {
       allow get: if true;
-      allow list: if canList();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
   }
 }

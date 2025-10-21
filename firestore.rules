@@ -1,174 +1,164 @@
 /**
- * @fileoverview Firestore Security Rules for the automotive inventory application.
+ * @file Firestore Security Rules
+ * @description This ruleset is designed for rapid prototyping with a focus on path-based data segregation.
  *
  * Core Philosophy:
- * This ruleset is generated in "prototyping mode", which prioritizes rapid development and iteration
- * speed over strict data validation. All data is treated as public. Authentication is required for all operations.
- * While authentication is required, all authenticated users are treated equally; there are no roles or permissions.
+ * The ruleset provides public read access for all collections. Write access is currently open, but placeholder rules are in place
+ * to allow easy implementation of owner-only writes later. This configuration prioritizes developer velocity and
+ * seamless offline access during early development.
  *
  * Data Structure:
- * The database consists of several top-level collections: `products`, `sales`, `sale_items`, `dealers`,
- * `purchases`, `customers`, `cash_sessions`, `bank_transactions`, and `settings`.
- * Each collection stores data related to its respective entity.
+ * The Firestore database consists of several top-level collections, each representing a core entity in the application:
+ * /products/{productId}
+ * /sales/{saleId}
+ * /sale_items/{saleItemId}
+ * /dealers/{dealerId}
+ * /purchases/{purchaseId}
+ * /customers/{customerId}
+ * /cash_sessions/{cashSessionId}
+ * /bank_transactions/{bankTransactionId}
+ * /settings/{settingId}
+ * /payments/{paymentId}
  *
  * Key Security Decisions:
- * - All collections are publicly readable.
- * - All authenticated users can create, update, and delete documents in all collections.
- * - No data validation is performed.
- * - List operations are allowed for all users on all collections.
- *
- * Denormalization for Authorization:
- * - Not used in this prototyping mode.
- *
- * Structural Segregation:
- * - Not used in this prototyping mode.
+ * - Public Read Access: All `get` and `list` operations are allowed for all users, including unauthenticated users.
+ * - Open Writes (Development Mode): `create`, `update`, and `delete` operations are currently allowed for all users. In a production environment,
+ *   these rules MUST be modified to enforce appropriate authorization (e.g., owner-only access).
+ * - No Data Validation: The ruleset does not enforce any schema validation during write operations. This allows for
+ *   flexible data structures during prototyping but should be revisited before production deployment.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete product documents.
+     * @description Allows anyone to read product information and create, update, or delete products.
      * @path /products/{productId}
-     * @allow (get, list): Any authenticated user can read product data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete product data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to product data.
+     * @allow (get, list) - Any user can read product information.
+     * @allow (create, update, delete) - Any user can create, update, or delete product information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for product information during prototyping.
      */
     match /products/{productId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete sale documents.
+     * @description Allows anyone to read sale information and create, update, or delete sales.
      * @path /sales/{saleId}
-     * @allow (get, list): Any authenticated user can read sale data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete sale data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to sale data.
+     * @allow (get, list) - Any user can read sale information.
+     * @allow (create, update, delete) - Any user can create, update, or delete sale information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for sale information during prototyping.
      */
     match /sales/{saleId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete sale item documents.
+     * @description Allows anyone to read sale item information and create, update, or delete sale items.
      * @path /sale_items/{saleItemId}
-     * @allow (get, list): Any authenticated user can read sale item data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete sale item data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to sale item data.
+     * @allow (get, list) - Any user can read sale item information.
+     * @allow (create, update, delete) - Any user can create, update, or delete sale item information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for sale item information during prototyping.
      */
     match /sale_items/{saleItemId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete dealer documents.
+     * @description Allows anyone to read dealer information and create, update, or delete dealers.
      * @path /dealers/{dealerId}
-     * @allow (get, list): Any authenticated user can read dealer data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete dealer data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to dealer data.
+     * @allow (get, list) - Any user can read dealer information.
+     * @allow (create, update, delete) - Any user can create, update, or delete dealer information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for dealer information during prototyping.
      */
     match /dealers/{dealerId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete purchase documents.
+     * @description Allows anyone to read purchase information and create, update, or delete purchases.
      * @path /purchases/{purchaseId}
-     * @allow (get, list): Any authenticated user can read purchase data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete purchase data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to purchase data.
+     * @allow (get, list) - Any user can read purchase information.
+     * @allow (create, update, delete) - Any user can create, update, or delete purchase information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for purchase information during prototyping.
      */
     match /purchases/{purchaseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete customer documents.
+     * @description Allows anyone to read customer information and create, update, or delete customers.
      * @path /customers/{customerId}
-     * @allow (get, list): Any authenticated user can read customer data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete customer data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to customer data.
+     * @allow (get, list) - Any user can read customer information.
+     * @allow (create, update, delete) - Any user can create, update, or delete customer information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for customer information during prototyping.
      */
     match /customers/{customerId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete cash session documents.
+     * @description Allows anyone to read cash session information and create, update, or delete cash sessions.
      * @path /cash_sessions/{cashSessionId}
-     * @allow (get, list): Any authenticated user can read cash session data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete cash session data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to cash session data.
+     * @allow (get, list) - Any user can read cash session information.
+     * @allow (create, update, delete) - Any user can create, update, or delete cash session information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for cash session information during prototyping.
      */
     match /cash_sessions/{cashSessionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete bank transaction documents.
+     * @description Allows anyone to read bank transaction information and create, update, or delete bank transactions.
      * @path /bank_transactions/{bankTransactionId}
-     * @allow (get, list): Any authenticated user can read bank transaction data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete bank transaction data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to bank transaction data.
+     * @allow (get, list) - Any user can read bank transaction information.
+     * @allow (create, update, delete) - Any user can create, update, or delete bank transaction information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for bank transaction information during prototyping.
      */
     match /bank_transactions/{bankTransactionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
 
     /**
-     * @description Allows any authenticated user to read, create, update, and delete setting documents.
+     * @description Allows anyone to read setting information and create, update, or delete settings.
      * @path /settings/{settingId}
-     * @allow (get, list): Any authenticated user can read setting data.
-     * @allow (create, update, delete): Any authenticated user can create, update, or delete setting data.
-     * @deny (create, update, delete): No scenario is explicitly denied as all authenticated users are allowed.
-     * @principle Allows public read access and authenticated write access to setting data.
+     * @allow (get, list) - Any user can read setting information.
+     * @allow (create, update, delete) - Any user can create, update, or delete setting information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for setting information during prototyping.
      */
     match /settings/{settingId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
+    }
+
+    /**
+     * @description Allows anyone to read payment information and create, update, or delete payments.
+     * @path /payments/{paymentId}
+     * @allow (get, list) - Any user can read payment information.
+     * @allow (create, update, delete) - Any user can create, update, or delete payment information. (THIS IS INSECURE FOR PRODUCTION)
+     * @deny (none)
+     * @principle Provides public read access and open write access for payment information during prototyping.
+     */
+    match /payments/{paymentId} {
+      allow get, list: if true;
+      allow create, update, delete: if true; // TODO: Add owner validation when moving to production.
     }
   }
 }

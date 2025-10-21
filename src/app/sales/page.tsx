@@ -253,9 +253,11 @@ export default function SalesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>
-                            <FileText className="mr-2 h-4 w-4" />
-                            View Invoice
+                        <DropdownMenuItem asChild>
+                            <Link href={`/sales/invoice/${sale.id}`}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                View Invoice
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href={`/sales/${sale.id}`}>

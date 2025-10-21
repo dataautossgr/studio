@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { format, startOfToday } from 'date-fns';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, DocumentReference } from 'firebase/firestore';
 import type { Sale, Product, Customer } from '@/lib/data';
 import { MasterSearchDialog } from '@/components/master-search-dialog';
 import { useState, useMemo, useEffect } from 'react';
@@ -28,9 +28,9 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const salesCollection = useMemoFirebase(() => collection(firestore, 'sales'), [firestore]);
-  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-  const customersCollection = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
+  const salesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'sales'): null, [firestore]);
+  const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+  const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
 
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
@@ -49,24 +49,45 @@ export default function DashboardPage() {
   }, []);
 
   const { lowStockCount, pendingPayments, todaysRevenue, todaysProfit } = useMemo(() => {
+    if (!sales || !products || !customers) {
+      return { lowStockCount: 0, pendingPayments: 0, todaysRevenue: 0, todaysProfit: 0 };
+    }
+
     const todayStart = startOfToday();
 
-    const lowStockCount = products?.filter(p => p.stock <= p.lowStockThreshold).length || 0;
-    const pendingPayments = customers?.filter(c => c.balance > 0).reduce((acc, c) => acc + c.balance, 0) || 0;
+    const lowStockCount = products.filter(p => p.stock <= p.lowStockThreshold).length;
+    const pendingPayments = customers.filter(c => c.balance > 0).reduce((acc, c) => acc + c.balance, 0);
+
+    const todaysSales = sales.filter(s => new Date(s.date) >= todayStart);
     
-    const todaysSales = sales?.filter(s => {
-      const saleDate = new Date(s.date);
-      return saleDate >= todayStart;
-    }) || [];
-    
-    const todaysRevenue = todaysSales.reduce((acc, s) => acc + s.total, 0);
+    const todaysRevenue = todaysSales.reduce((acc, sale) => {
+      if (sale.status === 'Paid') {
+        return acc + sale.total;
+      }
+      if (sale.status === 'Partial') {
+        return acc + (sale.partialAmountPaid || 0);
+      }
+      return acc;
+    }, 0);
     
     const todaysProfit = todaysSales.reduce((acc, sale) => {
         const saleCost = sale.items.reduce((itemSum, item) => {
-            const product = products?.find(p => p.id === item.productId);
-            return itemSum + (product ? product.costPrice * item.quantity : 0);
+            const product = products.find(p => p.id === item.productId);
+            // Assume cost is 0 if product not found for profit calculation
+            return itemSum + ((product?.costPrice || 0) * item.quantity);
         }, 0);
-        return acc + (sale.total - saleCost);
+
+        if (sale.status === 'Paid') {
+            return acc + (sale.total - saleCost);
+        }
+        if (sale.status === 'Partial') {
+            const amountReceived = sale.partialAmountPaid || 0;
+            // Only calculate profit on the paid portion relative to its cost
+            const costRatio = sale.total > 0 ? saleCost / sale.total : 0;
+            const costOfPaidPortion = amountReceived * costRatio;
+            return acc + (amountReceived - costOfPaidPortion);
+        }
+        return acc;
     }, 0);
 
     return { lowStockCount, pendingPayments, todaysRevenue, todaysProfit };
@@ -78,7 +99,7 @@ export default function DashboardPage() {
       title: "Today's Revenue",
       value: `Rs. ${todaysRevenue.toLocaleString()}`,
       icon: DollarSign,
-      change: todaysRevenue > 0 ? 'Sales recorded today' : 'No sales yet today',
+      change: todaysRevenue > 0 ? 'Received today' : 'No payments yet today',
     },
     {
       title: "Today's Profit",
@@ -185,7 +206,7 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {salesLoading ? (
+                {isLoading ? (
                     <TableRow>
                         <TableCell colSpan={2} className="text-center">Loading...</TableCell>
                     </TableRow>

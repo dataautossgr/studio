@@ -43,6 +43,7 @@ import {
   writeBatch,
   getDoc,
   DocumentReference,
+  getCountFromServer,
 } from 'firebase/firestore';
 import type { Customer, Product, RepairJob, Sale } from '@/lib/data';
 import { CustomerDialog } from '@/app/customers/customer-dialog';
@@ -222,7 +223,7 @@ export default function RepairJobFormPage() {
 
     const batch = writeBatch(firestore);
     
-    const jobPayload: Omit<RepairJob, 'id' | 'jobId' | 'closedAt'> & { closedAt?: string } = {
+    const jobPayload: Omit<RepairJob, 'id' | 'jobId'> = {
       customer: doc(firestore, 'customers', selectedCustomer.id),
       vehicleInfo,
       mechanic,
@@ -235,13 +236,9 @@ export default function RepairJobFormPage() {
           quantity: i.quantity,
           price: i.price,
       })),
+      ...( (status === 'Completed' || status === 'Cancelled') && { closedAt: new Date().toISOString() })
     };
     
-    if (status === 'Completed' || status === 'Cancelled') {
-        jobPayload.closedAt = new Date().toISOString();
-    }
-
-
     if (isNew) {
       const newJobRef = doc(collection(firestore, 'repair_jobs'));
       const newJobId = `JOB-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
@@ -273,11 +270,17 @@ export default function RepairJobFormPage() {
     }
 
     const batch = writeBatch(firestore);
+    
+    // Get next invoice number
+    const salesCollectionRef = collection(firestore, 'sales');
+    const salesSnapshot = await getCountFromServer(salesCollectionRef);
+    const newInvoiceNumber = (salesSnapshot.data().count + 1).toString().padStart(3, '0');
+
 
     // 1. Create a new Sale document
     const newSaleRef = doc(collection(firestore, 'sales'));
     const newSale: Omit<Sale, 'id'> = {
-        invoice: `INV-${Date.now()}`,
+        invoice: `INV-${newInvoiceNumber}`,
         customer: doc(firestore, 'customers', selectedCustomer.id),
         date: new Date().toISOString(),
         total: totalAmount,
@@ -535,5 +538,3 @@ export default function RepairJobFormPage() {
     </div>
   );
 }
-
-    

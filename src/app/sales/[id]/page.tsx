@@ -60,7 +60,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useFirestore, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch, getDoc, getCountFromServer } from 'firebase/firestore';
 
 
 interface CartItem {
@@ -343,8 +343,11 @@ export default function SaleFormPage() {
     const finalSaleData: any = { ...saleData, customer: customerRef };
     
     if (isNew) {
-        const newSaleRef = doc(collection(firestore, 'sales'));
-        finalSaleData.invoice = `INV-${Date.now()}`;
+        const salesCollectionRef = collection(firestore, 'sales');
+        const salesSnapshot = await getCountFromServer(salesCollectionRef);
+        const newInvoiceNumber = (salesSnapshot.data().count + 1).toString().padStart(3, '0');
+        const newSaleRef = doc(salesCollectionRef);
+        finalSaleData.invoice = `INV-${newInvoiceNumber}`;
         batch.set(newSaleRef, finalSaleData);
     } else {
         const saleRef = doc(firestore, 'sales', saleId);

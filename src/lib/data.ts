@@ -92,8 +92,6 @@ export interface RepairJob {
   jobId: string;
   customer: DocumentReference;
   vehicleInfo: string;
-  mechanic: string;
-  notes?: string;
   status: 'In Progress' | 'Paused' | 'Completed' | 'Cancelled';
   createdAt: string;
   closedAt?: string;
@@ -106,7 +104,6 @@ export interface RepairJobItem {
   name: string;
   quantity: number;
   price: number;
-  notes?: string;
 }
 
 
@@ -254,4 +251,3 @@ export const seedInitialData = async (db: any) => {
     
     console.log("Data seeding complete.");
 };
-

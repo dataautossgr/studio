@@ -61,6 +61,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter
 } from '@/components/ui/table';
 import {
   Command,
@@ -91,9 +92,9 @@ export default function RepairJobFormPage() {
   const isNew = jobId === 'new';
 
   // Firestore collections
-  const customersCollection = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
-  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-  const jobRef = useMemoFirebase(() => isNew ? null : doc(firestore, 'repair_jobs', jobId), [firestore, jobId, isNew]);
+  const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
+  const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+  const jobRef = useMemoFirebase(() => isNew || !firestore ? null : doc(firestore, 'repair_jobs', jobId), [firestore, jobId, isNew]);
 
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
@@ -110,36 +111,37 @@ export default function RepairJobFormPage() {
 
   // Effect to populate form when editing an existing job
   useEffect(() => {
-    if (jobData && customers) {
-        const fetchCustomer = async () => {
-            if (jobData.customer instanceof DocumentReference) {
-                const customerSnap = await getDoc(jobData.customer);
-                if (customerSnap.exists()) {
-                    setSelectedCustomer({ id: customerSnap.id, ...customerSnap.data() } as Customer);
-                }
-            }
+    if (jobData && !jobLoading && products && customers) {
+      const fetchAndSetData = async () => {
+        if (jobData.customer instanceof DocumentReference) {
+          const customerSnap = await getDoc(jobData.customer);
+          if (customerSnap.exists()) {
+            setSelectedCustomer({ id: customerSnap.id, ...customerSnap.data() } as Customer);
+          }
         }
-        fetchCustomer();
         setVehicleInfo(jobData.vehicleInfo);
         setCreatedAt(new Date(jobData.createdAt));
         setStatus(jobData.status);
-         if (jobData.items && products) {
-            const billItems: BillItem[] = jobData.items.map(item => {
-                const product = products.find(p => p.id === item.productId);
-                return {
-                    id: item.productId,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price,
-                    costPrice: product?.costPrice || 0,
-                    stock: product?.stock || 0,
-                    isOneTime: !product,
-                };
-            });
-            setItems(billItems);
+
+        if (jobData.items) {
+          const billItems: BillItem[] = jobData.items.map(item => {
+            const product = products.find(p => p.id === item.productId);
+            return {
+              id: item.productId,
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+              costPrice: product?.costPrice || 0,
+              stock: product?.stock || 0,
+              isOneTime: !product,
+            };
+          });
+          setItems(billItems);
         }
+      };
+      fetchAndSetData();
     }
-  }, [jobData, customers, products]);
+  }, [jobData, jobLoading, customers, products]);
 
   const totalAmount = useMemo(() => {
     return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -199,7 +201,7 @@ export default function RepairJobFormPage() {
 
 
   const handleSaveJob = async () => {
-    if (!selectedCustomer || !vehicleInfo) {
+    if (!firestore || !selectedCustomer || !vehicleInfo) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
@@ -215,8 +217,8 @@ export default function RepairJobFormPage() {
       vehicleInfo,
       status: status,
       createdAt: createdAt.toISOString(),
+      closedAt: status === 'Completed' || status === 'Cancelled' ? new Date().toISOString() : undefined,
       total: totalAmount,
-      mechanic: '', // Simplified
       items: items.map(i => ({
           productId: i.id,
           name: i.name,
@@ -365,7 +367,7 @@ export default function RepairJobFormPage() {
                             <TableHead className="w-1/2">Product</TableHead>
                             <TableHead>Quantity</TableHead>
                             <TableHead>Sale Price</TableHead>
-                            <TableHead>Total</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
                             <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -395,7 +397,7 @@ export default function RepairJobFormPage() {
                                 <TableCell className="text-right font-mono">
                                     Rs. {(item.quantity * item.price).toLocaleString()}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className='text-right'>
                                     <Button variant="ghost" size="icon" onClick={() => removeItem(item.id)}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>

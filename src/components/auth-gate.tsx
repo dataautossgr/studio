@@ -12,7 +12,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isUserLoading) return; // Wait until user status is resolved
     
-    const isAuthPage = pathname === '/login' || pathname === '/register';
+    const isAuthPage = pathname === '/login';
 
     // If there's no user, redirect to login page, unless they are on an auth page.
     if (!user && !isAuthPage) {
@@ -34,7 +34,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
   
-  const isAuthPage = pathname === '/login' || pathname === '/register';
+  const isAuthPage = pathname === '/login';
 
   // If a user is logged in, show the main application.
   // If no user but on an auth page, allow the auth page to be rendered.

@@ -11,14 +11,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isUserLoading) return; // Wait until user status is resolved
+    
+    const isAuthPage = pathname === '/login' || pathname === '/register';
 
-    // If there's no user, redirect to login page, unless they are already there.
-    if (!user && pathname !== '/login') {
+    // If there's no user, redirect to login page, unless they are on an auth page.
+    if (!user && !isAuthPage) {
       router.replace('/login');
     }
 
-    // If there is a user and they are on the login page, redirect to dashboard.
-    if (user && pathname === '/login') {
+    // If there is a user and they are on an auth page, redirect to dashboard.
+    if (user && isAuthPage) {
       router.replace('/');
     }
   }, [user, isUserLoading, router, pathname]);
@@ -31,13 +33,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
       </div>
     );
   }
+  
+  const isAuthPage = pathname === '/login' || pathname === '/register';
 
   // If a user is logged in, show the main application.
-  // If no user but on the login page, allow the login page to be rendered.
-  if (user || pathname === '/login') {
+  // If no user but on an auth page, allow the auth page to be rendered.
+  if (user || isAuthPage) {
     return <>{children}</>;
   }
 
-  // If no user and not on the login page, this will be null while redirecting.
+  // If no user and not on an auth page, this will be null while redirecting.
   return null;
 }

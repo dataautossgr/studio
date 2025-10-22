@@ -12,39 +12,41 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('Admin@dataautossgr.com');
-  const [password, setPassword] = useState('Data@03332912810');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await createUserWithEmailAndPassword(auth, email, password);
       toast({
-        title: 'Login Successful',
-        description: 'Welcome back!',
+        title: 'Registration Successful',
+        description: 'You have been successfully registered.',
       });
       router.push('/');
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('Registration error:', error);
       let description = 'An unexpected error occurred.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        description = 'Invalid credentials. Please make sure the user exists in Firebase and the password is correct.';
+      if (error.code === 'auth/email-already-in-use') {
+        description = 'This email address is already in use.';
+      } else if (error.code === 'auth/weak-password') {
+        description = 'The password is too weak. Please use at least 6 characters.';
       }
       toast({
         variant: 'destructive',
-        title: 'Login Failed',
+        title: 'Registration Failed',
         description,
       });
     } finally {
@@ -56,11 +58,11 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Data Autos</CardTitle>
+          <CardTitle className="text-2xl">Create an Account</CardTitle>
           <CardDescription>POS BY HAMXA TECH</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -81,17 +83,17 @@ export default function LoginPage() {
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
+                autoComplete="new-password"
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Log In'}
+              {isLoading ? 'Registering...' : 'Register'}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="justify-center text-sm">
-            <Link href="/register" className="underline">
-                Don't have an account? Register
+            <Link href="/login" className="underline">
+                Already have an account? Log in
             </Link>
         </CardFooter>
       </Card>

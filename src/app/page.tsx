@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -7,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { CreditCard, DollarSign, Package, TrendingUp, Users, Search } from 'lucide-react';
+import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
 import {
   Table,
@@ -23,6 +24,8 @@ import { collection, DocumentReference } from 'firebase/firestore';
 import type { Sale, Product, Customer } from '@/lib/data';
 import { MasterSearchDialog } from '@/components/master-search-dialog';
 import { useState, useMemo, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const firestore = useFirestore();
@@ -135,18 +138,32 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">
           A quick overview of your business performance.
         </p>
-         <button
-            onClick={() => setIsSearchOpen(true)}
-            className="w-full max-w-lg text-sm text-muted-foreground bg-background border rounded-md px-4 py-2 flex items-center justify-between hover:bg-accent hover:text-accent-foreground transition-colors"
-        >
-            <div className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                <span>Search for products, customers, dealers...</span>
-            </div>
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                <span className="text-xs">⌘</span>K
-            </kbd>
-      </button>
+        <div className="flex flex-wrap gap-2">
+            <button
+                onClick={() => setIsSearchOpen(true)}
+                className="w-full max-w-sm text-sm text-muted-foreground bg-background border rounded-md px-4 py-2 flex items-center justify-between hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+                <div className="flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    <span>Search for products, customers, dealers...</span>
+                </div>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                    <span className="text-xs">⌘</span>K
+                </kbd>
+            </button>
+            <Button asChild>
+                <Link href="/sales/new">
+                    <PlusCircle />
+                    New Sale
+                </Link>
+            </Button>
+             <Button asChild variant="outline">
+                <Link href="/repair-jobs/new">
+                    <Wrench />
+                    New Temp Bill
+                </Link>
+            </Button>
+        </div>
         <MasterSearchDialog open={isSearchOpen} onOpenChange={setIsSearchOpen} />
       </div>
 

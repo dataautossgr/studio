@@ -19,23 +19,13 @@ export default function LoginPage() {
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('Admin@dataautossgr.com');
+  const [password, setPassword] = useState('Data@03332912810');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    if (email !== 'Admin@dataautossgr.com' || password !== 'Data@03332912810') {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid Credentials',
-        description: 'Please check your email and password.',
-      });
-      setIsLoading(false);
-      return;
-    }
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -47,8 +37,8 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error('Login error:', error);
       let description = 'An unexpected error occurred.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        description = 'Invalid credentials. Please try again.';
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        description = 'Invalid credentials. Please make sure the user exists in Firebase and the password is correct.';
       }
       toast({
         variant: 'destructive',

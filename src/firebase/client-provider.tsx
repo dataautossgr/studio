@@ -1,19 +1,45 @@
 'use client';
 
-import React, { useMemo, type ReactNode } from 'react';
+import React, { useMemo, type ReactNode, useState, useEffect } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
+import type { FirebaseApp } from 'firebase/app';
+import type { Auth } from 'firebase/auth';
+import type { Firestore } from 'firebase/firestore';
 
 interface FirebaseClientProviderProps {
   children: ReactNode;
 }
 
-export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  const firebaseServices = useMemo(() => {
-    // Initialize Firebase on the client side, once per component mount.
-    return initializeFirebase();
-  }, []); // Empty dependency array ensures this runs only once on mount
+interface FirebaseServices {
+    firebaseApp: FirebaseApp;
+    auth: Auth;
+    firestore: Firestore;
+}
 
+export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
+  const [firebaseServices, setFirebaseServices] = useState<FirebaseServices | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const services = await initializeFirebase();
+        setFirebaseServices(services);
+      } catch (error) {
+        console.error("Failed to initialize Firebase services:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    init();
+  }, []); 
+
+  if (isLoading || !firebaseServices) {
+    // You can return a loading spinner or some placeholder here
+    return <div className="flex h-screen items-center justify-center">Loading Application...</div>;
+  }
 
   return (
     <FirebaseProvider

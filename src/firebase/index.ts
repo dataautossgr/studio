@@ -3,40 +3,63 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore'
+
+let firebaseApp: FirebaseApp;
+let auth: ReturnType<typeof getAuth>;
+let firestore: ReturnType<typeof getFirestore>;
+let persistenceEnabled = false;
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase() {
+export async function initializeFirebase() {
   if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp;
     try {
-      // Attempt to initialize via Firebase App Hosting environment variables
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
       firebaseApp = initializeApp(firebaseConfig);
+    } catch (e) {
+      console.error('Firebase initialization error', e);
+      // Fallback for environments where config is needed.
+      if (!getApps().length) {
+         firebaseApp = initializeApp(firebaseConfig);
+      } else {
+         firebaseApp = getApp();
+      }
     }
-
-    return getSdks(firebaseApp);
+  } else {
+    firebaseApp = getApp();
   }
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  auth = getAuth(firebaseApp);
+  firestore = getFirestore(firebaseApp);
+
+  if (!persistenceEnabled) {
+    try {
+      await enableIndexedDbPersistence(firestore);
+      persistenceEnabled = true;
+      console.log("Firebase Offline Persistence Enabled.");
+    } catch (err: any) {
+      if (err.code == 'failed-precondition') {
+        // Multiple tabs open, persistence can only be enabled in one.
+        console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open.');
+      } else if (err.code == 'unimplemented') {
+        // The current browser does not support all of the
+        // features required to enable persistence
+        console.warn('Firebase offline persistence is not supported in this browser.');
+      }
+      // We can still continue with the app, just without offline support.
+    }
+  }
+
+  return { firebaseApp, auth, firestore };
 }
 
-export function getSdks(firebaseApp: FirebaseApp) {
+// This function is kept for any part of the app that might still use it synchronously,
+// but it will not guarantee offline persistence.
+// The async initializeFirebase should be preferred.
+export function getSdks(appInstance: FirebaseApp) {
   return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    firebaseApp: appInstance,
+    auth: getAuth(appInstance),
+    firestore: getFirestore(appInstance)
   };
 }
 

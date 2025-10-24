@@ -27,14 +27,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 
 export default function SettingsPage() {
-  const { settings, setSettings } = useStoreSettings();
+  const { settings: initialSettings, saveSettings } = useStoreSettings();
+  const [settings, setSettings] = useState(initialSettings);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setSettings(initialSettings);
+  }, [initialSettings]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
@@ -51,17 +56,36 @@ export default function SettingsPage() {
       reader.readAsDataURL(file);
     }
   };
+  
+  const handleSaveChanges = () => {
+    try {
+        saveSettings(settings);
+        toast({
+            title: "Settings Saved",
+            description: "Your store information has been updated successfully.",
+        });
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Save Failed",
+            description: "Could not save your settings. Please try again.",
+        });
+    }
+  };
 
   const handleResetData = () => {
     // This is a placeholder. In a real app, this would trigger
     // a global state reset or clear local storage.
     console.log("Resetting all local data...");
+    localStorage.clear(); // This will clear all local storage for the domain.
     toast({
       title: "Local Data Reset",
-      description: "All application data has been reset to its initial state.",
+      description: "All application data has been reset. The app will now reload.",
     });
     // For now, we can just reload the page to simulate a reset with mock data
-    window.location.reload();
+    setTimeout(() => {
+        window.location.reload();
+    }, 1500)
   };
 
   return (
@@ -135,7 +159,7 @@ export default function SettingsPage() {
               </div>
             </div>
              <div className="flex justify-end">
-                <Button>
+                <Button onClick={handleSaveChanges}>
                     <Save className="mr-2 h-4 w-4" />
                     Save Changes
                 </Button>

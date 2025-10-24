@@ -58,19 +58,11 @@ export default function SettingsPage() {
   };
   
   const handleSaveChanges = () => {
-    try {
-        saveSettings(settings);
-        toast({
-            title: "Settings Saved",
-            description: "Your store information has been updated successfully.",
-        });
-    } catch (error) {
-        toast({
-            variant: "destructive",
-            title: "Save Failed",
-            description: "Could not save your settings. Please try again.",
-        });
-    }
+    saveSettings(settings);
+    toast({
+        title: "Settings Saved",
+        description: "Your store information has been updated successfully.",
+    });
   };
 
   const handleResetData = () => {

@@ -35,9 +35,7 @@ export default function RootLayout({
           <FirebaseClientProvider>
             <StoreSettingsProvider>
               <AuthGate>
-                <SidebarLayout>
-                  {children}
-                </SidebarLayout>
+                {children}
               </AuthGate>
             </StoreSettingsProvider>
           </FirebaseClientProvider>

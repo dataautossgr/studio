@@ -3,6 +3,7 @@
 import { useUser } from '@/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
+import { SidebarLayout } from '@/components/sidebar-layout';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -36,12 +37,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
   
   const isAuthPage = pathname === '/login';
 
-  // If a user is logged in, show the main application.
-  // If no user but on an auth page, allow the auth page to be rendered.
-  if (user || isAuthPage) {
+  // If a user is logged in, show the main application with the sidebar.
+  if (user && !isAuthPage) {
+    return <SidebarLayout>{children}</SidebarLayout>;
+  }
+
+  // If no user but on an auth page, allow the auth page to be rendered without sidebar.
+  if (!user && isAuthPage) {
     return <>{children}</>;
   }
 
-  // If no user and not on an auth page, this will be null while redirecting.
+  // This will be null while redirecting or in other edge cases.
   return null;
 }

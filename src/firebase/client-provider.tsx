@@ -6,6 +6,7 @@ import { initializeFirebase } from '@/firebase';
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
+import { StoreSettingsProvider } from '@/context/store-settings-context';
 
 interface FirebaseClientProviderProps {
   children: ReactNode;
@@ -24,11 +25,13 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
   useEffect(() => {
     const init = async () => {
       try {
+        // This now handles both Firebase init and offline persistence
         const services = await initializeFirebase();
         setFirebaseServices(services);
       } catch (error) {
         console.error("Failed to initialize Firebase services:", error);
       } finally {
+        // This will only be set to false after persistence is attempted
         setIsLoading(false);
       }
     };
@@ -36,8 +39,10 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     init();
   }, []); 
 
+  // We are now also waiting for firebaseServices to be available.
+  // The StoreSettingsProvider will not render its children until its own internal `isInitialized` is true.
+  // This creates a sequential loading gate: Firebase -> Settings -> App.
   if (isLoading || !firebaseServices) {
-    // You can return a loading spinner or some placeholder here
     return <div className="flex h-screen items-center justify-center">Loading Application...</div>;
   }
 
@@ -47,7 +52,9 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       auth={firebaseServices.auth}
       firestore={firebaseServices.firestore}
     >
-      {children}
+      <StoreSettingsProvider>
+        {children}
+      </StoreSettingsProvider>
     </FirebaseProvider>
   );
 }

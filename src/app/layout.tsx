@@ -3,8 +3,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
-import { StoreSettingsProvider } from '@/context/store-settings-context';
-import { SidebarLayout } from '@/components/sidebar-layout';
 import { FirebaseClientProvider } from '@/firebase';
 import { AuthGate } from '@/components/auth-gate';
 
@@ -33,11 +31,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-            <StoreSettingsProvider>
-              <AuthGate>
-                {children}
-              </AuthGate>
-            </StoreSettingsProvider>
+            <AuthGate>
+              {children}
+            </AuthGate>
           </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>

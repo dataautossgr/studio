@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -242,6 +243,7 @@ export default function PurchaseFormPage() {
                                         <CommandItem
                                         key={product.id}
                                         onSelect={() => handleProductSelect(product)}
+                                        className="cursor-pointer"
                                         >
                                         {product.name} ({product.brand})
                                         </CommandItem>
@@ -293,9 +295,10 @@ export default function PurchaseFormPage() {
                                         <Input 
                                             type="number" 
                                             value={item.quantity} 
-                                            onChange={e => updatePurchaseItem(item.productId, 'quantity', parseInt(e.target.value) || 1)} 
+                                            onChange={e => updatePurchaseItem(item.productId, 'quantity', parseFloat(e.target.value) || 0)} 
                                             className="w-20"
-                                            min="1"
+                                            step="0.1"
+                                            min="0"
                                         />
                                     </TableCell>
                                      <TableCell>
@@ -376,3 +379,5 @@ export default function PurchaseFormPage() {
     </div>
   );
 }
+
+    

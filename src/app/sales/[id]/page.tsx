@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -518,6 +519,7 @@ export default function SaleFormPage() {
                             <CommandItem
                               key={product.id}
                               onSelect={() => handleProductSelect(product)}
+                              className="cursor-pointer"
                             >
                               <div className="flex w-full justify-between items-center">
                                 <div>
@@ -587,10 +589,11 @@ export default function SaleFormPage() {
                           type="number"
                           value={item.quantity}
                           onChange={(e) =>
-                            updateCartItem(item.id, 'quantity', parseInt(e.target.value) || 1)
+                            updateCartItem(item.id, 'quantity', parseFloat(e.target.value) || 0)
                           }
                           className="w-20"
-                          min="1"
+                          step="0.1"
+                          min="0"
                         />
                       </TableCell>
                       <TableCell>
@@ -788,5 +791,7 @@ export default function SaleFormPage() {
     </div>
   );
 }
+
+    
 
     

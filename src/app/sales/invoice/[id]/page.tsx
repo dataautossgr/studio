@@ -3,18 +3,15 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { useDoc, useFirestore } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { doc, getDoc, DocumentReference } from 'firebase/firestore';
 import type { Sale, Customer } from '@/lib/data';
-import { useStoreSettings } from '@/context/store-settings-context';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Printer, ArrowLeft } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
+import { useStoreSettings } from '@/context/store-settings-context';
+
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
   customer: Customer | null;
@@ -63,12 +60,112 @@ export default function InvoicePage() {
     return <div className="p-8 text-center text-destructive">Invoice not found.</div>;
   }
   
-  const subtotal = sale.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const totalRows = 15;
+  const emptyRows = totalRows - sale.items.length > 0 ? totalRows - sale.items.length : 0;
+  
+  const ownerName = settings.coOwnerName ? `${settings.ownerName}, ${settings.coOwnerName}` : settings.ownerName;
+  const phoneNumbers = [settings.contact1, settings.contact2, settings.contact3].filter(Boolean).join(' / ');
+
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-muted/30 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-4 flex justify-between items-center print:hidden">
+    <>
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print-container, .print-container * {
+            visibility: visible;
+          }
+          .print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .controls {
+            display: none;
+          }
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        .cash-memo {
+            width: 800px;
+            margin: 20px auto;
+            border: 1px solid #000;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #008000; /* Green text color */
+            font-size: 24px;
+            margin-bottom: 5px;
+            border-bottom: 3px solid #008000;
+            padding-bottom: 5px;
+            display: inline-block;
+        }
+        .header h2 {
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        .details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .details span {
+            display: inline-block;
+            margin-right: 15px;
+        }
+        .memo-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .memo-table th, .memo-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+        .memo-table th {
+            background-color: #008000; /* Green header background */
+            color: white;
+            text-align: center;
+        }
+        .memo-table td.total {
+            border: none;
+            text-align: right;
+            padding-top: 15px;
+        }
+        .memo-table td.total-box {
+            border: 1px solid #000;
+            text-align: center;
+            width: 15%; /* Adjust width for the total box */
+            font-weight: bold;
+        }
+        .signature {
+            margin-top: 30px;
+            font-size: 14px;
+            text-align: left;
+        }
+        .line-under {
+            border-bottom: 1px solid #000;
+            display: inline-block;
+            padding: 0 5px;
+        }
+      `}</style>
+
+      <div className="p-4 sm:p-6 lg:p-8 bg-muted/30 min-h-screen">
+         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center controls">
             <Button variant="outline" asChild>
                 <Link href="/sales">
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -81,107 +178,63 @@ export default function InvoicePage() {
             </Button>
         </div>
 
-        <Card className="print:shadow-none print:border-none">
-          <CardHeader className="bg-muted/50 p-6 print:bg-transparent">
-            <div className="flex justify-between items-start">
-              <div>
-                {settings.logo ? (
-                    <Image src={settings.logo} alt={settings.storeName} width={100} height={100} className="object-contain mb-2" />
-                ) : (
-                    <h1 className="text-2xl font-bold">{settings.storeName}</h1>
-                )}
-                {settings.ownerName && <p className="font-semibold text-muted-foreground">{settings.ownerName}</p>}
-                {settings.address && <p className="text-muted-foreground text-sm max-w-xs mt-2">{settings.address}</p>}
-                <div className="text-muted-foreground text-sm mt-1">
-                    {settings.contact1 && <p>{settings.contact1}</p>}
-                    {settings.contact2 && <p>{settings.contact2}</p>}
-                    {settings.contact3 && <p>{settings.contact3}</p>}
-                </div>
-              </div>
-              <div className="text-right">
-                <h2 className="text-3xl font-bold text-primary tracking-wider">INVOICE</h2>
-                <p className="text-lg font-mono">{sale.invoice}</p>
-                <p className="text-sm text-muted-foreground">Date: {format(new Date(sale.date), 'dd MMM, yyyy')}</p>
-              </div>
+        <div className="cash-memo print-container">
+            <div className="header">
+                <h2>CASH MEMO</h2>
+                <h1>{settings.storeName || 'DATA AUTOS & BATTERIES'}</h1>
+                <h2>{settings.address || 'MIPURKHAS ROAD SANGHAR'}</h2>
+                <p>Prop: {ownerName}, Ph# {phoneNumbers}</p>
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-2 gap-4 mb-8">
+
+            <div className="details">
                 <div>
-                    <h3 className="font-semibold mb-2">Bill To:</h3>
-                    <p className="font-bold">{sale.customer?.name || 'Walk-in Customer'}</p>
-                    {sale.customer?.type === 'registered' && (
-                        <>
-                        <p className="text-sm text-muted-foreground">{sale.customer.phone}</p>
-                        <p className="text-sm text-muted-foreground">{sale.customer.vehicleDetails}</p>
-                        </>
-                    )}
+                    <span>S. No.: <span className="line-under" style={{width: '80px'}}>{sale.invoice}</span></span>
+                    <span>NAME: <span className="line-under" style={{width: '250px'}}>{sale.customer?.name || 'Walk-in Customer'}</span></span>
                 </div>
-                 <div className="text-right border-l pl-4">
-                    <h3 className="font-semibold mb-2">Status:</h3>
-                     <Badge variant={sale.status === 'Paid' ? 'default' : (sale.status === 'Partial' ? 'secondary' : 'destructive')} className="text-lg">
-                        {sale.status}
-                    </Badge>
+                <div>
+                    <span>Date: <span className="line-under" style={{width: '100px'}}>{format(new Date(sale.date), 'dd/MM/yyyy')}</span></span>
                 </div>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50%]">Item Description</TableHead>
-                  <TableHead className="text-center">Qty</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sale.items.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-center">{item.quantity}</TableCell>
-                    <TableCell className="text-right font-mono">Rs. {item.price.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono">Rs. {(item.price * item.quantity).toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            
-            <div className="flex justify-end mt-6">
-                <div className="w-full max-w-sm space-y-3">
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotal:</span>
-                        <span className="font-mono">Rs. {subtotal.toLocaleString()}</span>
-                    </div>
-                     <div className="flex justify-between">
-                        <span className="text-muted-foreground">Discount:</span>
-                        <span className="font-mono">- Rs. {sale.discount.toLocaleString()}</span>
-                    </div>
-                     <div className="flex justify-between text-lg font-bold border-t pt-3">
-                        <span>Total:</span>
-                        <span className="font-mono">Rs. {sale.total.toLocaleString()}</span>
-                    </div>
-                     {sale.status === 'Partial' && (
-                         <>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Amount Paid:</span>
-                                <span className="font-mono">Rs. {sale.partialAmountPaid?.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between font-semibold text-destructive">
-                                <span>Balance Due:</span>
-                                <span className="font-mono">Rs. {(sale.total - (sale.partialAmountPaid || 0)).toLocaleString()}</span>
-                            </div>
-                         </>
-                    )}
-                </div>
-            </div>
+            <table className="memo-table">
+                <thead>
+                    <tr>
+                        <th style={{width: '10%'}}>QTY</th>
+                        <th style={{width: '50%'}}>PARTICULAR</th>
+                        <th style={{width: '20%'}}>RATE</th>
+                        <th style={{width: '20%'}}>AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {sale.items.map((item, index) => (
+                         <tr key={index}>
+                            <td className="text-center">{item.quantity}</td>
+                            <td>{item.name}</td>
+                            <td className="text-right">Rs. {item.price.toLocaleString()}</td>
+                            <td className="text-right">Rs. {(item.price * item.quantity).toLocaleString()}</td>
+                        </tr>
+                    ))}
+                    {Array.from({ length: emptyRows }).map((_, i) => (
+                        <tr key={`empty-${i}`}>
+                            <td>&nbsp;</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    ))}
 
-             <div className="mt-12 text-center text-xs text-muted-foreground">
-                <p>Thank you for your business!</p>
-                <p>{settings.storeName} - {settings.contact1}</p>
+                    <tr>
+                        <td colSpan={3} className="total"><strong>TOTAL:</strong></td>
+                        <td className="total-box">Rs. {sale.total.toLocaleString()}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div className="signature">
+                <p>SIGNATURE: <span className="line-under" style={{width: '150px'}}>&nbsp;</span></p>
             </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

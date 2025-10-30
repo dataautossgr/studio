@@ -94,6 +94,7 @@ export default function InvoicePage() {
         }
         .cash-memo {
             width: 800px;
+            max-width: 100%;
             margin: 20px auto;
             border: 1px solid #000;
             padding: 20px;

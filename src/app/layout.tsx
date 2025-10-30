@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import { AuthGate } from '@/components/auth-gate';
+import { StoreSettingsProvider } from '@/context/store-settings-context';
 
 export const metadata: Metadata = {
   title: 'Data Autos POS System',
@@ -31,9 +32,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-            <AuthGate>
-              {children}
-            </AuthGate>
+            <StoreSettingsProvider>
+              <AuthGate>
+                {children}
+              </AuthGate>
+            </StoreSettingsProvider>
           </FirebaseClientProvider>
           <Toaster />
         </ThemeProvider>

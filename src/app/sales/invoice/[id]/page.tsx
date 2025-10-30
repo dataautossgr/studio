@@ -69,7 +69,85 @@ export default function InvoicePage() {
 
   return (
     <>
+      <div className="controls fixed top-4 right-4 z-50 flex gap-2">
+            <Button variant="outline" asChild>
+                <Link href="/sales">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                </Link>
+            </Button>
+            <Button onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+            </Button>
+        </div>
+
+      <div className="print-container bg-gray-100 p-4 sm:p-8">
+        <div className="cash-memo w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg">
+            <div className="header text-center mb-5">
+                <h2 className="text-lg font-bold">CASH MEMO</h2>
+                <h1 className="text-green-600 text-2xl font-bold mb-1 border-b-3 border-green-600 pb-1 inline-block">
+                    {settings.storeName || 'DATA AUTOS & BATTERIES'}
+                </h1>
+                <h2 className="text-base font-bold">{settings.address || 'MIPURKHAS ROAD SANGHAR'}</h2>
+                <p className="text-sm">Prop: {ownerName}, Ph# {phoneNumbers}</p>
+            </div>
+
+            <div className="details flex justify-between mb-4 text-sm">
+                <div>
+                    <span>S. No.: <span className="line-under w-20">{sale.invoice}</span></span>
+                    <span className="ml-4">NAME: <span className="line-under w-64">{sale.customer?.name || 'Walk-in Customer'}</span></span>
+                </div>
+                <div>
+                    <span>Date: <span className="line-under w-28">{format(new Date(sale.date), 'dd/MM/yyyy')}</span></span>
+                </div>
+            </div>
+
+            <table className="memo-table w-full border-collapse text-sm">
+                <thead>
+                    <tr>
+                        <th className="w-[10%] bg-green-600 text-white text-center border border-black p-2">QTY</th>
+                        <th className="w-[50%] bg-green-600 text-white text-center border border-black p-2">PARTICULAR</th>
+                        <th className="w-[20%] bg-green-600 text-white text-center border border-black p-2">RATE</th>
+                        <th className="w-[20%] bg-green-600 text-white text-center border border-black p-2">AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {sale.items.map((item, index) => (
+                         <tr key={index}>
+                            <td className="text-center border border-black p-2">{item.quantity}</td>
+                            <td className="border border-black p-2">{item.name}</td>
+                            <td className="text-right border border-black p-2">Rs. {item.price.toLocaleString()}</td>
+                            <td className="text-right border border-black p-2">Rs. {(item.price * item.quantity).toLocaleString()}</td>
+                        </tr>
+                    ))}
+                    {Array.from({ length: emptyRows }).map((_, i) => (
+                        <tr key={`empty-${i}`} style={{height: '2.4rem'}}>
+                            <td className="border border-black">&nbsp;</td>
+                            <td className="border border-black"></td>
+                            <td className="border border-black"></td>
+                            <td className="border border-black"></td>
+                        </tr>
+                    ))}
+
+                    <tr>
+                        <td colSpan={3} className="total border-none text-right pt-4 pr-2 font-bold">TOTAL:</td>
+                        <td className="total-box border border-black text-center font-bold p-2">Rs. {sale.total.toLocaleString()}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div className="signature mt-8 text-sm">
+                <p>SIGNATURE: <span className="line-under w-40">&nbsp;</span></p>
+            </div>
+        </div>
+      </div>
       <style jsx global>{`
+        .line-under {
+            border-bottom: 1px solid #000;
+            display: inline-block;
+            padding: 0 2px;
+        }
         @media print {
           body * {
             visibility: hidden;
@@ -82,160 +160,20 @@ export default function InvoicePage() {
             left: 0;
             top: 0;
             width: 100%;
+            padding: 0;
+            margin: 0;
+          }
+          .cash-memo {
+            box-shadow: none;
+            border: 1px solid #000;
+            margin: 0;
+            width: 100%;
           }
           .controls {
             display: none;
           }
         }
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            background-color: #f4f4f4;
-        }
-        .cash-memo {
-            width: 800px;
-            max-width: 100%;
-            margin: 20px auto;
-            border: 1px solid #000;
-            padding: 20px;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .header h1 {
-            color: #008000; /* Green text color */
-            font-size: 24px;
-            margin-bottom: 5px;
-            border-bottom: 3px solid #008000;
-            padding-bottom: 5px;
-            display: inline-block;
-        }
-        .header h2 {
-            font-size: 16px;
-            margin-top: 5px;
-        }
-        .details {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            font-size: 14px;
-        }
-        .details span {
-            display: inline-block;
-            margin-right: 15px;
-        }
-        .memo-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        .memo-table th, .memo-table td {
-            border: 1px solid #000;
-            padding: 8px;
-            text-align: left;
-        }
-        .memo-table th {
-            background-color: #008000; /* Green header background */
-            color: white;
-            text-align: center;
-        }
-        .memo-table td.total {
-            border: none;
-            text-align: right;
-            padding-top: 15px;
-        }
-        .memo-table td.total-box {
-            border: 1px solid #000;
-            text-align: center;
-            width: 15%; /* Adjust width for the total box */
-            font-weight: bold;
-        }
-        .signature {
-            margin-top: 30px;
-            font-size: 14px;
-            text-align: left;
-        }
-        .line-under {
-            border-bottom: 1px solid #000;
-            display: inline-block;
-            padding: 0 5px;
-        }
       `}</style>
-
-      <div className="p-4 sm:p-6 lg:p-8 bg-muted/30 min-h-screen">
-         <div className="max-w-4xl mx-auto mb-4 flex justify-between items-center controls">
-            <Button variant="outline" asChild>
-                <Link href="/sales">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Sales
-                </Link>
-            </Button>
-            <Button onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" />
-                Print Invoice
-            </Button>
-        </div>
-
-        <div className="cash-memo print-container">
-            <div className="header">
-                <h2>CASH MEMO</h2>
-                <h1>{settings.storeName || 'DATA AUTOS & BATTERIES'}</h1>
-                <h2>{settings.address || 'MIPURKHAS ROAD SANGHAR'}</h2>
-                <p>Prop: {ownerName}, Ph# {phoneNumbers}</p>
-            </div>
-
-            <div className="details">
-                <div>
-                    <span>S. No.: <span className="line-under" style={{width: '80px'}}>{sale.invoice}</span></span>
-                    <span>NAME: <span className="line-under" style={{width: '250px'}}>{sale.customer?.name || 'Walk-in Customer'}</span></span>
-                </div>
-                <div>
-                    <span>Date: <span className="line-under" style={{width: '100px'}}>{format(new Date(sale.date), 'dd/MM/yyyy')}</span></span>
-                </div>
-            </div>
-
-            <table className="memo-table">
-                <thead>
-                    <tr>
-                        <th style={{width: '10%'}}>QTY</th>
-                        <th style={{width: '50%'}}>PARTICULAR</th>
-                        <th style={{width: '20%'}}>RATE</th>
-                        <th style={{width: '20%'}}>AMOUNT</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sale.items.map((item, index) => (
-                         <tr key={index}>
-                            <td className="text-center">{item.quantity}</td>
-                            <td>{item.name}</td>
-                            <td className="text-right">Rs. {item.price.toLocaleString()}</td>
-                            <td className="text-right">Rs. {(item.price * item.quantity).toLocaleString()}</td>
-                        </tr>
-                    ))}
-                    {Array.from({ length: emptyRows }).map((_, i) => (
-                        <tr key={`empty-${i}`}>
-                            <td>&nbsp;</td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                    ))}
-
-                    <tr>
-                        <td colSpan={3} className="total"><strong>TOTAL:</strong></td>
-                        <td className="total-box">Rs. {sale.total.toLocaleString()}</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div className="signature">
-                <p>SIGNATURE: <span className="line-under" style={{width: '150px'}}>&nbsp;</span></p>
-            </div>
-        </div>
-      </div>
     </>
   );
 }

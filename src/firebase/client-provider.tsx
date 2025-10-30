@@ -47,14 +47,14 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
   }
 
   return (
-    <FirebaseProvider
-      firebaseApp={firebaseServices.firebaseApp}
-      auth={firebaseServices.auth}
-      firestore={firebaseServices.firestore}
-    >
-      <StoreSettingsProvider>
-        {children}
-      </StoreSettingsProvider>
-    </FirebaseProvider>
+    <StoreSettingsProvider>
+        <FirebaseProvider
+            firebaseApp={firebaseServices.firebaseApp}
+            auth={firebaseServices.auth}
+            firestore={firebaseServices.firestore}
+            >
+            {children}
+        </FirebaseProvider>
+    </StoreSettingsProvider>
   );
 }

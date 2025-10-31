@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { clearIndexedDbPersistence, collection, getDocs } from 'firebase/firestore';
 import { format } from 'date-fns';
 
@@ -71,10 +71,18 @@ export default function SettingsPage() {
 
   const handleCreateBackup = async () => {
     if (!firestore) return;
-    toast({ title: 'Backup In Progress...', description: 'Generating your data backup file.' });
+    toast({ title: 'Backup In Progress...', description: 'Generating your comprehensive data backup file.' });
     
     try {
-        const collectionsToBackup = ['products', 'customers', 'dealers', 'sales', 'purchases', 'expenses'];
+        const collectionsToBackup = [
+            'products', 
+            'customers', 
+            'dealers', 
+            'sales', 
+            'purchases', 
+            'expenses', 
+            'repair_jobs'
+        ];
         const backupData: { [key: string]: any[] } = {};
 
         for (const collectionName of collectionsToBackup) {
@@ -87,7 +95,7 @@ export default function SettingsPage() {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `data-autos-backup-${format(new Date(), 'yyyy-MM-dd')}.json`);
+        link.setAttribute('download', `data-autos-backup-${format(new Date(), 'yyyy-MM-dd-HH-mm')}.json`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

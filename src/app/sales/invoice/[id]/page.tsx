@@ -62,7 +62,7 @@ export default function InvoicePage() {
 
     fetchSaleAndCustomer();
   }, [firestore, saleId]);
-
+  
   const handleSendWhatsApp = () => {
     if (!sale || !sale.customer || !sale.customer.phone) {
         alert("Customer phone number is not available.");
@@ -82,9 +82,8 @@ export default function InvoicePage() {
     window.open(whatsappUrl, '_blank');
   };
 
+
   const subtotal = sale?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) || 0;
-  const discount = sale?.discount || 0;
-  const total = sale?.total || 0;
   
   const totalRows = 15;
   const emptyRows = sale ? (totalRows - sale.items.length > 0 ? totalRows - sale.items.length : 0) : totalRows;
@@ -182,12 +181,12 @@ export default function InvoicePage() {
                     <tr>
                         <td colSpan={2} className="border-none"></td>
                         <td className="text-right font-bold pr-2">DISCOUNT</td>
-                        <td className="text-right border border-black p-2 font-mono">{discount.toLocaleString()}</td>
+                        <td className="text-right border border-black p-2 font-mono">{sale.discount.toLocaleString()}</td>
                     </tr>
                     <tr>
                         <td colSpan={2} className="border-none"></td>
                         <td className="text-right font-bold pr-2 text-lg">TOTAL</td>
-                        <td className="text-right border border-black p-2 font-mono font-bold text-lg">{total.toLocaleString()}</td>
+                        <td className="text-right border border-black p-2 font-mono font-bold text-lg">{sale.total.toLocaleString()}</td>
                     </tr>
                 </tfoot>
             </table>

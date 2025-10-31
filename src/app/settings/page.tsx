@@ -29,8 +29,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import { clearIndexedDbPersistence } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { clearIndexedDbPersistence, collection, getDocs } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 
 export default function SettingsPage() {
@@ -68,6 +69,45 @@ export default function SettingsPage() {
     });
   };
 
+  const handleCreateBackup = async () => {
+    if (!firestore) return;
+    toast({ title: 'Backup In Progress...', description: 'Generating your data backup file.' });
+    
+    try {
+        const collectionsToBackup = ['products', 'customers', 'dealers', 'sales', 'purchases', 'expenses'];
+        const backupData: { [key: string]: any[] } = {};
+
+        for (const collectionName of collectionsToBackup) {
+            const querySnapshot = await getDocs(collection(firestore, collectionName));
+            backupData[collectionName] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+
+        const jsonString = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `data-autos-backup-${format(new Date(), 'yyyy-MM-dd')}.json`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast({ title: 'Backup Successful', description: 'Your data has been downloaded as a JSON file.' });
+
+    } catch (error) {
+        console.error("Backup failed:", error);
+        toast({ variant: 'destructive', title: 'Backup Failed', description: 'Could not generate the backup file.' });
+    }
+  };
+
+  const handleRestoreData = () => {
+    toast({
+        title: "Feature Coming Soon",
+        description: "Restoring from a backup file will be enabled in a future update."
+    });
+  };
+
+
   const handleResetData = async () => {
     setIsResetDialogOpen(false);
     toast({
@@ -75,9 +115,6 @@ export default function SettingsPage() {
       description: "Clearing local cache. The app will reload shortly.",
     });
     try {
-        // This is a more robust way to clear Firestore's offline data
-        // Note: This function is not directly available in all SDK versions,
-        // so we'll couple it with localStorage clear as a fallback.
         if (firestore && typeof (firestore as any)._delete === 'function') {
              await (firestore as any)._delete();
         }
@@ -225,15 +262,12 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-             <p className="text-sm text-muted-foreground">
-                Last backup: Not implemented
-            </p>
             <div className="flex flex-col gap-2 sm:flex-row">
-                <Button className="w-full" disabled>
+                <Button className="w-full" onClick={handleCreateBackup}>
                     <Download className="mr-2 h-4 w-4" />
                     Create Backup
                 </Button>
-                <Button variant="outline" className="w-full" disabled>
+                <Button variant="outline" className="w-full" onClick={handleRestoreData}>
                     <Upload className="mr-2 h-4 w-4" />
                     Restore Data
                 </Button>

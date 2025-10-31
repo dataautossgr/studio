@@ -19,13 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlusCircle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Pencil, Trash2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { PaymentDialog } from './payment-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
 import {
@@ -203,13 +204,9 @@ export default function CustomerLedgerPage() {
         setTransactionToEdit(null);
     }
     
-    const handleEdit = (tx: Transaction) => {
-        if (tx.type === 'Sale') {
-            router.push(`/sales/${tx.id}`);
-        } else {
-            setTransactionToEdit(tx);
-            setIsPaymentDialogOpen(true);
-        }
+    const handleEditPayment = (tx: Transaction) => {
+        setTransactionToEdit(tx);
+        setIsPaymentDialogOpen(true);
     };
 
     const handleDelete = async () => {
@@ -339,10 +336,28 @@ export default function CustomerLedgerPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={() => handleEdit(tx)}>
-                                                <Pencil className="mr-2 h-4 w-4" />
-                                                Edit
-                                            </DropdownMenuItem>
+                                            {tx.type === 'Sale' ? (
+                                                <>
+                                                    <DropdownMenuItem asChild>
+                                                        <Link href={`/sales/invoice/${tx.id}`}>
+                                                            <FileText className="mr-2 h-4 w-4" />
+                                                            View Invoice
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                         <Link href={`/sales/${tx.id}`}>
+                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                            Edit Sale
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                </>
+                                            ) : (
+                                                <DropdownMenuItem onSelect={() => handleEditPayment(tx)}>
+                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                    Edit Payment
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem onSelect={() => setTransactionToDelete(tx)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                                 <Trash2 className="mr-2 h-4 w-4" />
                                                 Delete

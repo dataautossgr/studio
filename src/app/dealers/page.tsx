@@ -1,3 +1,4 @@
+
 'use client';
 import { getDealers, type Dealer, seedInitialData } from '@/lib/data';
 import {
@@ -17,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye, RotateCcw } from 'lucide-react';
+import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye, RotateCcw, Download } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -90,6 +91,35 @@ export default function DealersPage() {
     setIsResetting(false);
   };
 
+  const handleExport = () => {
+    if (!dealers || dealers.length === 0) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No dealers to export.' });
+        return;
+    }
+    const headers = ['ID', 'Company', 'Contact Person', 'Phone', 'Address', 'Balance'];
+    const csvContent = [
+        headers.join(','),
+        ...dealers.map(d => [
+            d.id,
+            `"${d.company.replace(/"/g, '""')}"`,
+            `"${d.name.replace(/"/g, '""')}"`,
+            d.phone,
+            `"${(d.address || '').replace(/"/g, '""')}"`,
+            d.balance
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `dealers-export-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: 'Export Successful', description: 'Your dealers list has been downloaded as a CSV file.' });
+  };
+
   const getBalanceVariant = (balance: number): "default" | "secondary" | "destructive" => {
     if (balance > 0) return 'destructive'; // We owe the dealer
     if (balance < 0) return 'secondary'; // Dealer owes us (advance)
@@ -107,6 +137,9 @@ export default function DealersPage() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
             <Button variant="outline" onClick={() => setIsResetting(true)}>
               <RotateCcw className="mr-2 h-4 w-4" /> Reset
             </Button>

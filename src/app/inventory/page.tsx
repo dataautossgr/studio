@@ -1,3 +1,4 @@
+
 'use client';
 import type { Product, Purchase, Dealer } from '@/lib/data';
 import { getProducts, getPurchases, getDealers, seedInitialData } from '@/lib/data';
@@ -31,7 +32,8 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ProductDialog } from './product-dialog';
@@ -163,6 +165,40 @@ export default function InventoryPage() {
     setIsResetting(false);
   };
 
+  const handleExport = () => {
+    if (!products) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No product data to export.' });
+        return;
+    }
+    const headers = ['ID', 'Name', 'Category', 'Brand', 'Model', 'Cost Price', 'Sale Price', 'Stock', 'Unit', 'Low Stock Threshold', 'Location'];
+    const csvContent = [
+        headers.join(','),
+        ...products.map(p => [
+            p.id,
+            `"${p.name.replace(/"/g, '""')}"`,
+            `"${p.category.replace(/"/g, '""')}"`,
+            `"${p.brand.replace(/"/g, '""')}"`,
+            `"${p.model.replace(/"/g, '""')}"`,
+            p.costPrice,
+            p.salePrice,
+            p.stock,
+            p.unit,
+            p.lowStockThreshold,
+            `"${(p.location || '').replace(/"/g, '""')}"`
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory-export-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: 'Export Successful', description: 'Your inventory data has been downloaded as a CSV file.' });
+  };
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -174,17 +210,20 @@ export default function InventoryPage() {
                   Manage your products from one screen.
                   </CardDescription>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
                     placeholder="Search products..."
-                    className="pl-8 sm:w-[300px]"
+                    className="pl-8 sm:w-[250px]"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
+                <Button variant="outline" onClick={handleExport}>
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
                 <Button variant="outline" onClick={() => setIsResetting(true)}>
                   <RotateCcw className="mr-2 h-4 w-4" /> Reset
                 </Button>

@@ -247,17 +247,17 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
              <div className="flex items-center space-x-2">
-              <Switch id="auto-sync" defaultChecked disabled />
+              <Switch id="auto-sync" checked disabled />
               <Label htmlFor="auto-sync">Enable Auto-Sync</Label>
             </div>
-            <div className='flex flex-col space-y-2'>
-                <p className="text-sm text-muted-foreground">
-                    Status: <span className='text-green-500 font-medium'>Online & Synced</span>
+            <div className='flex flex-col space-y-2 p-3 bg-muted rounded-md'>
+                <p className="text-sm font-medium text-green-600 flex items-center gap-2">
+                    <Cloud className="h-4 w-4" />
+                    Online &amp; Synced
                 </p>
-                <Button variant="outline" disabled>
-                    <Cloud className="mr-2 h-4 w-4" />
-                    Syncing Automatically...
-                </Button>
+                <p className="text-xs text-muted-foreground">
+                    This application is offline-first. All changes are saved locally and synced automatically when online.
+                </p>
             </div>
           </CardContent>
         </Card>

@@ -12,10 +12,17 @@ import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
 
-
 interface EnrichedSale extends Omit<Sale, 'customer'> {
   customer: Customer | null;
 }
+
+// Simple SVG for WhatsApp icon
+const WhatsAppIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.487 5.235 3.487 8.413.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.89-9.889-9.89-5.452 0-9.887 4.434-9.889 9.89.001 2.235.652 4.395 1.877 6.26l-1.165 4.25zM12.001 5.804c-3.415 0-6.19 2.775-6.19 6.19 0 1.562.57 3.002 1.548 4.145l.123.187-.847 3.103 3.179-.834.175.107c1.109.676 2.378 1.034 3.692 1.034 3.414 0 6.189-2.775 6.189-6.19 0-3.414-2.775-6.189-6.189-6.189zm4.394 8.352c-.193.334-1.359 1.6-1.574 1.799-.217.199-.442.249-.668.149-.226-.1-.497-.199-.942-.374-1.23-.486-2.5-1.5-3.473-2.977-.643-1.025-1.02-2.19-1.123-2.541-.123-.42-.038-.65.099-.824.111-.149.249-.199.374-.249.123-.05.249-.05.374.05.175.149.324.448.424.598.125.149.149.224.05.374-.025.05-.05.074-.074.1-.025.025-.05.025-.074.05-.075.05-.125.125-.175.174-.05.05-.1.1-.125.149-.025.025-.05.05-.074.05-.025.025-.05.05-.05.074s-.025.05-.025.075c.025.05.05.1.074.124.025.025.05.05.075.075.25.224.5.474.75.724.324.324.6.574.85.749.075.05.15.075.225.1.074.025.149.025.224.025.075 0 .15-.025.2-.05.226-.075.451-.575.526-.649.075-.075.175-.125.274-.125s.174.025.249.05c.1.025.5.249.574.424s.1.275.025.399c-.075.125-.224.274-.324.374z"/>
+    </svg>
+);
+
 
 export default function InvoicePage() {
   const params = useParams();
@@ -55,7 +62,26 @@ export default function InvoicePage() {
 
     fetchSaleAndCustomer();
   }, [firestore, saleId]);
-  
+
+  const handleSendWhatsApp = () => {
+    if (!sale || !sale.customer || !sale.customer.phone) {
+        alert("Customer phone number is not available.");
+        return;
+    }
+
+    // Basic phone number cleaning - assumes Pakistani number format
+    let phoneNumber = sale.customer.phone.replace(/[^0-9]/g, '');
+    if (phoneNumber.startsWith('0')) {
+        phoneNumber = '92' + phoneNumber.substring(1);
+    }
+    
+    const message = `Assalam-o-Alaikum, ${sale.customer.name}.\n\nThank you for your purchase from *${settings.storeName}*.\n\n*Invoice Summary:*\nInvoice #: ${sale.invoice}\nTotal Amount: Rs. ${sale.total.toLocaleString()}\nDate: ${format(new Date(sale.date), 'dd MMM, yyyy')}\n\nThank you for your business!`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+
+    window.open(whatsappUrl, '_blank');
+  };
+
   const subtotal = sale?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) || 0;
   const discount = sale?.discount || 0;
   const total = sale?.total || 0;
@@ -65,7 +91,6 @@ export default function InvoicePage() {
   
   const ownerName = settings.coOwnerName ? `${settings.ownerName}, ${settings.coOwnerName}` : settings.ownerName;
   const phoneNumbers = [settings.contact1, settings.contact2, settings.contact3].filter(Boolean).join(' / ');
-
 
   if (isLoading) {
     return <div className="p-8 text-center">Loading Invoice...</div>;
@@ -84,11 +109,15 @@ export default function InvoicePage() {
                     Back
                 </Link>
             </Button>
+            <Button onClick={handleSendWhatsApp}>
+                <WhatsAppIcon />
+                <span className="ml-2">Send via WhatsApp</span>
+            </Button>
             <Button onClick={() => window.print()}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
             </Button>
-        </div>
+      </div>
 
       <main className="bg-gray-100 p-4 sm:p-8 print:bg-white print:p-0">
         <div className="w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none">

@@ -61,7 +61,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useFirestore, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp, writeBatch, getDoc, getCountFromServer } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch, getDoc, getCountFromServer, DocumentReference } from 'firebase/firestore';
 
 
 interface CartItem {
@@ -121,7 +121,7 @@ export default function SaleFormPage() {
         const saleSnap = await getDoc(saleRef);
 
         if (saleSnap.exists()) {
-            const currentSale = saleSnap.data() as Sale;
+            const currentSale = { id: saleSnap.id, ...saleSnap.data() } as Sale;
             setSale(currentSale);
 
             const customerRef = currentSale.customer as any;
@@ -299,7 +299,7 @@ export default function SaleFormPage() {
 
     const dueAmount = finalAmount - (status === 'Partial' ? partialAmount : 0);
 
-    const saleData: Partial<Sale> = {
+    const saleData: Partial<Sale> & { customer?: DocumentReference } = {
         date: finalSaleDate.toISOString(),
         total: finalAmount,
         status: status,
@@ -310,32 +310,38 @@ export default function SaleFormPage() {
             quantity: item.quantity,
             price: item.price,
         })),
-        paymentMethod: status === 'Paid' ? paymentMethod : undefined,
-        onlinePaymentSource: status === 'Paid' && paymentMethod === 'online' ? onlinePaymentSource : undefined,
-        partialAmountPaid: status === 'Partial' ? partialAmount : 0,
-        dueDate: status !== 'Paid' && dueDate ? dueDate.toISOString() : undefined,
     };
+    
+    // Conditionally add fields to avoid sending `undefined`
+    if (status === 'Paid') {
+        saleData.paymentMethod = paymentMethod || 'cash';
+        if (paymentMethod === 'online') {
+            saleData.onlinePaymentSource = onlinePaymentSource;
+        }
+    }
+    if (status === 'Partial') {
+        saleData.partialAmountPaid = partialAmount;
+    }
+    if (status !== 'Paid' && dueDate) {
+        saleData.dueDate = dueDate.toISOString();
+    }
     
     const batch = writeBatch(firestore);
 
     let customerRef;
-    let customerUpdateData: any = {};
 
     if (customerType === 'registered' && selectedCustomer) {
         customerRef = doc(firestore, 'customers', selectedCustomer.id);
         if (status !== 'Paid') {
-            const balanceChange = isNew ? dueAmount : dueAmount - ((sale?.total || 0) - (sale?.partialAmountPaid || 0));
-            customerUpdateData.balance = (selectedCustomer.balance || 0) + balanceChange;
-            if (dueDate) {
-                customerUpdateData.paymentDueDate = dueDate.toISOString();
-            }
-            batch.update(customerRef, customerUpdateData);
+            const previousDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
+            const balanceChange = dueAmount - previousDue;
+            const newBalance = (selectedCustomer.balance || 0) + balanceChange;
+            batch.update(customerRef, { balance: newBalance });
         }
-    } else {
-        // This case handles walk-in customers (paid or converting to registered)
+    } else { // Walk-in or converting to registered
         const isConvertingToRegistered = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
         customerRef = doc(collection(firestore, 'customers'));
-        const customerPayload: Partial<Customer> = {
+        const customerPayload: Omit<Customer, 'id'> = {
             name: customerName,
             phone: '',
             vehicleDetails: '',
@@ -347,6 +353,8 @@ export default function SaleFormPage() {
         }
         batch.set(customerRef, customerPayload);
     }
+    
+    saleData.customer = customerRef;
 
     cart.forEach(item => {
         if (!item.isOneTime && item.stock !== undefined) {
@@ -356,18 +364,16 @@ export default function SaleFormPage() {
         }
     });
     
-    const finalSaleData: any = { ...saleData, customer: customerRef };
-    
     if (isNew) {
         const salesCollectionRef = collection(firestore, 'sales');
         const salesSnapshot = await getCountFromServer(salesCollectionRef);
         const newInvoiceNumber = (salesSnapshot.data().count + 1).toString().padStart(3, '0');
         const newSaleRef = doc(salesCollectionRef);
-        finalSaleData.invoice = `INV-${newInvoiceNumber}`;
-        batch.set(newSaleRef, finalSaleData);
+        (saleData as Sale).invoice = `INV-${newInvoiceNumber}`;
+        batch.set(newSaleRef, saleData);
     } else {
         const saleRef = doc(firestore, 'sales', saleId);
-        batch.update(saleRef, finalSaleData);
+        batch.update(saleRef, saleData);
     }
 
     try {
@@ -378,7 +384,6 @@ export default function SaleFormPage() {
         });
 
         if (print) {
-          // In a real app, you'd generate a proper invoice here before printing.
           setTimeout(() => window.print(), 500); 
         }
         
@@ -834,7 +839,3 @@ export default function SaleFormPage() {
     </div>
   );
 }
-
-    
-
-    

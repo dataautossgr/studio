@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { DollarSign, ShoppingBag, TrendingUp, Package } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, Package, Printer } from 'lucide-react';
 import { SalesChart } from './sales-chart';
 import {
   Table,
@@ -31,6 +31,7 @@ import {
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 
 type TimePeriod = 'today' | 'weekly' | 'monthly' | 'all';
 
@@ -123,27 +124,33 @@ export default function ReportsPage() {
     const isLoading = salesLoading || productsLoading;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-        <div className="flex justify-between items-start">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 print:p-0">
+        <div className="flex justify-between items-start print:hidden">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
                 <p className="text-muted-foreground">
                     View your business performance and financial data.
                 </p>
             </div>
-             <Tabs defaultValue="today" onValueChange={(value) => setTimePeriod(value as TimePeriod)}>
-                <TabsList>
-                    <TabsTrigger value="today">Today</TabsTrigger>
-                    <TabsTrigger value="weekly">This Week</TabsTrigger>
-                    <TabsTrigger value="monthly">This Month</TabsTrigger>
-                    <TabsTrigger value="all">All Time</TabsTrigger>
-                </TabsList>
-            </Tabs>
+             <div className="flex items-center gap-2">
+                <Tabs defaultValue="today" onValueChange={(value) => setTimePeriod(value as TimePeriod)}>
+                    <TabsList>
+                        <TabsTrigger value="today">Today</TabsTrigger>
+                        <TabsTrigger value="weekly">This Week</TabsTrigger>
+                        <TabsTrigger value="monthly">This Month</TabsTrigger>
+                        <TabsTrigger value="all">All Time</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+                <Button variant="outline" onClick={() => window.print()}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print Report
+                </Button>
+            </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 print:grid-cols-4">
             {isLoading ? Array.from({length: 4}).map((_, i) => (
-              <Card key={i}>
+              <Card key={i} className="print:border-none print:shadow-none">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="h-4 w-2/3 bg-muted rounded-md animate-pulse" />
                 </CardHeader>
@@ -152,7 +159,7 @@ export default function ReportsPage() {
                 </CardContent>
               </Card>
             )) : reportCards.map((card, i) => (
-                <Card key={i}>
+                <Card key={i} className="print:border-gray-300 print:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
                         <card.icon className="h-4 w-4 text-muted-foreground" />
@@ -164,8 +171,8 @@ export default function ReportsPage() {
             ))}
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+        <div className="grid gap-8 lg:grid-cols-3 print:grid-cols-1">
+            <Card className="lg:col-span-2 print:col-span-1 print:border-gray-300 print:shadow-md">
                 <CardHeader>
                     <CardTitle>Sales Over Time</CardTitle>
                     <CardDescription>A summary of your sales over the last 6 months.</CardDescription>
@@ -174,7 +181,7 @@ export default function ReportsPage() {
                     <SalesChart />
                 </CardContent>
             </Card>
-             <Card>
+             <Card className="print:border-gray-300 print:shadow-md">
                 <CardHeader>
                     <CardTitle>Top Selling Products</CardTitle>
                     <CardDescription>Your most popular items for the selected period.</CardDescription>

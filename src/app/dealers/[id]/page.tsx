@@ -1,14 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getDealers, getPurchases, type Dealer, type Purchase } from '@/lib/data';
+import { type Dealer, type Purchase, type Payment } from '@/lib/data';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,7 +40,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where, runTransaction, DocumentReference } from 'firebase/firestore';
+
 
 export interface Transaction {
     id: string;
@@ -55,101 +56,119 @@ export interface Transaction {
 }
 
 export default function DealerLedgerPage() {
-    const [dealer, setDealer] = useState<Dealer | null>(null);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-    const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
-    const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
-
     const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
+    const firestore = useFirestore();
+
     const dealerId = params.id as string;
 
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+    const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+    const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    
+    const dealerRef = useMemoFirebase(() => dealerId && firestore ? doc(firestore, 'dealers', dealerId) : null, [firestore, dealerId]);
+    const { data: dealer, isLoading: isDealerLoading } = useDoc<Dealer>(dealerRef);
+
+    const purchasesQuery = useMemoFirebase(() => {
+      if (!firestore || !dealerId) return null;
+      return query(collection(firestore, 'purchases'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
+    }, [firestore, dealerId]);
+    const { data: dealerPurchases, isLoading: arePurchasesLoading } = useCollection<Purchase>(purchasesQuery);
+    
+    // Assuming payments to dealers are stored in a 'dealer_payments' collection
+    const paymentsQuery = useMemoFirebase(() => {
+      if (!firestore || !dealerId) return null;
+      return query(collection(firestore, 'dealer_payments'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
+    }, [firestore, dealerId]);
+    const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
+
+
     useEffect(() => {
-        Promise.all([getDealers(), getPurchases()]).then(([allDealers, allPurchases]) => {
-            const currentDealer = allDealers.find(d => d.id === dealerId);
-            setDealer(currentDealer || null);
-
-            if (currentDealer) {
-                const mockPayments = [
-                    { id: 'PAY-DLR-001', date: '2024-07-19T18:00:00Z', amount: 50000, paymentMethod: 'Bank Transfer' as const, notes: 'Payment for invoice NS-9812' },
-                    { id: 'PAY-DLR-002', date: '2024-07-20T12:00:00Z', amount: 5000, paymentMethod: 'Cash' as const, notes: '' },
-                ];
-
-                const purchases: Transaction[] = allPurchases
-                    .filter(p => p.dealer.id === dealerId)
-                    .map(p => ({
-                        id: p.id,
-                        date: p.date,
-                        type: 'Purchase' as const,
-                        reference: p.invoiceNumber,
-                        debit: p.total,
-                        credit: 0,
-                        balance: 0 // to be calculated
-                    }));
-
-                const payments: Transaction[] = mockPayments.map((p, i) => ({
-                    id: p.id,
-                    date: p.date,
-                    type: 'Payment' as const,
-                    reference: `PAY-00${i + 1}`,
-                    debit: 0,
-                    credit: p.amount,
-                    balance: 0, // to be calculated
-                    paymentDetails: {
-                      paymentDate: new Date(p.date),
-                      paymentMethod: p.paymentMethod,
-                      notes: p.notes,
-                    }
-                }));
-                
-                const allTransactions = [...purchases, ...payments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                
-                // This is a simplified balance calculation for UI display.
-                let runningBalance = currentDealer.balance;
-                const transactionsWithBalance = allTransactions.map(tx => {
-                    const txWithBalance = {...tx, balance: runningBalance};
-                    if (tx.type === 'Purchase') {
-                        runningBalance -= tx.debit;
-                    } else { // Payment
-                        runningBalance += tx.credit;
-                    }
-                    return txWithBalance;
-                });
-                
-                setTransactions(transactionsWithBalance);
-            }
+      if (dealerPurchases && dealerPayments && dealer) {
+        const purchaseTransactions: Transaction[] = dealerPurchases.map(p => ({
+          id: p.id,
+          date: p.date,
+          type: 'Purchase',
+          reference: p.invoiceNumber,
+          debit: p.total,
+          credit: 0,
+          balance: 0,
+        }));
+        
+        const paymentTransactions: Transaction[] = dealerPayments.map(p => ({
+          id: p.id,
+          date: p.date,
+          type: 'Payment',
+          reference: p.reference || `PAY-DLR-${p.id.substring(0,6)}`,
+          debit: 0,
+          credit: p.amount,
+          balance: 0,
+          paymentDetails: {
+            paymentDate: new Date(p.date),
+            paymentMethod: p.paymentMethod,
+            notes: p.notes,
+            receiptImageUrl: p.receiptImageUrl,
+          }
+        }));
+        
+        const allTransactions = [...purchaseTransactions, ...paymentTransactions]
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        const totalCredits = allTransactions.reduce((sum, tx) => sum + tx.credit, 0);
+        const totalDebits = allTransactions.reduce((sum, tx) => sum + tx.debit, 0);
+        let startingBalance = dealer.balance - totalDebits + totalCredits;
+        
+        const finalTransactions = allTransactions.map(tx => {
+          startingBalance += tx.debit - tx.credit;
+          return { ...tx, balance: startingBalance };
         });
-    }, [dealerId]);
+        
+        setTransactions(finalTransactions.reverse());
+      }
+    }, [dealerPurchases, dealerPayments, dealer]);
 
-    const handleSavePayment = (paymentData: PaymentFormData) => {
-        if (!dealer) return;
 
-        if (transactionToEdit && transactionToEdit.type === 'Payment') {
-            // Edit existing payment
-            const updatedTransactions = transactions.map(tx => 
-                tx.id === transactionToEdit.id 
-                ? { ...tx, credit: paymentData.amount, date: paymentData.paymentDate.toISOString(), paymentDetails: paymentData } 
-                : tx
-            );
-            setTransactions(updatedTransactions);
-            toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
-        } else {
-            // Add new payment
-            const newPayment: Transaction = {
-                id: `PAY-DLR-${Date.now()}`,
-                date: new Date().toISOString(),
-                type: 'Payment',
-                reference: `PAY-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-                debit: 0,
-                credit: paymentData.amount,
-                balance: 0, // Recalculate
-                paymentDetails: paymentData,
-            };
-            setTransactions([newPayment, ...transactions]);
-            setDealer({...dealer, balance: dealer.balance - paymentData.amount });
-             toast({ title: "Payment Added", description: "The payment to the dealer has been recorded." });
+    const handleSavePayment = async (paymentData: PaymentFormData) => {
+        if (!dealerRef || !firestore) return;
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const dealerDoc = await transaction.get(dealerRef);
+                if (!dealerDoc.exists()) throw new Error("Dealer not found!");
+
+                let oldAmount = 0;
+                if (transactionToEdit && transactionToEdit.type === 'Payment') {
+                    const paymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
+                    const oldPaymentDoc = await transaction.get(paymentRef);
+                    if (oldPaymentDoc.exists()) oldAmount = oldPaymentDoc.data().amount || 0;
+                }
+
+                const currentBalance = dealerDoc.data().balance || 0;
+                
+                if (transactionToEdit && transactionToEdit.type === 'Payment') {
+                    const paymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
+                    const difference = paymentData.amount - oldAmount;
+                    transaction.update(paymentRef, { ...paymentData, date: paymentData.paymentDate.toISOString() });
+                    transaction.update(dealerRef, { balance: currentBalance - difference });
+                } else {
+                    const newPaymentRef = doc(collection(firestore, 'dealer_payments'));
+                    const newPayment = {
+                        dealer: dealerRef,
+                        amount: paymentData.amount,
+                        date: paymentData.paymentDate.toISOString(),
+                        ...paymentData
+                    };
+                    transaction.set(newPaymentRef, newPayment);
+                    transaction.update(dealerRef, { balance: currentBalance - paymentData.amount });
+                }
+            });
+
+            toast({ title: transactionToEdit ? "Payment Updated" : "Payment Added", description: `The payment to ${dealer?.company} has been recorded.` });
+        } catch (error) {
+            console.error("Payment transaction failed: ", error);
+            toast({ variant: "destructive", title: "Error", description: "Could not save the payment." });
         }
 
         setIsPaymentDialogOpen(false);
@@ -165,10 +184,36 @@ export default function DealerLedgerPage() {
         }
     };
 
-    const handleDelete = () => {
-        if (!transactionToDelete) return;
-        setTransactions(transactions.filter(tx => tx.id !== transactionToDelete.id));
-        toast({ title: "Transaction Deleted", description: "The transaction has been removed from the ledger." });
+    const handleDelete = async () => {
+        if (!transactionToDelete || !dealerRef || !firestore) return;
+
+        try {
+             await runTransaction(firestore, async (transaction) => {
+                const dealerDoc = await transaction.get(dealerRef);
+                if (!dealerDoc.exists()) throw new Error("Dealer not found!");
+                
+                const collectionName = transactionToDelete.type === 'Purchase' ? 'purchases' : 'dealer_payments';
+                const ref = doc(firestore, collectionName, transactionToDelete.id);
+                
+                const docToDelete = await transaction.get(ref);
+                if(!docToDelete.exists()) throw new Error("Transaction to delete not found!");
+
+                const currentBalance = dealerDoc.data().balance || 0;
+                let amount = transactionToDelete.type === 'Purchase' ? transactionToDelete.debit : transactionToDelete.credit;
+                
+                // Deleting a purchase decreases balance (we owe less), deleting a payment increases balance (we owe more)
+                const newBalance = transactionToDelete.type === 'Purchase' ? currentBalance - amount : currentBalance + amount;
+
+                transaction.update(dealerRef, { balance: newBalance });
+                transaction.delete(ref);
+             });
+
+             toast({ title: "Transaction Deleted", description: "The transaction has been removed and balance updated." });
+        } catch (error) {
+             console.error("Delete transaction failed: ", error);
+             toast({ variant: "destructive", title: "Error", description: "Could not delete the transaction." });
+        }
+
         setTransactionToDelete(null);
     };
 
@@ -178,8 +223,12 @@ export default function DealerLedgerPage() {
         return 'default';
     }
 
-    if (!dealer) {
+    if (isDealerLoading || arePurchasesLoading || arePaymentsLoading) {
         return <div className="p-8">Loading dealer information...</div>;
+    }
+    
+    if (!dealer) {
+        return <div className="p-8">Dealer not found.</div>;
     }
 
   return (

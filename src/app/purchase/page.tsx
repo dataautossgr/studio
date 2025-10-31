@@ -1,5 +1,4 @@
 'use client';
-import { getPurchases, type Purchase } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -28,7 +27,7 @@ import {
   } from '@/components/ui/dropdown-menu';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,10 +42,25 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
+import type { Purchase, Dealer } from '@/lib/data';
+
+interface EnrichedPurchase extends Omit<Purchase, 'dealer'> {
+  dealer: {
+    id: string;
+    name: string;
+  }
+}
 
 export default function PurchasesPage() {
-  const [allPurchases, setAllPurchases] = useState<Purchase[]>([]);
-  const [filteredPurchases, setFilteredPurchases] = useState<Purchase[]>([]);
+  const firestore = useFirestore();
+  const purchasesCollection = useMemoFirebase(() => collection(firestore, 'purchases'), [firestore]);
+  const { data: allPurchases, isLoading } = useCollection<Purchase>(purchasesCollection);
+
+  const [enrichedPurchases, setEnrichedPurchases] = useState<EnrichedPurchase[]>([]);
+  const [filteredPurchases, setFilteredPurchases] = useState<EnrichedPurchase[]>([]);
+  
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date()),
@@ -55,51 +69,54 @@ export default function PurchasesPage() {
   const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
-  useEffect(() => {
-    getPurchases().then(setAllPurchases);
-  }, []);
+   useEffect(() => {
+    if (!allPurchases) return;
+
+    const enrichPurchasesData = async () => {
+        const enriched = await Promise.all(allPurchases.map(async (purchase) => {
+            let dealerName = 'N/A';
+            let dealerId = '';
+
+            if (purchase.dealer && typeof purchase.dealer === 'object' && 'id' in purchase.dealer) {
+                const dealerRef = purchase.dealer as DocumentReference;
+                try {
+                    const dealerSnap = await getDoc(dealerRef);
+                    if (dealerSnap.exists()) {
+                        dealerName = (dealerSnap.data() as Dealer).name;
+                        dealerId = dealerSnap.id;
+                    }
+                } catch(e) {
+                    console.error("Error fetching dealer", e);
+                }
+            }
+            return {
+                ...purchase,
+                dealer: { id: dealerId, name: dealerName }
+            };
+        }));
+        setEnrichedPurchases(enriched);
+    };
+
+    enrichPurchasesData();
+}, [allPurchases]);
+
 
   useEffect(() => {
     if (dateRange?.from) {
         const from = startOfDay(dateRange.from);
         const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-        const filtered = allPurchases.filter(purchase => {
+        const filtered = enrichedPurchases.filter(purchase => {
             const purchaseDate = new Date(purchase.date);
             return purchaseDate >= from && purchaseDate <= to;
         });
         setFilteredPurchases(filtered);
     } else {
-        setFilteredPurchases(allPurchases);
+        setFilteredPurchases(enrichedPurchases);
     }
-  }, [dateRange, allPurchases]);
+  }, [dateRange, enrichedPurchases]);
 
   const handleReset = () => {
-    getPurchases().then(initialPurchases => {
-        if (resetDateRange?.from) {
-            const from = startOfDay(resetDateRange.from);
-            const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
-
-            const purchasesToKeep = allPurchases.filter(p => {
-                const purchaseDate = new Date(p.date);
-                return purchaseDate < from || purchaseDate > to;
-            });
-            
-            const originalPurchasesInRange = initialPurchases.filter(p => {
-                const purchaseDate = new Date(p.date);
-                return purchaseDate >= from && purchaseDate <= to;
-            });
-
-            const newPurchases = [...purchasesToKeep, ...originalPurchasesInRange].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            
-            setAllPurchases(newPurchases);
-            toast({ title: "Purchases Reset", description: `Purchases from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
-
-        } else {
-            setAllPurchases(initialPurchases);
-            toast({ title: "All Purchases Reset", description: "The purchase history has been reset to its initial state." });
-        }
-    });
-    setResetDateRange(undefined);
+    toast({ title: "Resetting...", description: "This feature is being updated for Firestore." });
     setIsResetting(false);
   };
 
@@ -204,6 +221,11 @@ export default function PurchasesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && (
+                 <TableRow>
+                    <TableCell colSpan={6} className="text-center">Loading purchases...</TableCell>
+                </TableRow>
+              )}
               {filteredPurchases.map((purchase) => (
                 <TableRow key={purchase.id}>
                   <TableCell className="hidden md:table-cell">

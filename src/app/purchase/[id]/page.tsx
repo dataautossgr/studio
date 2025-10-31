@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar as CalendarIcon, Trash2, Search, PlusCircle, Upload } from 'lucide-react';
-import { getProducts, getDealers, getPurchases, type Product, type Dealer, type Purchase } from '@/lib/data';
+import { type Product, type Dealer, type Purchase } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -48,6 +48,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import Image from 'next/image';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, getDoc, type DocumentReference } from 'firebase/firestore';
+
 
 interface PurchaseItem {
   productId: string;
@@ -58,11 +61,22 @@ interface PurchaseItem {
 }
 
 export default function PurchaseFormPage() {
-    const [purchase, setPurchase] = useState<Purchase | null>(null);
-    const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [dealers, setDealers] = useState<Dealer[]>([]);
+    const params = useParams();
+    const router = useRouter();
+    const firestore = useFirestore();
+
+    const purchaseId = params.id as string;
+    const isNew = purchaseId === 'new';
     
+    const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
+    const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
+    const purchaseRef = useMemoFirebase(() => isNew ? null : doc(firestore, 'purchases', purchaseId), [isNew, purchaseId, firestore]);
+    
+    const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
+    const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
+    const { data: purchase, isLoading: isLoadingPurchase } = useDoc<Purchase>(purchaseRef);
+
+    const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
     const [invoiceNumber, setInvoiceNumber] = useState('');
     const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
@@ -71,34 +85,27 @@ export default function PurchaseFormPage() {
     const [dueDate, setDueDate] = useState<Date | undefined>();
     const [receiptImageUrl, setReceiptImageUrl] = useState<string | undefined>(undefined);
     
-    const params = useParams();
-    const router = useRouter();
-    const purchaseId = params.id as string;
-    const isNew = purchaseId === 'new';
-
     useEffect(() => {
-        getProducts().then(setProducts);
-        getDealers().then(setDealers);
-        if (!isNew) {
-            getPurchases().then(allPurchases => {
-                const currentPurchase = allPurchases.find(p => p.id === purchaseId);
-                if (currentPurchase) {
-                    setPurchase(currentPurchase);
-                    setSelectedDealer(currentPurchase.dealer);
-                    setInvoiceNumber(currentPurchase.invoiceNumber);
-                    const transactionDate = new Date(currentPurchase.date);
-                    setPurchaseDate(transactionDate);
-                    setPurchaseTime(format(transactionDate, 'HH:mm'));
-                    setStatus(currentPurchase.status);
-                    if (currentPurchase.dueDate) setDueDate(new Date(currentPurchase.dueDate));
-                    setPurchaseItems(currentPurchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)})));
-                    setReceiptImageUrl(currentPurchase.receiptImageUrl);
-                } else {
-                    router.push('/purchase');
+        if (!isNew && purchase && products && dealers) {
+            const fetchPurchaseData = async () => {
+                if (purchase.dealer) {
+                    const dealerSnap = await getDoc(purchase.dealer as DocumentReference);
+                    if (dealerSnap.exists()) {
+                        setSelectedDealer({ id: dealerSnap.id, ...dealerSnap.data() } as Dealer);
+                    }
                 }
-            });
+                setInvoiceNumber(purchase.invoiceNumber);
+                const transactionDate = new Date(purchase.date);
+                setPurchaseDate(transactionDate);
+                setPurchaseTime(format(transactionDate, 'HH:mm'));
+                setStatus(purchase.status);
+                if (purchase.dueDate) setDueDate(new Date(purchase.dueDate));
+                setPurchaseItems(purchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)})));
+                setReceiptImageUrl(purchase.receiptImageUrl);
+            };
+            fetchPurchaseData();
         }
-    }, [purchaseId, isNew, router, products]);
+    }, [isNew, purchase, products, dealers]);
 
     const handleProductSelect = (product: Product) => {
         const existingItem = purchaseItems.find((item) => item.productId === product.id);
@@ -181,12 +188,12 @@ export default function PurchaseFormPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2">
                     <Label>Dealer</Label>
-                    <Select onValueChange={(dealerId) => setSelectedDealer(dealers.find(d => d.id === dealerId) || null)} value={selectedDealer?.id}>
+                    <Select onValueChange={(dealerId) => setSelectedDealer(dealers?.find(d => d.id === dealerId) || null)} value={selectedDealer?.id}>
                         <SelectTrigger>
                             <SelectValue placeholder="Select a dealer" />
                         </SelectTrigger>
                         <SelectContent>
-                            {dealers.map(dealer => (
+                            {dealers?.map(dealer => (
                                 <SelectItem key={dealer.id} value={dealer.id}>{dealer.name} ({dealer.company})</SelectItem>
                             ))}
                         </SelectContent>
@@ -244,7 +251,7 @@ export default function PurchaseFormPage() {
                                 <CommandList>
                                     <CommandEmpty>No products found.</CommandEmpty>
                                     <CommandGroup>
-                                    {products.map((product) => (
+                                    {products?.map((product) => (
                                         <CommandItem
                                         key={product.id}
                                         onSelect={() => handleProductSelect(product)}
@@ -411,5 +418,3 @@ export default function PurchaseFormPage() {
     </div>
   );
 }
-
-    

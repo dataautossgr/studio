@@ -11,7 +11,6 @@ import { format } from 'date-fns';
 import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
-import { useReactToPrint } from 'react-to-print';
 
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
@@ -34,12 +33,6 @@ export default function InvoicePage() {
 
   const [sale, setSale] = useState<EnrichedSale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const componentRef = useRef<HTMLDivElement>(null);
-
-  const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
-  });
 
   useEffect(() => {
     if (!firestore || !saleId) return;
@@ -108,8 +101,8 @@ export default function InvoicePage() {
   }
 
   return (
-    <>
-      <div className="fixed top-4 right-4 z-50 flex gap-2 print:hidden">
+    <div className="bg-gray-100">
+      <div className="fixed top-4 right-4 z-50 flex gap-2 no-print">
             <Button variant="outline" asChild>
                 <Link href="/sales">
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -120,14 +113,14 @@ export default function InvoicePage() {
                 <WhatsAppIcon />
                 <span className="ml-2">Send via WhatsApp</span>
             </Button>
-            <Button onClick={handlePrint}>
+            <Button onClick={() => window.print()}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
             </Button>
       </div>
 
-      <main className="bg-gray-100 p-4 sm:p-8 print:bg-white print:p-0">
-        <div ref={componentRef} className="w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none">
+      <main className="p-4 sm:p-8 print:bg-white print:p-0">
+        <div className="w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none printable-content">
             {/* Header */}
             <div className="text-center mb-5">
                 <h2 className="text-lg font-bold">CASH MEMO</h2>
@@ -206,6 +199,6 @@ export default function InvoicePage() {
             </div>
         </div>
       </main>
-    </>
+    </div>
   );
 }

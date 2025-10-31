@@ -32,7 +32,6 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { useReactToPrint } from 'react-to-print';
 
 type TimePeriod = 'today' | 'weekly' | 'monthly' | 'all';
 
@@ -41,11 +40,6 @@ export default function ReportsPage() {
   const salesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'sales') : null, [firestore]);
   const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
   
-  const componentRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
-  });
-
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   
@@ -131,7 +125,7 @@ export default function ReportsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-        <div className="flex justify-between items-start print:hidden">
+        <div className="flex justify-between items-start no-print">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
                 <p className="text-muted-foreground">
@@ -147,14 +141,14 @@ export default function ReportsPage() {
                         <TabsTrigger value="all">All Time</TabsTrigger>
                     </TabsList>
                 </Tabs>
-                <Button variant="outline" onClick={handlePrint}>
+                <Button variant="outline" onClick={() => window.print()}>
                     <Printer className="mr-2 h-4 w-4" />
                     Print Report
                 </Button>
             </div>
         </div>
 
-        <div ref={componentRef} className="space-y-8 print:p-4">
+        <div className="space-y-8 printable-content">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 print:grid-cols-4">
                 {isLoading ? Array.from({length: 4}).map((_, i) => (
                 <Card key={i} className="print:border-none print:shadow-none">

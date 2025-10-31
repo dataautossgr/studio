@@ -20,7 +20,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowUpCircle, ArrowDownCircle, MinusCircle, PlusCircle, Repeat } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, MinusCircle, PlusCircle, Repeat, Cloud, ShieldCheck } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
+
 
 type SessionState = 'none' | 'started' | 'ended';
 type Denominations = {
@@ -42,6 +54,8 @@ export default function CashSessionPage() {
   const [sessionState, setSessionState] = useState<SessionState>('none');
   const [denominationsStart, setDenominationsStart] = useState<Denominations>({ 1000: 0, 500: 0, 100: 0, 50: 0, 20: 0, 10: 0 });
   const [denominationsEnd, setDenominationsEnd] = useState<Denominations>({ 1000: 0, 500: 0, 100: 0, 50: 0, 20: 0, 10: 0 });
+  const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const calculateTotal = (denoms: Denominations) => {
     return Object.entries(denoms).reduce((acc, [key, value]) => acc + parseInt(key) * value, 0);
@@ -69,6 +83,18 @@ export default function CashSessionPage() {
   
   const handleEndSession = () => {
     setSessionState('ended');
+  }
+
+  const handleFinalizeReport = () => {
+    // This is where you would save the session data to Firestore.
+    console.log("Finalizing and saving report...");
+    toast({
+        title: "Session Saved",
+        description: "The end-of-day report has been saved successfully.",
+    });
+    // For now, we just go to the new session screen.
+    handleNewSession();
+    setIsFinalizeDialogOpen(false);
   }
 
   const handleNewSession = () => {
@@ -178,43 +204,80 @@ export default function CashSessionPage() {
   
   if (sessionState === 'ended') {
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
-            <div className="grid gap-8 md:grid-cols-2">
-                {renderDenominationTable("End of Day - Enter Physical Cash", denominationsEnd, setDenominationsEnd, false)}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>End of Day Summary</CardTitle>
-                        <CardDescription>Comparison of expected vs. actual cash.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-base">
-                        <div className="flex justify-between items-center">
-                            <Label className="text-muted-foreground">System Expected Balance</Label>
-                            <span className="font-bold">Rs. {expectedClosingCash.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <Label className="text-muted-foreground">Physical Cash Counted</Label>
-                            <span className="font-bold">Rs. {closingCash.toLocaleString()}</span>
-                        </div>
-                        <div className={`flex justify-between items-center text-xl font-bold p-4 rounded-md ${difference === 0 ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-destructive'}`}>
-                            <Label>Difference</Label>
-                            <span>Rs. {difference.toLocaleString()}</span>
-                        </div>
-                        {difference !== 0 && (
-                            <div className="space-y-2">
-                                <Label htmlFor="remarks">Remarks for Difference</Label>
-                                <Input id="remarks" placeholder="e.g., Pending change or small expense not recorded" />
+        <>
+            <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
+                <div className="grid gap-8 md:grid-cols-2">
+                    {renderDenominationTable("End of Day - Enter Physical Cash", denominationsEnd, setDenominationsEnd, false)}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>End of Day Summary</CardTitle>
+                            <CardDescription>Comparison of expected vs. actual cash.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4 text-base">
+                            <div className="flex justify-between items-center">
+                                <Label className="text-muted-foreground">System Expected Balance</Label>
+                                <span className="font-bold">Rs. {expectedClosingCash.toLocaleString()}</span>
                             </div>
-                        )}
-                    </CardContent>
-                     <CardFooter className="gap-4">
-                        <Button onClick={handleNewSession} variant="outline" className="w-full" size="lg">
-                            <Repeat className="mr-2 h-4 w-4"/> Start New Session
-                        </Button>
-                        <Button className="w-full" size="lg">Finalize & Save Report</Button>
-                    </CardFooter>
-                </Card>
+                            <div className="flex justify-between items-center">
+                                <Label className="text-muted-foreground">Physical Cash Counted</Label>
+                                <span className="font-bold">Rs. {closingCash.toLocaleString()}</span>
+                            </div>
+                            <div className={`flex justify-between items-center text-xl font-bold p-4 rounded-md ${difference === 0 ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-destructive'}`}>
+                                <Label>Difference</Label>
+                                <span>Rs. {difference.toLocaleString()}</span>
+                            </div>
+                            {difference !== 0 && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="remarks">Remarks for Difference</Label>
+                                    <Input id="remarks" placeholder="e.g., Pending change or small expense not recorded" />
+                                </div>
+                            )}
+                        </CardContent>
+                        <CardFooter className="gap-4">
+                            <Button onClick={handleNewSession} variant="outline" className="w-full" size="lg">
+                                <Repeat className="mr-2 h-4 w-4"/> Start New Session
+                            </Button>
+                            <Button onClick={() => setIsFinalizeDialogOpen(true)} className="w-full" size="lg">Finalize & Save Report</Button>
+                        </CardFooter>
+                    </Card>
+                </div>
             </div>
-      </div>
+            
+            <AlertDialog open={isFinalizeDialogOpen} onOpenChange={setIsFinalizeDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Finalize Session Reminders</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Before saving the final report, please confirm the following:
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-4 my-4">
+                        <div className="flex items-start gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <Cloud className="h-6 w-6 text-blue-500 mt-1" />
+                            <div>
+                                <h3 className="font-semibold">Cloud Sync</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Ensure you have an active internet connection to sync all of today's data with the cloud.
+                                </p>
+                            </div>
+                        </div>
+                         <div className="flex items-start gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <ShieldCheck className="h-6 w-6 text-green-600 mt-1" />
+                            <div>
+                                <h3 className="font-semibold">Data Backup</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    It's a good practice to take a manual backup periodically from the settings menu for extra safety.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleFinalizeReport}>Continue & Save</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     );
   }
 

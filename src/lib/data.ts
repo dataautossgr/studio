@@ -30,6 +30,7 @@ export interface Customer {
     balance: number;
     type: 'walk-in' | 'registered';
     address?: string;
+    paymentDueDate?: string; // Optional due date for pending balance
 }
 
 export interface Sale {
@@ -48,6 +49,7 @@ export interface Sale {
     paymentMethod?: 'cash' | 'online';
     onlinePaymentSource?: string;
     partialAmountPaid?: number;
+    dueDate?: string; // Optional due date for this specific sale
 }
 
 export interface Payment {
@@ -69,6 +71,7 @@ export interface Dealer {
     phone: string;
     address?: string;
     balance: number;
+    paymentDueDate?: string; // Optional due date for pending balance
 }
 
 export interface Purchase {
@@ -85,6 +88,7 @@ export interface Purchase {
         quantity: number;
         costPrice: number;
     }[];
+    dueDate?: string; // Optional due date for this specific purchase
 }
 
 export interface RepairJob {
@@ -162,7 +166,7 @@ export const seedInitialData = async (db: any) => {
     // Seed Dealers
     const dealersCollection = collection(db, 'dealers');
     for (const dealer of mockDealers) {
-        batch.set(doc(dealersCollection, dealer.id), { ...dealer, balance: 0 });
+        batch.set(doc(dealersCollection, dealer.id), { ...dealer, balance: 0, paymentDueDate: '2024-07-25' }); // Added due date
     }
     console.log("Dealers queued for seeding.");
 
@@ -192,11 +196,11 @@ export const seedInitialData = async (db: any) => {
             paymentMethod: 'online' as const, onlinePaymentSource: 'Easypaisa'
         },
         {
-            id: 'SALE003', invoice: 'INV-2024-003', customerId: 'CUST001', date: '2024-07-21T09:15:00Z', total: 1450, status: 'Unpaid' as const, 
+            id: 'SALE003', invoice: 'INV-2024-003', customerId: 'CUST001', date: '2024-07-21T09:15:00Z', total: 1450, status: 'Unpaid' as const, dueDate: '2024-07-28',
             items: [ { productId: 'PROD1005', name: 'Air Filter', quantity: 1, price: 650 }, { productId: 'PROD1008', name: 'Headlight Bulb', quantity: 2, price: 400 } ],
         },
          {
-            id: 'SALE004', invoice: 'INV-2024-004', customerId: 'CUST002', date: '2024-07-22T14:00:00Z', total: 5500, status: 'Partial' as const, partialAmountPaid: 3000,
+            id: 'SALE004', invoice: 'INV-2024-004', customerId: 'CUST002', date: '2024-07-22T14:00:00Z', total: 5500, status: 'Partial' as const, partialAmountPaid: 3000, dueDate: new Date().toISOString().split('T')[0], // Due today
             items: [ { productId: 'PROD1010', name: 'Synthetic Engine Oil (4L)', quantity: 1, price: 5500 } ],
         }
     ];
@@ -212,7 +216,7 @@ export const seedInitialData = async (db: any) => {
        // Update customer balance for unpaid/partial
        if (sale.status === 'Unpaid' || sale.status === 'Partial') {
          const balance_change = sale.status === 'Unpaid' ? sale.total : sale.total - (sale.partialAmountPaid || 0);
-         salesBatch.update(doc(db, 'customers', customerId), { balance: balance_change });
+         salesBatch.update(doc(db, 'customers', customerId), { balance: balance_change, paymentDueDate: sale.dueDate });
        }
     }
     await salesBatch.commit();
@@ -230,7 +234,7 @@ export const seedInitialData = async (db: any) => {
             items: [ { productId: 'PROD1004', name: 'AGS Battery', quantity: 15, costPrice: 7000 } ],
         },
         {
-            id: 'PUR003', dealerId: 'DLR003', invoiceNumber: 'BT-0123', date: '2024-07-22T11:00:00Z', total: 8000, status: 'Unpaid' as const,
+            id: 'PUR003', dealerId: 'DLR003', invoiceNumber: 'BT-0123', date: '2024-07-22T11:00:00Z', total: 8000, status: 'Unpaid' as const, dueDate: '2024-07-26',
             items: [ { productId: 'PROD1005', name: 'Air Filter', quantity: 20, costPrice: 400 } ],
         }
     ];
@@ -244,7 +248,7 @@ export const seedInitialData = async (db: any) => {
         purchasesBatch.set(doc(purchasesCollection, id), purchaseToStore);
 
         if (purchase.status === 'Unpaid' || purchase.status === 'Partial') {
-          purchasesBatch.update(doc(db, 'dealers', dealerId), { balance: purchase.total });
+          purchasesBatch.update(doc(db, 'dealers', dealerId), { balance: purchase.total, paymentDueDate: purchase.dueDate });
         }
     }
     await purchasesBatch.commit();

@@ -18,6 +18,7 @@ import { useStoreSettings } from '@/context/store-settings-context';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { DuePaymentsDialog } from './due-payments-dialog';
 
 export function Header() {
   const { settings } = useStoreSettings();
@@ -36,7 +37,8 @@ export function Header() {
         <SidebarTrigger className="md:hidden" />
         <h1 className="text-lg font-semibold md:text-xl">Dashboard</h1>
       </div>
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-2">
+        <DuePaymentsDialog />
         <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

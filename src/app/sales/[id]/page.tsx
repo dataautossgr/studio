@@ -91,6 +91,7 @@ export default function SaleFormPage() {
   const [partialAmount, setPartialAmount] = useState(0);
   const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
   const [saleTime, setSaleTime] = useState(format(new Date(), 'HH:mm'));
+  const [dueDate, setDueDate] = useState<Date | undefined>();
   const [cashReceived, setCashReceived] = useState(0);
 
 
@@ -171,6 +172,7 @@ export default function SaleFormPage() {
             const transactionDate = new Date(currentSale.date);
             setSaleDate(transactionDate);
             setSaleTime(format(transactionDate, 'HH:mm'));
+            if(currentSale.dueDate) setDueDate(new Date(currentSale.dueDate));
 
         } else {
              router.push('/sales');
@@ -224,6 +226,9 @@ export default function SaleFormPage() {
   };
   
   const updateCartItem = (id: string, field: keyof CartItem, value: any) => {
+    if (field === 'quantity' || field === 'price') {
+      value = parseFloat(value) || 0;
+    }
     setCart(
       cart.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -294,7 +299,7 @@ export default function SaleFormPage() {
 
     const dueAmount = finalAmount - (status === 'Partial' ? partialAmount : 0);
 
-    const saleData = {
+    const saleData: Partial<Sale> = {
         date: finalSaleDate.toISOString(),
         total: finalAmount,
         status: status,
@@ -305,32 +310,42 @@ export default function SaleFormPage() {
             quantity: item.quantity,
             price: item.price,
         })),
-        paymentMethod: status === 'Paid' ? paymentMethod : null,
-        onlinePaymentSource: status === 'Paid' && paymentMethod === 'online' ? onlinePaymentSource : '',
+        paymentMethod: status === 'Paid' ? paymentMethod : undefined,
+        onlinePaymentSource: status === 'Paid' && paymentMethod === 'online' ? onlinePaymentSource : undefined,
         partialAmountPaid: status === 'Partial' ? partialAmount : 0,
+        dueDate: status !== 'Paid' && dueDate ? dueDate.toISOString() : undefined,
     };
     
     const batch = writeBatch(firestore);
 
     let customerRef;
+    let customerUpdateData: any = {};
 
     if (customerType === 'registered' && selectedCustomer) {
         customerRef = doc(firestore, 'customers', selectedCustomer.id);
         if (status !== 'Paid') {
             const balanceChange = isNew ? dueAmount : dueAmount - ((sale?.total || 0) - (sale?.partialAmountPaid || 0));
-            batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + balanceChange });
+            customerUpdateData.balance = (selectedCustomer.balance || 0) + balanceChange;
+            if (dueDate) {
+                customerUpdateData.paymentDueDate = dueDate.toISOString();
+            }
+            batch.update(customerRef, customerUpdateData);
         }
     } else {
         // This case handles walk-in customers (paid or converting to registered)
         const isConvertingToRegistered = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
         customerRef = doc(collection(firestore, 'customers'));
-        batch.set(customerRef, {
+        const customerPayload: Partial<Customer> = {
             name: customerName,
             phone: '',
             vehicleDetails: '',
             type: isConvertingToRegistered ? 'registered' : 'walk-in',
             balance: isConvertingToRegistered ? dueAmount : 0,
-        });
+        };
+        if(isConvertingToRegistered && dueDate) {
+            customerPayload.paymentDueDate = dueDate.toISOString();
+        }
+        batch.set(customerRef, customerPayload);
     }
 
     cart.forEach(item => {
@@ -504,7 +519,7 @@ export default function SaleFormPage() {
             <div className="flex gap-2">
               <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground" onClick={(e) => e.preventDefault()}>
                         <Search className="mr-2 h-4 w-4" />
                         Search inventory to add products...
                     </Button>
@@ -589,7 +604,7 @@ export default function SaleFormPage() {
                           type="number"
                           value={item.quantity}
                           onChange={(e) =>
-                            updateCartItem(item.id, 'quantity', parseFloat(e.target.value) || 0)
+                            updateCartItem(item.id, 'quantity', e.target.value)
                           }
                           className="w-20"
                           step="0.1"
@@ -601,7 +616,7 @@ export default function SaleFormPage() {
                           type="number"
                           value={item.price}
                           onChange={(e) =>
-                            updateCartItem(item.id, 'price', parseFloat(e.target.value) || 0)
+                            updateCartItem(item.id, 'price', e.target.value)
                           }
                           className="w-24"
                           readOnly={!item.isOneTime}
@@ -650,6 +665,34 @@ export default function SaleFormPage() {
                     </SelectContent>
                   </Select>
                </div>
+                
+                {(status === 'Unpaid' || status === 'Partial') && (
+                     <div className="space-y-2">
+                        <Label>Payment Due Date (Optional)</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !dueDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dueDate ? format(dueDate, "PPP") : <span>Set a due date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={dueDate}
+                                onSelect={setDueDate}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                )}
 
                 {status === 'Partial' && (
                     <div className="grid grid-cols-[120px_1fr] items-center gap-4 rounded-md border p-4">

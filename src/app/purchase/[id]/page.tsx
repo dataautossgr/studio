@@ -68,6 +68,7 @@ export default function PurchaseFormPage() {
     const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
     const [purchaseTime, setPurchaseTime] = useState(format(new Date(), 'HH:mm'));
     const [status, setStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
+    const [dueDate, setDueDate] = useState<Date | undefined>();
     const [receiptImageUrl, setReceiptImageUrl] = useState<string | undefined>(undefined);
     
     const params = useParams();
@@ -89,6 +90,7 @@ export default function PurchaseFormPage() {
                     setPurchaseDate(transactionDate);
                     setPurchaseTime(format(transactionDate, 'HH:mm'));
                     setStatus(currentPurchase.status);
+                    if (currentPurchase.dueDate) setDueDate(new Date(currentPurchase.dueDate));
                     setPurchaseItems(currentPurchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)})));
                     setReceiptImageUrl(currentPurchase.receiptImageUrl);
                 } else {
@@ -137,6 +139,9 @@ export default function PurchaseFormPage() {
     };
 
     const updatePurchaseItem = (productId: string, field: 'name' | 'quantity' | 'costPrice', value: string | number) => {
+        if (field === 'quantity' || field === 'costPrice') {
+          value = parseFloat(value as string) || 0;
+        }
         setPurchaseItems(
             purchaseItems.map((item) => (item.productId === productId ? { ...item, [field]: value } : item))
         );
@@ -229,7 +234,7 @@ export default function PurchaseFormPage() {
                 <div className="flex gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground" onClick={(e) => e.preventDefault()}>
                                 <Search className="mr-2 h-4 w-4" /> Search inventory to add products...
                             </Button>
                         </PopoverTrigger>
@@ -295,7 +300,7 @@ export default function PurchaseFormPage() {
                                         <Input 
                                             type="number" 
                                             value={item.quantity} 
-                                            onChange={e => updatePurchaseItem(item.productId, 'quantity', parseFloat(e.target.value) || 0)} 
+                                            onChange={e => updatePurchaseItem(item.productId, 'quantity', e.target.value)} 
                                             className="w-20"
                                             step="0.1"
                                             min="0"
@@ -305,7 +310,7 @@ export default function PurchaseFormPage() {
                                         <Input 
                                             type="number" 
                                             value={item.costPrice} 
-                                            onChange={e => updatePurchaseItem(item.productId, 'costPrice', parseFloat(e.target.value) || 0)} 
+                                            onChange={e => updatePurchaseItem(item.productId, 'costPrice', e.target.value)} 
                                             className="w-24"
                                             min="0"
                                         />
@@ -329,6 +334,46 @@ export default function PurchaseFormPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-4">
+                     <div className="flex items-center gap-4">
+                        <Label htmlFor="status" className="flex-shrink-0">Purchase Status</Label>
+                        <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => setStatus(val)}>
+                            <SelectTrigger>
+                            <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="Paid">Paid</SelectItem>
+                            <SelectItem value="Unpaid">Unpaid</SelectItem>
+                            <SelectItem value="Partial">Partial</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     {(status === 'Unpaid' || status === 'Partial') && (
+                        <div className="space-y-2">
+                            <Label>Payment Due Date (Optional)</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !dueDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dueDate ? format(dueDate, "PPP") : <span>Set a due date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={dueDate}
+                                    onSelect={setDueDate}
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <Label htmlFor="receipt-upload">Upload Bill / Receipt (Optional)</Label>
                         <div className="flex items-center gap-4">
@@ -347,19 +392,6 @@ export default function PurchaseFormPage() {
                             )}
                             <Input id="receipt-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs max-w-sm" />
                         </div>
-                    </div>
-                   <div className="flex items-center gap-4">
-                        <Label htmlFor="status" className="flex-shrink-0">Purchase Status</Label>
-                        <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => setStatus(val)}>
-                            <SelectTrigger>
-                            <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                            <SelectItem value="Paid">Paid</SelectItem>
-                            <SelectItem value="Unpaid">Unpaid</SelectItem>
-                            <SelectItem value="Partial">Partial</SelectItem>
-                            </SelectContent>
-                        </Select>
                     </div>
                 </div>
                 <div className="space-y-2 text-right">

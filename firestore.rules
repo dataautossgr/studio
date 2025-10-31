@@ -7,7 +7,7 @@
  *   /products/{productId}, /sales/{saleId}, /sale_items/{saleItemId}, /dealers/{dealerId},
  *   /purchases/{purchaseId}, /customers/{customerId}, /cash_sessions/{cashSessionId},
  *   /bank_transactions/{bankTransactionId}, /settings/{settingId}, /payments/{paymentId},
- *   /repair_jobs/{jobId}, and /repair_job_items/{jobItemId}.
+ *   /repair_jobs/{jobId}, /repair_job_items/{jobItemId}, and /expenses/{expenseId}.
  * @key_security_decisions Authentication is disabled for the moment, so all read and write access
  *   is generally allowed. However, in the interest of forward compatibility, we are explicitly defining
  *   rules for each operation (get, list, create, update, delete) on each collection.
@@ -189,6 +189,21 @@ service cloud.firestore {
      * @principle Public read and write access.
      */
     match /repair_job_items/{jobItemId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+    }
+
+    /**
+     * @description Allows read and write access to expenses.
+     * @path /expenses/{expenseId}
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /expenses/{expenseId} {
       allow get: if true;
       allow list: if true;
       allow create: if true;

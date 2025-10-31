@@ -373,6 +373,49 @@
         "price": { "type": "number", "description": "Price of the item at the time of job." }
       },
       "required": ["id", "jobId", "productId", "quantity", "price"]
+    },
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "description": "Represents a business expense.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the expense."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date of the expense."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the expense."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the expense."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["Cash", "Bank", "Credit"],
+          "description": "Method of payment."
+        },
+        "paidTo": {
+          "type": "string",
+          "description": "Recipient of the payment."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the expense."
+        },
+        "attachmentUrl": {
+          "type": "string",
+          "description": "URL of an attached bill or receipt."
+        }
+      },
+      "required": ["id", "date", "category", "amount", "paymentMethod", "paidTo"]
     }
   },
   "auth": {
@@ -571,6 +614,22 @@
             {
               "name": "jobItemId",
               "description": "Unique identifier for a repair job's item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "schema": {
+            "$ref": "#/backend/entities/Expense"
+          },
+          "description": "Stores business expense information.",
+          "params": [
+            {
+              "name": "expenseId",
+              "description": "Unique identifier for the expense."
             }
           ]
         }

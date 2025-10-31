@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { clearIndexedDbPersistence } from 'firebase/firestore';
 
 
 export default function SettingsPage() {
@@ -36,6 +38,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState(initialSettings);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
 
   useEffect(() => {
     setSettings(initialSettings);
@@ -65,19 +68,28 @@ export default function SettingsPage() {
     });
   };
 
-  const handleResetData = () => {
-    // This is a placeholder. In a real app, this would trigger
-    // a global state reset or clear local storage.
-    console.log("Resetting all local data...");
-    localStorage.clear(); // This will clear all local storage for the domain.
+  const handleResetData = async () => {
+    setIsResetDialogOpen(false);
     toast({
-      title: "Local Data Reset",
-      description: "All application data has been reset. The app will now reload.",
+      title: "Resetting Data...",
+      description: "Clearing local cache. The app will reload shortly.",
     });
-    // For now, we can just reload the page to simulate a reset with mock data
-    setTimeout(() => {
-        window.location.reload();
-    }, 1500)
+    try {
+        // This is a more robust way to clear Firestore's offline data
+        // Note: This function is not directly available in all SDK versions,
+        // so we'll couple it with localStorage clear as a fallback.
+        if (firestore && typeof (firestore as any)._delete === 'function') {
+             await (firestore as any)._delete();
+        }
+        await clearIndexedDbPersistence(firestore);
+    } catch(e){
+        console.error("Could not clear persistence, falling back to localStorage clear.", e);
+    } finally {
+        localStorage.clear();
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    }
   };
 
   return (
@@ -190,16 +202,16 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
              <div className="flex items-center space-x-2">
-              <Switch id="auto-sync" defaultChecked />
+              <Switch id="auto-sync" defaultChecked disabled />
               <Label htmlFor="auto-sync">Enable Auto-Sync</Label>
             </div>
             <div className='flex flex-col space-y-2'>
                 <p className="text-sm text-muted-foreground">
-                    Status: <span className='text-green-500 font-medium'>Synced a few seconds ago</span>
+                    Status: <span className='text-green-500 font-medium'>Online & Synced</span>
                 </p>
-                <Button variant="outline">
+                <Button variant="outline" disabled>
                     <Cloud className="mr-2 h-4 w-4" />
-                    Sync Now
+                    Syncing Automatically...
                 </Button>
             </div>
           </CardContent>
@@ -214,14 +226,14 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
              <p className="text-sm text-muted-foreground">
-                Last backup: Today at 2:00 AM
+                Last backup: Not implemented
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
-                <Button className="w-full">
+                <Button className="w-full" disabled>
                     <Download className="mr-2 h-4 w-4" />
                     Create Backup
                 </Button>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" disabled>
                     <Upload className="mr-2 h-4 w-4" />
                     Restore Data
                 </Button>
@@ -240,11 +252,11 @@ export default function SettingsPage() {
              <div className="flex items-center justify-between rounded-lg border border-destructive/50 p-4">
                 <div>
                     <h3 className="font-semibold">Reset All Local Data</h3>
-                    <p className="text-sm text-muted-foreground">Erase all sales, inventory, and customer data from this device.</p>
+                    <p className="text-sm text-muted-foreground">Erase all local data cache. This will force the app to re-sync everything from the cloud.</p>
                 </div>
                 <Button variant="destructive" onClick={() => setIsResetDialogOpen(true)}>
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Reset Data
+                    Reset Local Cache
                 </Button>
             </div>
           </CardContent>
@@ -256,12 +268,12 @@ export default function SettingsPage() {
                 <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will permanently delete all local application data, including sales, inventory, customers, and settings. This action cannot be undone and will not affect your cloud backup.
+                    This will permanently delete all local application data cache from this browser. This action cannot be undone, but your data will be re-downloaded from the cloud upon restart.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetData}>Yes, Reset Everything</AlertDialogAction>
+                <AlertDialogAction onClick={handleResetData}>Yes, Reset Local Cache</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

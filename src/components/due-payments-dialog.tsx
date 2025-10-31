@@ -14,7 +14,7 @@ import { Bell, Users, Building } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Customer, Dealer } from '@/lib/data';
-import { format, isToday, isPast } from 'date-fns';
+import { format, isToday, isPast, isTomorrow, startOfDay } from 'date-fns';
 import Link from 'next/link';
 import { Separator } from './ui/separator';
 
@@ -38,25 +38,25 @@ export function DuePaymentsDialog() {
 
   const duePayments: DuePayment[] = useMemo(() => {
     const allDue: DuePayment[] = [];
-    const today = new Date();
-
-    customers?.forEach(c => {
-      if (c.balance > 0 && c.paymentDueDate) {
-        const dueDate = new Date(c.paymentDueDate);
-        if (isToday(dueDate) || isPast(dueDate)) {
-          allDue.push({ id: c.id, name: c.name, type: 'Customer', balance: c.balance, dueDate });
+    
+    const checkAndPush = (party: Customer | Dealer, type: 'Customer' | 'Dealer') => {
+        if (party.balance > 0 && party.paymentDueDate) {
+            const dueDate = startOfDay(new Date(party.paymentDueDate));
+            // Alert if the due date is today, tomorrow, or in the past.
+            if (isToday(dueDate) || isPast(dueDate) || isTomorrow(dueDate)) {
+                allDue.push({ 
+                    id: party.id, 
+                    name: type === 'Customer' ? (party as Customer).name : (party as Dealer).company, 
+                    type, 
+                    balance: party.balance, 
+                    dueDate 
+                });
+            }
         }
-      }
-    });
+    };
 
-    dealers?.forEach(d => {
-      if (d.balance > 0 && d.paymentDueDate) {
-        const dueDate = new Date(d.paymentDueDate);
-        if (isToday(dueDate) || isPast(dueDate)) {
-          allDue.push({ id: d.id, name: d.company, type: 'Dealer', balance: d.balance, dueDate });
-        }
-      }
-    });
+    customers?.forEach(c => checkAndPush(c, 'Customer'));
+    dealers?.forEach(d => checkAndPush(d, 'Dealer'));
 
     return allDue.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
   }, [customers, dealers]);
@@ -81,7 +81,7 @@ export function DuePaymentsDialog() {
             <DialogTitle>Pending Payment Alerts</DialogTitle>
             <DialogDescription>
               {dueCount > 0
-                ? `You have ${dueCount} payments that are due or overdue.`
+                ? `You have ${dueCount} payments that are due, overdue, or due tomorrow.`
                 : 'No pending payments are due at the moment.'}
             </DialogDescription>
           </DialogHeader>
@@ -100,7 +100,7 @@ export function DuePaymentsDialog() {
                             </p>
                         </div>
                         <div className="text-right">
-                             <Badge variant={isPast(payment.dueDate) ? 'destructive' : 'secondary'}>
+                             <Badge variant={isPast(payment.dueDate) && !isToday(payment.dueDate) ? 'destructive' : 'secondary'}>
                                 Rs. {payment.balance.toLocaleString()}
                             </Badge>
                         </div>

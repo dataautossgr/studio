@@ -76,7 +76,6 @@ interface CartItem {
 
 const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
 
-
 function SaleFormDetail() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);

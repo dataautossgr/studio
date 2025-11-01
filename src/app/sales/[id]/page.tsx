@@ -77,7 +77,7 @@ interface CartItem {
 const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
 
 
-export default function SaleFormPage() {
+function SaleFormDetail() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -838,4 +838,8 @@ export default function SaleFormPage() {
     </AlertDialog>
     </div>
   );
+}
+
+export default function SaleFormPage() {
+    return <SaleFormDetail />;
 }

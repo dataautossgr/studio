@@ -84,7 +84,7 @@ interface BillItem {
   isOneTime: boolean;
 }
 
-export default function RepairJobFormPage() {
+function RepairJobFormDetail() {
   const params = useParams();
   const router = useRouter();
   const firestore = useFirestore();
@@ -537,4 +537,9 @@ export default function RepairJobFormPage() {
       />
     </div>
   );
+}
+
+
+export default function RepairJobFormPage() {
+    return <RepairJobFormDetail />;
 }

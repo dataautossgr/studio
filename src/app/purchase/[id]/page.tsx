@@ -60,7 +60,7 @@ interface PurchaseItem {
   isNew?: boolean;
 }
 
-export default function PurchaseFormPage() {
+function PurchaseFormDetail() {
     const params = useParams();
     const router = useRouter();
     const firestore = useFirestore();
@@ -417,4 +417,9 @@ export default function PurchaseFormPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function PurchaseFormPage() {
+    return <PurchaseFormDetail />;
 }

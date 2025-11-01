@@ -11,10 +11,15 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: !isDev
+      // In dev mode, we load from a web server, so webSecurity can be enabled.
+      // In production, we load from file system, so it might need to be disabled
+      // if you face CORS issues, but it's better to handle those properly.
+      webSecurity: true 
     },
   });
 
+  // If in development, load from the Next.js dev server.
+  // Otherwise, load the static build output.
   const loadURL = isDev
     ? 'http://localhost:9002'
     : `file://${path.join(__dirname, '../out/index.html')}`;
@@ -29,6 +34,7 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
+  // Only check for updates in production.
   if (!isDev) {
     autoUpdater.checkForUpdatesAndNotify();
   }

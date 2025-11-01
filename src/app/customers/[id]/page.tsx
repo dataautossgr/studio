@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -57,7 +58,7 @@ export interface Transaction {
     paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
 }
 
-export default function CustomerLedgerPage() {
+function CustomerLedgerDetail() {
     const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
@@ -396,4 +397,8 @@ export default function CustomerLedgerPage() {
         </AlertDialog>
     </div>
   );
+}
+
+export default function CustomerLedgerPage() {
+    return <CustomerLedgerDetail />;
 }

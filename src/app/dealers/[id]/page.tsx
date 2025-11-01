@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -55,7 +56,7 @@ export interface Transaction {
     paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
 }
 
-export default function DealerLedgerPage() {
+function DealerLedgerDetail() {
     const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
@@ -338,4 +339,8 @@ export default function DealerLedgerPage() {
 
     </div>
   );
+}
+
+export default function DealerLedgerPage() {
+    return <DealerLedgerDetail />;
 }

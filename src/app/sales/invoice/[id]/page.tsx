@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
+import { useReactToPrint } from 'react-to-print';
 
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
@@ -24,12 +25,12 @@ const WhatsAppIcon = () => (
     </svg>
 );
 
-
-export default function InvoicePage() {
+function InvoiceDetail() {
   const params = useParams();
   const firestore = useFirestore();
   const { settings } = useStoreSettings();
   const saleId = params.id as string;
+  const printRef = useRef<HTMLDivElement>(null);
 
   const [sale, setSale] = useState<EnrichedSale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +64,10 @@ export default function InvoicePage() {
 
     fetchSaleAndCustomer();
   }, [firestore, saleId]);
+
+   const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+  });
   
   const handleSendWhatsApp = () => {
     if (!sale || !sale.customer || !sale.customer.phone) {
@@ -113,14 +118,14 @@ export default function InvoicePage() {
                 <WhatsAppIcon />
                 <span className="ml-2">Send via WhatsApp</span>
             </Button>
-            <Button onClick={() => window.print()}>
+            <Button onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
             </Button>
       </div>
 
       <main className="p-4 sm:p-8 print:bg-white print:p-0">
-        <div className="w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none printable-content">
+        <div ref={printRef} className="w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none printable-content">
             {/* Header */}
             <div className="text-center mb-5">
                 <h2 className="text-lg font-bold">CASH MEMO</h2>
@@ -201,4 +206,8 @@ export default function InvoicePage() {
       </main>
     </div>
   );
+}
+
+export default function InvoicePage() {
+    return <InvoiceDetail />;
 }

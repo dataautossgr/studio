@@ -104,6 +104,8 @@ function InvoiceDetail() {
   if (!sale) {
     return <div className="p-8 text-center text-destructive">Invoice not found.</div>;
   }
+  
+  const balanceDue = sale.total - (sale.partialAmountPaid || 0);
 
   return (
     <div className="bg-gray-100">
@@ -180,17 +182,36 @@ function InvoiceDetail() {
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colSpan={2} className="border-none"></td>
+                        <td colSpan={2} rowSpan={3} className="border-none align-bottom">
+                            {sale.status !== 'Paid' && (
+                                <div className="text-sm p-2">
+                                    <p className="font-bold">Payment Status: {sale.status}</p>
+                                    {sale.status === 'Partial' && (
+                                        <>
+                                            <p>Amount Paid: Rs. {sale.partialAmountPaid?.toLocaleString()}</p>
+                                            <p className="font-bold">Balance Due: Rs. {balanceDue.toLocaleString()}</p>
+                                        </>
+                                    )}
+                                    {sale.status === 'Unpaid' && (
+                                        <p className="font-bold">Amount Due: Rs. {sale.total.toLocaleString()}</p>
+                                    )}
+                                </div>
+                            )}
+                             {sale.status === 'Paid' && (
+                                <div className="text-sm p-2">
+                                    <p className="font-bold">Status: Fully Paid</p>
+                                    <p>Method: {sale.paymentMethod === 'online' ? `Online (${sale.onlinePaymentSource})` : 'Cash'}</p>
+                                </div>
+                            )}
+                        </td>
                         <td className="text-right font-bold pr-2 pt-2">SUBTOTAL</td>
                         <td className="text-right border border-black p-2 font-mono">{subtotal.toLocaleString()}</td>
                     </tr>
                     <tr>
-                        <td colSpan={2} className="border-none"></td>
                         <td className="text-right font-bold pr-2">DISCOUNT</td>
                         <td className="text-right border border-black p-2 font-mono">{sale.discount.toLocaleString()}</td>
                     </tr>
                     <tr>
-                        <td colSpan={2} className="border-none"></td>
                         <td className="text-right font-bold pr-2 text-lg">TOTAL</td>
                         <td className="text-right border border-black p-2 font-mono font-bold text-lg">{sale.total.toLocaleString()}</td>
                     </tr>
@@ -198,9 +219,9 @@ function InvoiceDetail() {
             </table>
 
             {/* Signature */}
-            <div className="mt-8 text-sm">
-                <span className="font-bold">SIGNATURE: </span>
-                <span className="border-b border-black inline-block w-40">&nbsp;</span>
+            <div className="mt-8 text-sm flex justify-between">
+                <span className="font-bold">SIGNATURE: <span className="border-b border-black inline-block w-40">&nbsp;</span></span>
+                <p className="text-xs">Software by HAMXA TECH (0317-3890161)</p>
             </div>
         </div>
       </main>

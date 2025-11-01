@@ -1,6 +1,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
+const { autoUpdater } = require('electron-updater');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -8,17 +9,15 @@ function createWindow() {
     height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      // Important for running Next.js in Electron
       nodeIntegration: false,
       contextIsolation: true,
-      // Allow loading local resources in development for Next.js hot-reloading
-      webSecurity: !isDev 
+      webSecurity: !isDev
     },
   });
 
   const loadURL = isDev
-    ? 'http://localhost:9002' // URL of the Next.js dev server
-    : `file://${path.join(__dirname, '../out/index.html')}`; // Path to the exported Next.js app
+    ? 'http://localhost:9002'
+    : `file://${path.join(__dirname, '../out/index.html')}`;
 
   win.loadURL(loadURL);
 
@@ -29,6 +28,10 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

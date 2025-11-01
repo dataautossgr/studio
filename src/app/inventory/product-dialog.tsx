@@ -107,7 +107,7 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
     onSave({
         ...data,
         dealerId: data.dealerId === '__none__' ? '' : data.dealerId,
-        imageUrl: data.imageUrl || product?.imageUrl || 'https://picsum.photos/seed/placeholder/64/64',
+        imageUrl: data.imageUrl || product?.imageUrl || `https://picsum.photos/seed/${data.name || 'placeholder'}/64/64`,
         imageHint: product?.imageHint || 'product'
     });
   };
@@ -127,7 +127,7 @@ export function ProductDialog({ isOpen, onClose, onSave, product }: ProductDialo
                 <Label>Image</Label>
                 <div className="col-span-3 flex items-center gap-4">
                     <Image
-                        src={imageUrl || 'https://picsum.photos/seed/placeholder/64/64'}
+                        src={imageUrl || `https://picsum.photos/seed/${watch('name') || 'placeholder'}/64/64`}
                         alt="Product image"
                         width={64}
                         height={64}

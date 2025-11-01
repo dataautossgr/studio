@@ -1,9 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // The 'output: export' was causing issues with dynamic routes in Electron.
-  // By removing it, we revert to Next.js's standard server-based rendering,
-  // which handles dynamic pages correctly without needing generateStaticParams.
-  // Electron will now load the app from the Next.js development server.
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      }
+    ],
+  },
 };
 
 export default nextConfig;

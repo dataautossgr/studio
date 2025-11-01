@@ -185,9 +185,9 @@ export default function InvoiceDetail() {
                             {sale.status !== 'Paid' && (
                                 <div className="text-sm p-2">
                                     <p className="font-bold">Payment Status: {sale.status}</p>
-                                    {sale.status === 'Partial' && (
+                                    {sale.status === 'Partial' && sale.partialAmountPaid && (
                                         <>
-                                            <p>Amount Paid: Rs. {sale.partialAmountPaid?.toLocaleString()}</p>
+                                            <p>Amount Paid: Rs. {sale.partialAmountPaid.toLocaleString()}</p>
                                             <p className="font-bold">Balance Due: Rs. {balanceDue.toLocaleString()}</p>
                                         </>
                                     )}
@@ -196,10 +196,10 @@ export default function InvoiceDetail() {
                                     )}
                                 </div>
                             )}
-                             {sale.status === 'Paid' && (
+                            {sale.status === 'Paid' && (
                                 <div className="text-sm p-2">
                                     <p className="font-bold">Status: Fully Paid</p>
-                                    <p>Method: {sale.paymentMethod === 'online' ? `Online (${sale.onlinePaymentSource})` : 'Cash'}</p>
+                                    <p>Method: {sale.paymentMethod === 'online' ? `Online (${sale.onlinePaymentSource || 'N/A'})` : 'Cash'}</p>
                                 </div>
                             )}
                         </td>

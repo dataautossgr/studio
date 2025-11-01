@@ -33,7 +33,11 @@ import {
   PlusCircle,
   Search,
   RotateCcw,
-  Download
+  Download,
+  DollarSign,
+  Package,
+  Boxes,
+  Archive,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ProductDialog } from './product-dialog';
@@ -75,6 +79,17 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
+
+  const { totalSaleValue, totalCostValue, totalUniqueProducts, totalStockQuantity } = useMemo(() => {
+    if (!products) return { totalSaleValue: 0, totalCostValue: 0, totalUniqueProducts: 0, totalStockQuantity: 0 };
+    
+    const totalCostValue = products.reduce((acc, p) => acc + (p.costPrice * p.stock), 0);
+    const totalSaleValue = products.reduce((acc, p) => acc + (p.salePrice * p.stock), 0);
+    const totalUniqueProducts = products.length;
+    const totalStockQuantity = products.reduce((acc, p) => acc + p.stock, 0);
+
+    return { totalSaleValue, totalCostValue, totalUniqueProducts, totalStockQuantity };
+  }, [products]);
 
   const displayProducts = useMemo(() => {
     if (!products || !purchases || !dealers) return [];
@@ -198,10 +213,42 @@ export default function InventoryPage() {
     document.body.removeChild(link);
     toast({ title: 'Export Successful', description: 'Your inventory data has been downloaded as a CSV file.' });
   };
+  
+  const isLoading = isLoadingProducts || isLoadingPurchases || isLoadingDealers;
 
+  const inventoryStats = [
+    { title: "Total Stock Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
+    { title: "Total Stock Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
+    { title: "Unique Products", value: totalUniqueProducts.toLocaleString(), icon: Boxes },
+    { title: "Total Items in Stock", value: totalStockQuantity.toLocaleString(), icon: Package },
+  ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {isLoading ? Array.from({length: 4}).map((_, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div className="h-4 w-2/3 bg-muted rounded-md animate-pulse" />
+                    </CardHeader>
+                    <CardContent>
+                    <div className="h-8 w-1/2 bg-muted rounded-md animate-pulse" />
+                    </CardContent>
+                </Card>
+            )) : inventoryStats.map((stat, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <stat.icon className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+
        <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="flex-1">
@@ -253,7 +300,7 @@ export default function InventoryPage() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {(isLoadingProducts || isLoadingPurchases || isLoadingDealers) && (
+                    {isLoading && (
                         <TableRow>
                             <TableCell colSpan={9} className="text-center">Loading inventory...</TableCell>
                         </TableRow>
@@ -353,3 +400,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+    

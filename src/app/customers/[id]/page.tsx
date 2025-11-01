@@ -1,3 +1,4 @@
+
 import CustomerLedgerDetail from './customer-detail';
 
 export async function generateStaticParams() {

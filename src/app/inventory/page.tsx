@@ -1,7 +1,7 @@
 
 'use client';
 import type { Product, Purchase, Dealer } from '@/lib/data';
-import { getProducts, getPurchases, getDealers, seedInitialData } from '@/lib/data';
+import { seedInitialData } from '@/lib/data';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
@@ -64,9 +64,9 @@ interface DisplayProduct extends Product {
 
 export default function InventoryPage() {
   const firestore = useFirestore();
-  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-  const purchasesCollection = useMemoFirebase(() => collection(firestore, 'purchases'), [firestore]);
-  const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
+  const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+  const purchasesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'purchases') : null, [firestore]);
+  const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
 
   const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
   const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesCollection);
@@ -130,7 +130,7 @@ export default function InventoryPage() {
   };
   
   const handleDeleteProduct = () => {
-    if(!productToDelete) return;
+    if(!productToDelete || !firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'products', productToDelete.id));
     toast({
         title: "Product Deleted",
@@ -140,6 +140,7 @@ export default function InventoryPage() {
   };
 
   const handleSaveProduct = (product: Omit<Product, 'id'>) => {
+    if (!firestore) return;
     if (selectedProduct) {
       // Update existing product
       const productRef = doc(firestore, 'products', selectedProduct.id);
@@ -175,6 +176,7 @@ export default function InventoryPage() {
   };
 
   const handleReset = async () => {
+    if (!firestore) return;
     await seedInitialData(firestore);
     toast({ title: "Inventory Reset", description: "The inventory list has been reset to its initial state." });
     setIsResetting(false);
@@ -400,5 +402,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-    

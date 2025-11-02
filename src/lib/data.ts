@@ -1,4 +1,4 @@
-import { placeholderImages } from "./placeholder-images.json";
+import data from "./placeholder-images.json";
 import type { DocumentReference } from "firebase/firestore";
 
 export type Unit = 'piece' | 'cartoon' | 'ml' | 'litre' | 'kg' | 'g' | 'inch' | 'foot' | 'meter';
@@ -132,7 +132,7 @@ const mockDealers: Omit<Dealer, 'balance'>[] = [
 ];
 
 const mockProducts: Product[] = productData.map((p, index) => {
-    const placeholder = placeholderImages[index % placeholderImages.length];
+    const placeholder = data.placeholderImages[index % data.placeholderImages.length];
     return {
         id: `PROD${1001 + index}`,
         ...p,

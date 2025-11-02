@@ -1,6 +1,6 @@
 
 'use client';
-import { getDealers, type Dealer, seedInitialData } from '@/lib/data';
+import { type Dealer, seedInitialData } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -46,7 +46,7 @@ import { collection, doc } from 'firebase/firestore';
 
 export default function DealersPage() {
   const firestore = useFirestore();
-  const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
+  const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
   const { data: dealers, isLoading } = useCollection<Dealer>(dealersCollection);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -66,6 +66,7 @@ export default function DealersPage() {
   };
 
   const handleSaveDealer = (dealer: Omit<Dealer, 'id' | 'balance'>) => {
+    if (!firestore) return;
     if (selectedDealer) {
       const dealerRef = doc(firestore, 'dealers', selectedDealer.id);
       setDocumentNonBlocking(dealerRef, { ...selectedDealer, ...dealer }, { merge: true });
@@ -79,13 +80,14 @@ export default function DealersPage() {
   };
 
   const handleDeleteDealer = () => {
-    if(!dealerToDelete) return;
+    if(!dealerToDelete || !firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'dealers', dealerToDelete.id));
     toast({ title: "Dealer Deleted", description: "The dealer has been removed." });
     setDealerToDelete(null);
   };
 
   const handleReset = async () => {
+    if (!firestore) return;
     await seedInitialData(firestore);
     toast({ title: "Dealers Reset", description: "The dealer list has been reset to its initial state." });
     setIsResetting(false);

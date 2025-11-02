@@ -1,6 +1,6 @@
 
 'use client';
-import { getCustomers, type Customer, seedInitialData } from '@/lib/data';
+import { type Customer, seedInitialData } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -46,7 +46,7 @@ import { collection, doc } from 'firebase/firestore';
 
 export default function CustomersPage() {
   const firestore = useFirestore();
-  const customersCollection = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
+  const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
   const { data: customers, isLoading } = useCollection<Customer>(customersCollection);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -66,6 +66,7 @@ export default function CustomersPage() {
   };
 
   const handleSaveCustomer = (customerData: Omit<Customer, 'id' | 'balance' | 'type'>) => {
+    if (!firestore) return;
     if (selectedCustomer) {
       const customerRef = doc(firestore, 'customers', selectedCustomer.id);
       setDocumentNonBlocking(customerRef, { ...selectedCustomer, ...customerData }, { merge: true });
@@ -83,13 +84,14 @@ export default function CustomersPage() {
   };
 
   const handleDeleteCustomer = () => {
-    if (!customerToDelete) return;
+    if (!customerToDelete || !firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'customers', customerToDelete.id));
     toast({ title: "Customer Deleted", description: "The customer has been removed." });
     setCustomerToDelete(null);
   };
 
   const handleReset = async () => {
+    if(!firestore) return;
     await seedInitialData(firestore);
     toast({ title: "Customers Reset", description: "The customer list has been reset to its initial state." });
     setIsResetting(false);

@@ -46,6 +46,7 @@ export interface Sale {
         quantity: number;
         price: number;
     }[];
+    discount?: number;
     paymentMethod?: 'cash' | 'online';
     onlinePaymentSource?: string;
     partialAmountPaid?: number;
@@ -186,21 +187,21 @@ export const seedInitialData = async (db: any) => {
     const salesCollection = collection(db, 'sales');
     const mockSales = [
         {
-            id: 'SALE001', invoice: 'INV-2024-001', customerId: 'CUST001', date: '2024-07-20T10:30:00Z', total: 1700, status: 'Paid' as const, 
+            id: 'SALE001', invoice: 'INV-2024-001', customerId: 'CUST001', date: '2024-07-20T10:30:00Z', total: 1700, status: 'Paid' as const, discount: 0,
             items: [ { productId: 'PROD1001', name: 'Spark Plugs (4-pack)', quantity: 1, price: 1200 }, { productId: 'PROD1002', name: 'Oil Filter', quantity: 1, price: 500 } ],
             paymentMethod: 'cash' as const
         },
         {
-            id: 'SALE002', invoice: 'INV-2024-002', customerId: 'CUST004', date: '2024-07-20T11:45:00Z', total: 6000, status: 'Paid' as const, 
+            id: 'SALE002', invoice: 'INV-2024-002', customerId: 'CUST004', date: '2024-07-20T11:45:00Z', total: 6000, status: 'Paid' as const, discount: 0,
             items: [ { productId: 'PROD1003', name: 'Front Brake Pads', quantity: 1, price: 6000 } ],
             paymentMethod: 'online' as const, onlinePaymentSource: 'Easypaisa'
         },
         {
-            id: 'SALE003', invoice: 'INV-2024-003', customerId: 'CUST001', date: '2024-07-21T09:15:00Z', total: 1450, status: 'Unpaid' as const, dueDate: '2024-07-28',
+            id: 'SALE003', invoice: 'INV-2024-003', customerId: 'CUST001', date: '2024-07-21T09:15:00Z', total: 1450, status: 'Unpaid' as const, discount: 150, dueDate: '2024-07-28',
             items: [ { productId: 'PROD1005', name: 'Air Filter', quantity: 1, price: 650 }, { productId: 'PROD1008', name: 'Headlight Bulb', quantity: 2, price: 400 } ],
         },
          {
-            id: 'SALE004', invoice: 'INV-2024-004', customerId: 'CUST002', date: '2024-07-22T14:00:00Z', total: 5500, status: 'Partial' as const, partialAmountPaid: 3000, dueDate: new Date().toISOString().split('T')[0], // Due today
+            id: 'SALE004', invoice: 'INV-2024-004', customerId: 'CUST002', date: '2024-07-22T14:00:00Z', total: 5500, status: 'Partial' as const, partialAmountPaid: 3000, discount: 0, dueDate: new Date().toISOString().split('T')[0], // Due today
             items: [ { productId: 'PROD1010', name: 'Synthetic Engine Oil (4L)', quantity: 1, price: 5500 } ],
         }
     ];

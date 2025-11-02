@@ -82,7 +82,7 @@ export default function DealerLedgerDetail() {
       if (!firestore || !dealerId) return null;
       return query(collection(firestore, 'dealer_payments'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
     }, [firestore, dealerId]);
-    const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
+    const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<any>(paymentsQuery);
 
 
     useEffect(() => {
@@ -131,7 +131,7 @@ export default function DealerLedgerDetail() {
 
 
     const handleSavePayment = async (paymentData: PaymentFormData) => {
-        if (!dealerRef || !firestore) return;
+        if (!dealerRef || !firestore || !dealer) return;
 
         try {
             await runTransaction(firestore, async (transaction) => {
@@ -165,7 +165,7 @@ export default function DealerLedgerDetail() {
                 }
             });
 
-            toast({ title: transactionToEdit ? "Payment Updated" : "Payment Added", description: `The payment to ${dealer?.company} has been recorded.` });
+            toast({ title: transactionToEdit ? "Payment Updated" : "Payment Added", description: `The payment to ${dealer.company} has been recorded.` });
         } catch (error) {
             console.error("Payment transaction failed: ", error);
             toast({ variant: "destructive", title: "Error", description: "Could not save the payment." });

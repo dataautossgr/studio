@@ -126,12 +126,17 @@ export default function SaleFormDetail() {
             if (customerRef && customerRef.id) {
                 const customerSnap = await getDoc(customerRef);
                 if (customerSnap.exists()) {
-                    const customerData = { id: customerSnap.id, ...customerSnap.data() } as Customer;
-                     setCustomerType(customerData.type);
-                    if (customerData.type === 'registered') {
-                        setSelectedCustomer(customerData);
+                    const data = customerSnap.data();
+                    if (data && typeof data === "object") {
+                        const customerData = { id: customerSnap.id, ...data } as Customer;
+                        setCustomerType(customerData.type);
+                        if (customerData.type === 'registered') {
+                            setSelectedCustomer(customerData);
+                        } else {
+                            setCustomerName(customerData.name);
+                        }
                     } else {
-                        setCustomerName(customerData.name);
+                        console.error("Invalid customer data:", data);
                     }
                 }
             }

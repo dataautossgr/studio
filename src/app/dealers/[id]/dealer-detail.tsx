@@ -339,3 +339,5 @@ export default function DealerLedgerDetail() {
     </div>
   );
 }
+
+    

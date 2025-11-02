@@ -21,7 +21,7 @@ import { Calendar as CalendarIcon, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
-import type { Transaction } from './page';
+import type { Transaction } from './customer-detail';
 import Image from 'next/image';
 
 const paymentSchema = z.object({
@@ -201,3 +201,5 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
     </Dialog>
   );
 }
+
+    

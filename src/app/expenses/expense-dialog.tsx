@@ -90,8 +90,11 @@ export function ExpenseDialog({
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditing) {
-        reset(expense);
+      if (isEditing && expense) {
+        reset({
+          ...expense,
+          date: new Date(expense.date),
+        });
       } else {
         reset({
           date: new Date(),

@@ -93,7 +93,7 @@ export default function SaleFormDetail() {
   const [cashReceived, setCashReceived] = useState(0);
 
 
-  const [isCustomerDialogOpen, setIsCustomerDialogOpen] useState(false);
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isWalkInUnpaidDialogOpen, setIsWalkInUnpaidDialogOpen] = useState(false);
   const { toast } = useToast();

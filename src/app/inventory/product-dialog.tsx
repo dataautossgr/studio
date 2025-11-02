@@ -28,9 +28,9 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 
-const units: Unit[] = [
+const units = [
     'piece', 'cartoon', 'ml', 'litre', 'kg', 'g', 'inch', 'foot', 'meter'
-];
+] as const;
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),

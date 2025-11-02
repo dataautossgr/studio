@@ -70,17 +70,17 @@ export default function CashSessionPage() {
       where('date', '>=', todayStart.toISOString()), 
       where('date', '<=', todayEnd.toISOString())
     );
-  }, [firestore]);
+  }, [firestore, todayStart, todayEnd]);
   const { data: todaySales } = useCollection<Sale>(salesQuery);
 
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
         collection(firestore, 'expenses'), 
-        where('date', '>=', todayStart), 
-        where('date', '<=', todayEnd)
+        where('date', '>=', todayStart.toISOString()), 
+        where('date', '<=', todayEnd.toISOString())
     );
-   }, [firestore]);
+   }, [firestore, todayStart, todayEnd]);
    const { data: todayExpenses } = useCollection<Expense>(expensesQuery);
    
    const paymentsQuery = useMemoFirebase(() => {
@@ -90,7 +90,7 @@ export default function CashSessionPage() {
         where('date', '>=', todayStart.toISOString()),
         where('date', '<=', todayEnd.toISOString())
     );
-   }, [firestore]);
+   }, [firestore, todayStart, todayEnd]);
    const { data: todayPayments } = useCollection<Payment>(paymentsQuery);
    // -------------------------
 
@@ -337,3 +337,5 @@ export default function CashSessionPage() {
 
   return null;
 }
+
+    

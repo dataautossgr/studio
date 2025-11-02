@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfMonth } from 'date-fns';
 import { useEffect, useState, useMemo } from 'react';
 import { ExpenseDialog, type ExpenseFormData } from './expense-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -52,11 +52,13 @@ import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 
 
 export interface Expense {
   id: string;
-  date: Date;
+  date: string; // Storing as ISO string
   category: string;
   amount: number;
   paymentMethod: 'Cash' | 'Bank' | 'Credit';
@@ -65,76 +67,36 @@ export interface Expense {
   attachmentUrl?: string;
 }
 
-const mockExpenses: Expense[] = [
-  {
-    id: 'EXP001',
-    date: new Date('2024-07-22T10:00:00Z'),
-    category: 'Rent / Property',
-    amount: 12000,
-    paymentMethod: 'Bank',
-    paidTo: 'Ali Real Estate',
-    description: 'Shop Rent for July',
-  },
-  {
-    id: 'EXP002',
-    date: new Date('2024-07-21T15:30:00Z'),
-    category: 'Utility Bills',
-    amount: 3500,
-    paymentMethod: 'Cash',
-    paidTo: 'LESCO',
-    description: 'Electricity Bill',
-  },
-  {
-    id: 'EXP003',
-    date: new Date(),
-    category: 'Staff Salary',
-    amount: 25000,
-    paymentMethod: 'Bank',
-    paidTo: 'Ameer Hamza',
-    description: 'Salary for July',
-  },
-   {
-    id: 'EXP004',
-    date: new Date(),
-    category: 'Miscellaneous / Others',
-    amount: 500,
-    paymentMethod: 'Cash',
-    paidTo: 'Local Shop',
-    description: 'Office stationery',
-  },
-];
-
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const firestore = useFirestore();
+  const expensesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'expenses') : null, [firestore]);
+  const { data: expenses, isLoading } = useCollection<Expense>(expensesCollection);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(
-    null
-  );
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Simulating data fetch
-    setExpenses(mockExpenses);
-  }, []);
-
+  
   const { todaysTotal, thisMonthsTotal } = useMemo(() => {
+    if (!expenses) return { todaysTotal: 0, thisMonthsTotal: 0 };
+    
     const today = new Date();
-    const startOfToday = new Date(today.setHours(0, 0, 0, 0));
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfTodayDt = startOfDay(today);
+    const startOfMonthDt = startOfMonth(today);
 
     const todaysTotal = expenses
-      .filter((exp) => exp.date >= startOfToday)
+      .filter((exp) => new Date(exp.date) >= startOfTodayDt)
       .reduce((sum, exp) => sum + exp.amount, 0);
 
     const thisMonthsTotal = expenses
-      .filter((exp) => exp.date >= startOfMonth)
+      .filter((exp) => new Date(exp.date) >= startOfMonthDt)
       .reduce((sum, exp) => sum + exp.amount, 0);
 
     return { todaysTotal, thisMonthsTotal };
   }, [expenses]);
+
 
   const handleAddExpense = () => {
     setSelectedExpense(null);
@@ -142,32 +104,33 @@ export default function ExpensesPage() {
   };
 
   const handleEditExpense = (expense: Expense) => {
-    setSelectedExpense(expense);
+    setSelectedExpense({
+        ...expense,
+        date: new Date(expense.date), // Convert ISO string back to Date for the dialog
+    } as any);
     setIsDialogOpen(true);
   };
 
   const handleSaveExpense = (expenseData: ExpenseFormData) => {
+    const expenseToSave = {
+        ...expenseData,
+        date: expenseData.date.toISOString(),
+    };
+
     if (selectedExpense) {
-      setExpenses(
-        expenses.map((e) =>
-          e.id === selectedExpense.id ? { ...selectedExpense, ...expenseData } : e
-        )
-      );
+      const expenseRef = doc(firestore, 'expenses', selectedExpense.id);
+      setDocumentNonBlocking(expenseRef, expenseToSave, { merge: true });
       toast({ title: 'Success', description: 'Expense updated successfully.' });
     } else {
-      const newExpense: Expense = {
-        ...expenseData,
-        id: `EXP${Date.now()}`,
-      };
-      setExpenses([newExpense, ...expenses].sort((a,b) => b.date.getTime() - a.date.getTime()));
+      addDocumentNonBlocking(collection(firestore, 'expenses'), expenseToSave);
       toast({ title: 'Success', description: 'Expense added successfully.' });
     }
     setIsDialogOpen(false);
   };
 
   const handleDeleteExpense = () => {
-    if (!expenseToDelete) return;
-    setExpenses(expenses.filter((e) => e.id !== expenseToDelete.id));
+    if (!expenseToDelete || !firestore) return;
+    deleteDocumentNonBlocking(doc(firestore, 'expenses', expenseToDelete.id));
     toast({
       title: 'Expense Deleted',
       description: 'The expense has been removed.',
@@ -176,29 +139,7 @@ export default function ExpensesPage() {
   };
 
   const handleReset = () => {
-     if (resetDateRange?.from) {
-        const from = startOfDay(resetDateRange.from);
-        const to = resetDateRange.to ? endOfDay(resetDateRange.to) : endOfDay(resetDateRange.from);
-
-        const expensesToKeep = expenses.filter(exp => {
-            const expenseDate = new Date(exp.date);
-            return expenseDate < from || expenseDate > to;
-        });
-        
-        const originalExpensesInRange = mockExpenses.filter(exp => {
-            const expenseDate = new Date(exp.date);
-            return expenseDate >= from && expenseDate <= to;
-        });
-
-        const newExpenses = [...expensesToKeep, ...originalExpensesInRange].sort((a,b) => b.date.getTime() - a.date.getTime());
-        
-        setExpenses(newExpenses);
-        toast({ title: "Expenses Reset", description: `Expenses from ${format(from, 'PPP')} to ${format(to, 'PPP')} have been reset.` });
-    } else {
-        setExpenses(mockExpenses);
-        toast({ title: "All Expenses Reset", description: "The expense list has been reset to its initial state." });
-    }
-    setResetDateRange(undefined);
+    toast({ title: "Reset In Progress", description: "This action is not yet fully implemented for Firestore." });
     setIsResetting(false);
   };
 
@@ -299,10 +240,15 @@ export default function ExpensesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {expenses.map((expense) => (
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center">Loading expenses...</TableCell>
+                </TableRow>
+              )}
+              {expenses?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((expense) => (
                 <TableRow key={expense.id}>
                   <TableCell className="font-medium">
-                    {format(expense.date, 'dd MMM, yyyy')}
+                    {format(new Date(expense.date), 'dd MMM, yyyy')}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{expense.category}</Badge>
@@ -406,3 +352,5 @@ export default function ExpensesPage() {
     </div>
   );
 }
+
+    

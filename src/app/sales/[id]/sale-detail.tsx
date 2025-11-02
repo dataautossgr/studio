@@ -102,8 +102,8 @@ export default function SaleFormDetail() {
   const router = useRouter();
   const firestore = useFirestore();
 
-  const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-  const customersCollection = useMemoFirebase(() => collection(firestore, 'customers'), [firestore]);
+  const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+  const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
   
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
@@ -178,7 +178,7 @@ export default function SaleFormDetail() {
     };
 
     fetchSale();
-  }, [saleId, isNew, router, firestore, products, customersLoading, productsLoading]);
+  }, [saleId, isNew, router, firestore, products, customers, customersLoading, productsLoading]);
 
 
   const handleProductSelect = (product: Product) => {
@@ -237,6 +237,7 @@ export default function SaleFormDetail() {
   };
 
   const handleSaveNewCustomer = (customerData: Omit<Customer, 'id' | 'balance' | 'type'>) => {
+    if (!firestore) return;
     const newCustomerWithDefaults = { 
       ...customerData, 
       balance: 0,
@@ -303,7 +304,7 @@ export default function SaleFormDetail() {
         status: status,
         discount,
         items: cart.map(item => ({
-            productId: item.id,
+            productId: item.isOneTime ? item.id : item.id,
             name: item.name,
             quantity: item.quantity,
             price: item.price,
@@ -464,8 +465,8 @@ export default function SaleFormDetail() {
                                                     key={customer.id}
                                                     onSelect={() => {
                                                         setSelectedCustomer(customer)
-                                                        const popoverTrigger = document.querySelector('[aria-controls="radix-14"]');
-                                                        if (popoverTrigger instanceof HTMLElement) popoverTrigger.click();
+                                                        // This is a workaround to close popover on select.
+                                                        document.body.click();
                                                     }}
                                                 >
                                                     {customer.name} ({customer.phone})
@@ -536,7 +537,10 @@ export default function SaleFormDetail() {
                           {products?.map((product) => (
                             <CommandItem
                               key={product.id}
-                              onSelect={() => handleProductSelect(product)}
+                              onSelect={() => {
+                                  handleProductSelect(product);
+                                  document.body.click();
+                                }}
                               className="cursor-pointer"
                             >
                               <div className="flex w-full justify-between items-center">
@@ -622,7 +626,6 @@ export default function SaleFormDetail() {
                             updateCartItem(item.id, 'price', e.target.value)
                           }
                           className="w-24"
-                          readOnly={!item.isOneTime}
                           min="0"
                         />
                       </TableCell>
@@ -837,3 +840,4 @@ export default function SaleFormDetail() {
     </div>
   );
 }
+    

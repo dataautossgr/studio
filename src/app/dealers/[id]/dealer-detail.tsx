@@ -156,9 +156,8 @@ export default function DealerLedgerDetail() {
                     const newPaymentRef = doc(collection(firestore, 'dealer_payments'));
                     const newPayment = {
                         dealer: dealerRef,
-                        amount: paymentData.amount,
+                        ...paymentData,
                         date: paymentData.paymentDate.toISOString(),
-                        ...paymentData
                     };
                     transaction.set(newPaymentRef, newPayment);
                     transaction.update(dealerRef, { balance: currentBalance - paymentData.amount });
@@ -339,5 +338,3 @@ export default function DealerLedgerDetail() {
     </div>
   );
 }
-
-    

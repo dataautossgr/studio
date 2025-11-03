@@ -75,6 +75,10 @@
           "type": "string",
           "description": "Timestamp when the sale was created.",
           "format": "date-time"
+        },
+        "discount": {
+          "type": "number",
+          "description": "Discount amount for the sale."
         }
       },
       "required": [
@@ -416,6 +420,81 @@
         }
       },
       "required": ["id", "date", "category", "amount", "paymentMethod", "paidTo"]
+    },
+    "Battery": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Battery",
+      "description": "Represents a battery in the inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "ampere": { "type": "number" },
+        "type": { "type": "string", "enum": ["Lead-Acid", "Lithium", "AGM"] },
+        "costPrice": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "warrantyMonths": { "type": "number" }
+      },
+      "required": ["id", "brand", "model", "ampere", "costPrice", "salePrice", "stock", "warrantyMonths"]
+    },
+    "ScrapStock": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ScrapStock",
+      "description": "Represents the stock of scrap batteries.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Usually a singleton document ID like 'main'" },
+        "totalWeightKg": { "type": "number" }
+      },
+      "required": ["id", "totalWeightKg"]
+    },
+    "BatterySale": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BatterySale",
+      "description": "Represents a sale transaction involving batteries.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "batteryId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "manufacturingCode": { "type": "string" },
+        "salePrice": { "type": "number" },
+        "scrapBatteryWeight": { "type": "number" },
+        "scrapBatteryRate": { "type": "number" },
+        "scrapBatteryValue": { "type": "number" },
+        "finalAmount": { "type": "number" },
+        "warrantyEndDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Paid", "Unpaid"] }
+      },
+      "required": ["id", "customerId", "batteryId", "date", "salePrice", "finalAmount", "status"]
+    },
+    "BatteryPurchase": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BatteryPurchase",
+      "description": "Represents a purchase of new batteries from a dealer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dealerId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "batteryId": { "type": "string" },
+              "quantity": { "type": "number" },
+              "costPrice": { "type": "number" }
+            },
+            "required": ["batteryId", "quantity", "costPrice"]
+          }
+        },
+        "totalAmount": { "type": "number" }
+      },
+      "required": ["id", "dealerId", "date", "items", "totalAmount"]
     }
   },
   "auth": {
@@ -632,6 +711,38 @@
               "description": "Unique identifier for the expense."
             }
           ]
+        }
+      },
+      {
+        "path": "/batteries/{batteryId}",
+        "definition": {
+          "entityName": "Battery",
+          "schema": { "$ref": "#/backend/entities/Battery" },
+          "description": "Stores individual battery stock information."
+        }
+      },
+      {
+        "path": "/scrap_stock/{stockId}",
+        "definition": {
+          "entityName": "ScrapStock",
+          "schema": { "$ref": "#/backend/entities/ScrapStock" },
+          "description": "Stores the total weight of scrap batteries."
+        }
+      },
+      {
+        "path": "/battery_sales/{saleId}",
+        "definition": {
+          "entityName": "BatterySale",
+          "schema": { "$ref": "#/backend/entities/BatterySale" },
+          "description": "Stores battery sale transactions."
+        }
+      },
+      {
+        "path": "/battery_purchases/{purchaseId}",
+        "definition": {
+          "entityName": "BatteryPurchase",
+          "schema": { "$ref": "#/backend/entities/BatteryPurchase" },
+          "description": "Stores new battery purchase information."
         }
       }
     ],

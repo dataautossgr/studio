@@ -12,6 +12,7 @@ import {
   Building,
   Wallet,
   Wrench,
+  Battery,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -19,7 +20,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -59,6 +64,39 @@ export function MainNav() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         ))}
+         <SidebarMenuItem>
+            <Collapsible>
+                <CollapsibleTrigger className="w-full">
+                    <SidebarMenuButton
+                        className="w-full"
+                        isActive={pathname.startsWith('/batteries')}
+                        tooltip="Batteries"
+                    >
+                        <Battery />
+                        <span>Batteries</span>
+                    </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/batteries/sales')}>
+                                <Link href="/batteries/sales">Battery Sales</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/batteries/stock')}>
+                                <Link href="/batteries/stock">Battery Stock</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/batteries/purchases')}>
+                                <Link href="/batteries/purchases">Purchases</Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+            </Collapsible>
+         </SidebarMenuItem>
       </SidebarMenu>
     </div>
   );

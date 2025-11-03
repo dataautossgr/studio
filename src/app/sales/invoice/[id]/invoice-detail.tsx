@@ -208,7 +208,7 @@ export default function InvoiceDetail() {
                     </tr>
                     <tr>
                         <td className="text-right font-bold pr-2">DISCOUNT</td>
-                        <td className="text-right border border-black p-2 font-mono">{sale.discount.toLocaleString()}</td>
+                        <td className="text-right border border-black p-2 font-mono">{(sale.discount ?? 0).toLocaleString()}</td>
                     </tr>
                     <tr>
                         <td className="text-right font-bold pr-2 text-lg">TOTAL</td>

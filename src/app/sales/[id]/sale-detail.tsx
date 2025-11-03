@@ -469,8 +469,9 @@ export default function SaleFormDetail() {
                                                 <CommandItem
                                                     key={customer.id}
                                                     onSelect={() => {
-                                                        setSelectedCustomer(customer)
-                                                        // This is a workaround to close popover on select.
+                                                        setTimeout(() => {
+                                                          setSelectedCustomer(customer)
+                                                        }, 1);
                                                         document.body.click();
                                                     }}
                                                 >
@@ -543,9 +544,11 @@ export default function SaleFormDetail() {
                             <CommandItem
                               key={product.id}
                               onSelect={() => {
+                                setTimeout(() => {
                                   handleProductSelect(product);
-                                  document.body.click();
-                                }}
+                                }, 1)
+                                document.body.click();
+                              }}
                               className="cursor-pointer"
                             >
                               <div className="flex w-full justify-between items-center">
@@ -845,4 +848,3 @@ export default function SaleFormDetail() {
     </div>
   );
 }
-    

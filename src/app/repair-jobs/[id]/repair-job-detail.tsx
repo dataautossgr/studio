@@ -426,7 +426,12 @@ export default function RepairJobFormDetail() {
                                         <CommandEmpty>No products found.</CommandEmpty>
                                         <CommandGroup>
                                         {products?.map((product) => (
-                                            <CommandItem key={product.id} onSelect={() => handleProductSelect(product)} >
+                                            <CommandItem key={product.id} onSelect={() => {
+                                              setTimeout(() => {
+                                                handleProductSelect(product)
+                                              }, 1);
+                                              document.body.click();
+                                            }} >
                                                 <div className="flex w-full justify-between items-center">
                                                     <span>{product.name} ({product.brand})</span>
                                                     <span className="text-xs text-muted-foreground">Stock: {product.stock}</span>

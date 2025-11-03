@@ -253,7 +253,12 @@ export default function PurchaseFormDetail() {
                                     {products?.map((product) => (
                                         <CommandItem
                                         key={product.id}
-                                        onSelect={() => handleProductSelect(product)}
+                                        onSelect={() => {
+                                          setTimeout(() => {
+                                            handleProductSelect(product)
+                                          }, 1);
+                                          document.body.click();
+                                        }}
                                         className="cursor-pointer"
                                         >
                                         {product.name} ({product.brand})

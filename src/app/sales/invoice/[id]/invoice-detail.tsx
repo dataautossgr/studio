@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
-import { useReactToPrint } from 'react-to-print';
+import ReactToPrint, { PrintContextConsumer } from 'react-to-print';
 
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
@@ -67,18 +67,11 @@ export default function InvoiceDetail() {
     fetchSaleAndCustomer();
   }, [firestore, saleId]);
 
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    pageStyle: `@page { size: auto; margin: 0mm; } @media print { body { -webkit-print-color-adjust: exact; } }`
-  });
-
-  const triggerPrint = (size: ReceiptSize) => {
+  const triggerPrint = (size: ReceiptSize, printFn: () => void) => {
     setReceiptSize(size);
     // Use a short timeout to allow React to re-render with the new class name before printing
     setTimeout(() => {
-      if(handlePrint) {
-        handlePrint();
-      }
+      printFn();
     }, 50);
   };
   
@@ -122,24 +115,34 @@ export default function InvoiceDetail() {
 
   return (
     <div className="bg-gray-100">
-      <div className="fixed top-4 right-4 z-50 flex flex-wrap gap-2 no-print">
-            <Button variant="outline" asChild>
-                <Link href="/sales">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                </Link>
-            </Button>
-            <Button onClick={handleSendWhatsApp}>
-                <WhatsAppIcon />
-                <span className="ml-2">WhatsApp</span>
-            </Button>
-            <div className="flex items-center gap-1 p-1 rounded-md bg-muted border">
-                <Button size="sm" variant={receiptSize === 'a4' ? 'default' : 'ghost'} onClick={() => triggerPrint('a4')}>A4</Button>
-                <Button size="sm" variant={receiptSize === 'a5' ? 'default' : 'ghost'} onClick={() => triggerPrint('a5')}>A5</Button>
-                <Button size="sm" variant={receiptSize === 'a6' ? 'default' : 'ghost'} onClick={() => triggerPrint('a6')}>A6</Button>
-                <Button size="sm" variant={receiptSize === 'pos' ? 'default' : 'ghost'} onClick={() => triggerPrint('pos')}>POS</Button>
-            </div>
-      </div>
+       <ReactToPrint
+          content={() => printRef.current}
+          pageStyle={`@page { size: auto; margin: 0mm; } @media print { body { -webkit-print-color-adjust: exact; } }`}
+       >
+        <PrintContextConsumer>
+            {({ handlePrint }) => (
+                 <div className="fixed top-4 right-4 z-50 flex flex-wrap gap-2 no-print">
+                    <Button variant="outline" asChild>
+                        <Link href="/sales">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back
+                        </Link>
+                    </Button>
+                    <Button onClick={handleSendWhatsApp}>
+                        <WhatsAppIcon />
+                        <span className="ml-2">WhatsApp</span>
+                    </Button>
+                    <div className="flex items-center gap-1 p-1 rounded-md bg-muted border">
+                        <Button size="sm" variant={receiptSize === 'a4' ? 'default' : 'ghost'} onClick={() => triggerPrint('a4', handlePrint)}>A4</Button>
+                        <Button size="sm" variant={receiptSize === 'a5' ? 'default' : 'ghost'} onClick={() => triggerPrint('a5', handlePrint)}>A5</Button>
+                        <Button size="sm" variant={receiptSize === 'a6' ? 'default' : 'ghost'} onClick={() => triggerPrint('a6', handlePrint)}>A6</Button>
+                        <Button size="sm" variant={receiptSize === 'pos' ? 'default' : 'ghost'} onClick={() => triggerPrint('pos', handlePrint)}>POS</Button>
+                    </div>
+                </div>
+            )}
+        </PrintContextConsumer>
+      </ReactToPrint>
+      
 
       <main className="p-4 sm:p-8 print:bg-white print:p-0">
         <div ref={printRef} className={`printable-content print-${receiptSize}`}>

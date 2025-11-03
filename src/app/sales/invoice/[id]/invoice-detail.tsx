@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { Printer, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
-import ReactToPrint from 'react-to-print';
+import { useReactToPrint } from 'react-to-print';
 
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
@@ -36,6 +36,19 @@ export default function InvoiceDetail() {
   const [sale, setSale] = useState<EnrichedSale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [receiptSize, setReceiptSize] = useState<ReceiptSize>('a4');
+
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    pageStyle: `@media print { body { -webkit-print-color-adjust: exact; } }`,
+  });
+
+  const triggerPrint = (size: ReceiptSize) => {
+    setReceiptSize(size);
+    // Use a short timeout to allow React to re-render with the new class name before printing
+    setTimeout(() => {
+      handlePrint();
+    }, 50);
+  };
 
   useEffect(() => {
     if (!firestore || !saleId) return;
@@ -105,12 +118,6 @@ export default function InvoiceDetail() {
   
   const balanceDue = sale.total - (sale.partialAmountPaid || 0);
 
-  const printTrigger = (size: ReceiptSize) => (
-    <Button size="sm" variant={receiptSize === size ? 'default' : 'ghost'} onClick={() => setReceiptSize(size)}>
-      {size.toUpperCase()}
-    </Button>
-  );
-
   return (
     <div className="bg-gray-100">
         <div className="fixed top-4 right-4 z-50 flex flex-wrap gap-2 no-print">
@@ -125,26 +132,10 @@ export default function InvoiceDetail() {
                 <span className="ml-2">WhatsApp</span>
             </Button>
             <div className="flex items-center gap-1 p-1 rounded-md bg-muted border">
-                <ReactToPrint
-                    trigger={() => printTrigger('a4')}
-                    content={() => printRef.current}
-                    pageStyle={`@page { size: A4 portrait; margin: 20mm; } @media print { body { -webkit-print-color-adjust: exact; } }`}
-                />
-                <ReactToPrint
-                    trigger={() => printTrigger('a5')}
-                    content={() => printRef.current}
-                    pageStyle={`@page { size: A5 portrait; margin: 15mm; } @media print { body { -webkit-print-color-adjust: exact; } }`}
-                />
-                <ReactToPrint
-                    trigger={() => printTrigger('a6')}
-                    content={() => printRef.current}
-                    pageStyle={`@page { size: A6 portrait; margin: 10mm; } @media print { body { -webkit-print-color-adjust: exact; } }`}
-                />
-                <ReactToPrint
-                    trigger={() => printTrigger('pos')}
-                    content={() => printRef.current}
-                    pageStyle={`@page { size: 80mm auto; margin: 2mm; } @media print { body { -webkit-print-color-adjust: exact; } }`}
-                />
+                <Button size="sm" variant={receiptSize === 'a4' ? 'default' : 'ghost'} onClick={() => triggerPrint('a4')}>A4</Button>
+                <Button size="sm" variant={receiptSize === 'a5' ? 'default' : 'ghost'} onClick={() => triggerPrint('a5')}>A5</Button>
+                <Button size="sm" variant={receiptSize === 'a6' ? 'default' : 'ghost'} onClick={() => triggerPrint('a6')}>A6</Button>
+                <Button size="sm" variant={receiptSize === 'pos' ? 'default' : 'ghost'} onClick={() => triggerPrint('pos')}>POS</Button>
             </div>
         </div>
 

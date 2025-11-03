@@ -69,10 +69,6 @@ export default function InvoiceDetail() {
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
-    onBeforeGetContent: () => {
-        // This is a good place to ensure state is correct before printing
-        // In our case, the className is already set by the component's state
-    },
     pageStyle: `@page { size: auto; margin: 0mm; } @media print { body { -webkit-print-color-adjust: exact; } }`
   });
 
@@ -80,7 +76,9 @@ export default function InvoiceDetail() {
     setReceiptSize(size);
     // Use a short timeout to allow React to re-render with the new class name before printing
     setTimeout(() => {
-      handlePrint();
+      if(handlePrint) {
+        handlePrint();
+      }
     }, 50);
   };
   

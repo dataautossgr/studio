@@ -7,10 +7,9 @@ import { doc, getDoc, DocumentReference } from 'firebase/firestore';
 import type { Sale, Customer } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
-import { useReactToPrint } from 'react-to-print';
 
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
@@ -37,16 +36,11 @@ export default function InvoiceDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [receiptSize, setReceiptSize] = useState<ReceiptSize>('a4');
 
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    pageStyle: `@media print { body { -webkit-print-color-adjust: exact; } }`,
-  });
-
   const triggerPrint = (size: ReceiptSize) => {
     setReceiptSize(size);
     // Use a short timeout to allow React to re-render with the new class name before printing
     setTimeout(() => {
-      handlePrint();
+        window.print();
     }, 50);
   };
 

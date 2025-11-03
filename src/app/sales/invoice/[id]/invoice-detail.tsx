@@ -17,6 +17,8 @@ interface EnrichedSale extends Omit<Sale, 'customer'> {
   customer: Customer | null;
 }
 
+type ReceiptSize = 'a4' | 'a5' | 'a6' | 'pos';
+
 // Simple SVG for WhatsApp icon
 const WhatsAppIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -33,6 +35,7 @@ export default function InvoiceDetail() {
 
   const [sale, setSale] = useState<EnrichedSale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [receiptSize, setReceiptSize] = useState<ReceiptSize>('a4');
 
   useEffect(() => {
     if (!firestore || !saleId) return;
@@ -64,9 +67,22 @@ export default function InvoiceDetail() {
     fetchSaleAndCustomer();
   }, [firestore, saleId]);
 
-   const handlePrint = useReactToPrint({
+  const handlePrint = useReactToPrint({
     content: () => printRef.current,
+    onBeforeGetContent: () => {
+        // This is a good place to ensure state is correct before printing
+        // In our case, the className is already set by the component's state
+    },
+    pageStyle: `@page { size: auto; margin: 0mm; } @media print { body { -webkit-print-color-adjust: exact; } }`
   });
+
+  const triggerPrint = (size: ReceiptSize) => {
+    setReceiptSize(size);
+    // Use a short timeout to allow React to re-render with the new class name before printing
+    setTimeout(() => {
+      handlePrint();
+    }, 50);
+  };
   
   const handleSendWhatsApp = () => {
     if (!sale || !sale.customer || !sale.customer.phone) {
@@ -108,7 +124,7 @@ export default function InvoiceDetail() {
 
   return (
     <div className="bg-gray-100">
-      <div className="fixed top-4 right-4 z-50 flex gap-2 no-print">
+      <div className="fixed top-4 right-4 z-50 flex flex-wrap gap-2 no-print">
             <Button variant="outline" asChild>
                 <Link href="/sales">
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -117,111 +133,115 @@ export default function InvoiceDetail() {
             </Button>
             <Button onClick={handleSendWhatsApp}>
                 <WhatsAppIcon />
-                <span className="ml-2">Send via WhatsApp</span>
+                <span className="ml-2">WhatsApp</span>
             </Button>
-            <Button onClick={handlePrint}>
-                <Printer className="mr-2 h-4 w-4" />
-                Print
-            </Button>
+            <div className="flex items-center gap-1 p-1 rounded-md bg-muted border">
+                <Button size="sm" variant={receiptSize === 'a4' ? 'default' : 'ghost'} onClick={() => triggerPrint('a4')}>A4</Button>
+                <Button size="sm" variant={receiptSize === 'a5' ? 'default' : 'ghost'} onClick={() => triggerPrint('a5')}>A5</Button>
+                <Button size="sm" variant={receiptSize === 'a6' ? 'default' : 'ghost'} onClick={() => triggerPrint('a6')}>A6</Button>
+                <Button size="sm" variant={receiptSize === 'pos' ? 'default' : 'ghost'} onClick={() => triggerPrint('pos')}>POS</Button>
+            </div>
       </div>
 
       <main className="p-4 sm:p-8 print:bg-white print:p-0">
-        <div ref={printRef} className="w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none printable-content">
-            {/* Header */}
-            <div className="text-center mb-5">
-                <h2 className="text-lg font-bold">CASH MEMO</h2>
-                <h1 className="text-green-600 text-2xl font-bold mb-1 border-b-4 border-green-600 pb-1 inline-block">
-                    {settings.storeName || 'DATA AUTOS & BATTERIES'}
-                </h1>
-                <h2 className="text-base font-bold">{settings.address || 'MIPURKHAS ROAD SANGHAR'}</h2>
-                <p className="text-sm">Prop: {ownerName || 'Ameer Hamza'}, Ph# {phoneNumbers || '0317-3890161'}</p>
-            </div>
+        <div ref={printRef} className={`printable-content print-${receiptSize}`}>
+          <div className="receipt-main w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none">
+              {/* Header */}
+              <div className="text-center mb-5">
+                  <h2 className="text-lg font-bold hidden-pos">CASH MEMO</h2>
+                  <h1 className="text-green-600 text-2xl font-bold mb-1 border-b-4 border-green-600 pb-1 inline-block">
+                      {settings.storeName || 'DATA AUTOS & BATTERIES'}
+                  </h1>
+                  <h2 className="text-base font-bold">{settings.address || 'MIPURKHAS ROAD SANGHAR'}</h2>
+                  <p className="text-sm">Prop: {ownerName || 'Ameer Hamza'}, Ph# {phoneNumbers || '0317-3890161'}</p>
+              </div>
 
-            {/* Details */}
-            <div className="flex justify-between mb-4 text-sm">
-                <div>
-                    <span className="font-bold">S. No.:</span>
-                    <span className="border-b border-black inline-block px-2 min-w-[80px]">{sale.invoice}</span>
-                    <span className="ml-4 font-bold">NAME:</span>
-                    <span className="border-b border-black inline-block px-2 min-w-[250px]">{sale.customer?.name || 'Walk-in Customer'}</span>
-                </div>
-                <div>
-                    <span className="font-bold">Date:</span>
-                    <span className="border-b border-black inline-block px-2 min-w-[100px]">{format(new Date(sale.date), 'dd/MM/yyyy')}</span>
-                </div>
-            </div>
+              {/* Details */}
+              <div className="flex justify-between mb-4 text-sm">
+                  <div>
+                      <span className="font-bold">S. No.:</span>
+                      <span className="border-b border-black inline-block px-2 min-w-[80px]">{sale.invoice}</span>
+                      <span className="ml-4 font-bold">NAME:</span>
+                      <span className="border-b border-black inline-block px-2 min-w-[250px]">{sale.customer?.name || 'Walk-in Customer'}</span>
+                  </div>
+                  <div>
+                      <span className="font-bold">Date:</span>
+                      <span className="border-b border-black inline-block px-2 min-w-[100px]">{format(new Date(sale.date), 'dd/MM/yyyy')}</span>
+                  </div>
+              </div>
 
-            {/* Items Table */}
-            <table className="w-full border-collapse text-sm">
-                <thead>
-                    <tr>
-                        <th className="w-[10%] bg-green-600 text-white text-center border border-black p-2 font-bold">QTY</th>
-                        <th className="w-[50%] bg-green-600 text-white text-center border border-black p-2 font-bold">PARTICULAR</th>
-                        <th className="w-[20%] bg-green-600 text-white text-center border border-black p-2 font-bold">RATE</th>
-                        <th className="w-[20%] bg-green-600 text-white text-center border border-black p-2 font-bold">AMOUNT</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sale.items.map((item, index) => (
-                         <tr key={index}>
-                            <td className="text-center border border-black p-2">{item.quantity}</td>
-                            <td className="border border-black p-2">{item.name}</td>
-                            <td className="text-right border border-black p-2 font-mono">{item.price.toLocaleString()}</td>
-                            <td className="text-right border border-black p-2 font-mono">{(item.price * item.quantity).toLocaleString()}</td>
-                        </tr>
-                    ))}
-                    {Array.from({ length: emptyRows }).map((_, i) => (
-                        <tr key={`empty-${i}`} style={{height: '2.4rem'}}>
-                            <td className="border border-black">&nbsp;</td>
-                            <td className="border border-black"></td>
-                            <td className="border border-black"></td>
-                            <td className="border border-black"></td>
-                        </tr>
-                    ))}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colSpan={2} rowSpan={3} className="border-none align-bottom">
-                            {sale.status !== 'Paid' && (
-                                <div className="text-sm p-2">
-                                    <p className="font-bold">Payment Status: {sale.status}</p>
-                                    {sale.status === 'Partial' && sale.partialAmountPaid && (
-                                        <>
-                                            <p>Amount Paid: Rs. {sale.partialAmountPaid.toLocaleString()}</p>
-                                            <p className="font-bold">Balance Due: Rs. {balanceDue.toLocaleString()}</p>
-                                        </>
-                                    )}
-                                    {sale.status === 'Unpaid' && (
-                                        <p className="font-bold">Amount Due: Rs. {sale.total.toLocaleString()}</p>
-                                    )}
-                                </div>
-                            )}
-                            {sale.status === 'Paid' && (
-                                <div className="text-sm p-2">
-                                    <p className="font-bold">Status: Fully Paid</p>
-                                    <p>Method: {sale.paymentMethod === 'online' ? `Online (${sale.onlinePaymentSource || 'N/A'})` : 'Cash'}</p>
-                                </div>
-                            )}
-                        </td>
-                        <td className="text-right font-bold pr-2 pt-2">SUBTOTAL</td>
-                        <td className="text-right border border-black p-2 font-mono">{subtotal.toLocaleString()}</td>
-                    </tr>
-                    <tr>
-                        <td className="text-right font-bold pr-2">DISCOUNT</td>
-                        <td className="text-right border border-black p-2 font-mono">{(sale.discount ?? 0).toLocaleString()}</td>
-                    </tr>
-                    <tr>
-                        <td className="text-right font-bold pr-2 text-lg">TOTAL</td>
-                        <td className="text-right border border-black p-2 font-mono font-bold text-lg">{sale.total.toLocaleString()}</td>
-                    </tr>
-                </tfoot>
-            </table>
+              {/* Items Table */}
+              <table className="w-full border-collapse text-sm">
+                  <thead>
+                      <tr>
+                          <th className="w-[10%] bg-green-600 text-white text-center border border-black p-2 font-bold">QTY</th>
+                          <th className="w-[50%] bg-green-600 text-white text-center border border-black p-2 font-bold">PARTICULAR</th>
+                          <th className="w-[20%] bg-green-600 text-white text-center border border-black p-2 font-bold">RATE</th>
+                          <th className="w-[20%] bg-green-600 text-white text-center border border-black p-2 font-bold">AMOUNT</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {sale.items.map((item, index) => (
+                          <tr key={index}>
+                              <td className="text-center border border-black p-2">{item.quantity}</td>
+                              <td className="border border-black p-2">{item.name}</td>
+                              <td className="text-right border border-black p-2 font-mono">{item.price.toLocaleString()}</td>
+                              <td className="text-right border border-black p-2 font-mono">{(item.price * item.quantity).toLocaleString()}</td>
+                          </tr>
+                      ))}
+                      {Array.from({ length: emptyRows }).map((_, i) => (
+                          <tr key={`empty-${i}`} style={{height: '2.4rem'}} className="hidden-pos">
+                              <td className="border border-black">&nbsp;</td>
+                              <td className="border border-black"></td>
+                              <td className="border border-black"></td>
+                              <td className="border border-black"></td>
+                          </tr>
+                      ))}
+                  </tbody>
+                  <tfoot>
+                      <tr>
+                          <td colSpan={2} rowSpan={3} className="border-none align-bottom">
+                              {sale.status !== 'Paid' && (
+                                  <div className="text-sm p-2">
+                                      <p className="font-bold">Payment Status: {sale.status}</p>
+                                      {sale.status === 'Partial' && sale.partialAmountPaid && (
+                                          <>
+                                              <p>Amount Paid: Rs. {sale.partialAmountPaid.toLocaleString()}</p>
+                                              <p className="font-bold">Balance Due: Rs. {balanceDue.toLocaleString()}</p>
+                                          </>
+                                      )}
+                                      {sale.status === 'Unpaid' && (
+                                          <p className="font-bold">Amount Due: Rs. {sale.total.toLocaleString()}</p>
+                                      )}
+                                  </div>
+                              )}
+                              {sale.status === 'Paid' && (
+                                  <div className="text-sm p-2">
+                                      <p className="font-bold">Status: Fully Paid</p>
+                                      <p>Method: {sale.paymentMethod === 'online' ? `Online (${sale.onlinePaymentSource || 'N/A'})` : 'Cash'}</p>
+                                  </div>
+                              )}
+                          </td>
+                          <td className="text-right font-bold pr-2 pt-2">SUBTOTAL</td>
+                          <td className="text-right border border-black p-2 font-mono">{subtotal.toLocaleString()}</td>
+                      </tr>
+                      <tr>
+                          <td className="text-right font-bold pr-2">DISCOUNT</td>
+                          <td className="text-right border border-black p-2 font-mono">{(sale.discount ?? 0).toLocaleString()}</td>
+                      </tr>
+                      <tr>
+                          <td className="text-right font-bold pr-2 text-lg">TOTAL</td>
+                          <td className="text-right border border-black p-2 font-mono font-bold text-lg">{sale.total.toLocaleString()}</td>
+                      </tr>
+                  </tfoot>
+              </table>
 
-            {/* Signature */}
-            <div className="mt-8 text-sm flex justify-between">
-                <span className="font-bold">SIGNATURE: <span className="border-b border-black inline-block w-40">&nbsp;</span></span>
-                <p className="text-xs">Software by HAMXA TECH (0317-3890161)</p>
-            </div>
+              {/* Signature */}
+              <div className="mt-8 text-sm flex justify-between">
+                  <span className="font-bold">SIGNATURE: <span className="border-b border-black inline-block w-40">&nbsp;</span></span>
+                  <p className="text-xs">Software by HAMXA TECH (0317-3890161)</p>
+              </div>
+          </div>
         </div>
       </main>
     </div>

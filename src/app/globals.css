@@ -85,20 +85,76 @@
 }
 
 @media print {
-  .print-only {
-    display: block;
+  @page {
+    size: auto;
+    margin: 0;
   }
-  .no-print {
-    display: none;
-  }
+  
   body {
-    background-color: white;
+    background-color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
+  
   .printable-content {
     display: block !important;
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: none !important;
+    box-shadow: none !important;
   }
+
+  .no-print {
+    display: none !important;
+  }
+  
+  /* A4 Styles */
+  @page a4 { size: A4 portrait; margin: 20mm; }
+  .printable-content.print-a4 { page: a4; }
+  
+  /* A5 Styles */
+  @page a5 { size: A5 portrait; margin: 15mm; }
+  .printable-content.print-a5 { page: a5; }
+  .printable-content.print-a5 .receipt-main { transform: scale(0.7); transform-origin: top left; width: 142.85%; height: 142.85%; }
+  
+  /* A6 Styles */
+  @page a6 { size: A6 portrait; margin: 10mm; }
+  .printable-content.print-a6 { page: a6; }
+  .printable-content.print-a6 .receipt-main { transform: scale(0.5); transform-origin: top left; width: 200%; height: 200%; }
+
+  /* POS/Thermal Receipt Styles */
+  @page pos { size: 80mm auto; margin: 2mm; }
+  .printable-content.print-pos { page: pos; }
+  .printable-content.print-pos .receipt-main {
+      width: 80mm !important;
+      max-width: 80mm !important;
+      padding: 5px !important;
+      font-size: 10px !important;
+      border: none !important;
+      box-shadow: none !important;
+  }
+  .printable-content.print-pos .receipt-main .text-lg, 
+  .printable-content.print-pos .receipt-main .text-xl,
+  .printable-content.print-pos .receipt-main .text-2xl {
+      font-size: 12px !important;
+      font-weight: bold;
+  }
+   .printable-content.print-pos .receipt-main table th,
+   .printable-content.print-pos .receipt-main table td {
+      padding: 2px !important;
+   }
+   .printable-content.print-pos .receipt-main table thead {
+     display: none;
+   }
+   .printable-content.print-pos .receipt-main .border-b-4 {
+     border: none !important;
+   }
+    .printable-content.print-pos .receipt-main .hidden-pos {
+     display: none !important;
+   }
 }

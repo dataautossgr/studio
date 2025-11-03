@@ -7,7 +7,7 @@ import { doc, getDoc, DocumentReference } from 'firebase/firestore';
 import type { Sale, Customer } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
 
@@ -36,12 +36,8 @@ export default function InvoiceDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [receiptSize, setReceiptSize] = useState<ReceiptSize>('a4');
 
-  const triggerPrint = (size: ReceiptSize) => {
+  const setPrintSize = (size: ReceiptSize) => {
     setReceiptSize(size);
-    // Use a short timeout to allow React to re-render with the new class name before printing
-    setTimeout(() => {
-        window.print();
-    }, 50);
   };
 
   useEffect(() => {
@@ -126,11 +122,15 @@ export default function InvoiceDetail() {
                 <span className="ml-2">WhatsApp</span>
             </Button>
             <div className="flex items-center gap-1 p-1 rounded-md bg-muted border">
-                <Button size="sm" variant={receiptSize === 'a4' ? 'default' : 'ghost'} onClick={() => triggerPrint('a4')}>A4</Button>
-                <Button size="sm" variant={receiptSize === 'a5' ? 'default' : 'ghost'} onClick={() => triggerPrint('a5')}>A5</Button>
-                <Button size="sm" variant={receiptSize === 'a6' ? 'default' : 'ghost'} onClick={() => triggerPrint('a6')}>A6</Button>
-                <Button size="sm" variant={receiptSize === 'pos' ? 'default' : 'ghost'} onClick={() => triggerPrint('pos')}>POS</Button>
+                <Button size="sm" variant={receiptSize === 'a4' ? 'default' : 'ghost'} onClick={() => setPrintSize('a4')}>A4</Button>
+                <Button size="sm" variant={receiptSize === 'a5' ? 'default' : 'ghost'} onClick={() => setPrintSize('a5')}>A5</Button>
+                <Button size="sm" variant={receiptSize === 'a6' ? 'default' : 'ghost'} onClick={() => setPrintSize('a6')}>A6</Button>
+                <Button size="sm" variant={receiptSize === 'pos' ? 'default' : 'ghost'} onClick={() => setPrintSize('pos')}>POS</Button>
             </div>
+            <Button onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+            </Button>
         </div>
 
       <main className="p-4 sm:p-8 print:bg-white print:p-0">

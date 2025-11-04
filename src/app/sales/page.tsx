@@ -32,16 +32,10 @@ export default function SalesPage() {
                     <TabsTrigger value="battery">Batteries</TabsTrigger>
                 </TabsList>
                  <div className="hidden md:flex items-center gap-2">
-                    <Button asChild variant="outline">
+                    <Button asChild>
                         <Link href="/sales/new">
                             <PlusCircle className="mr-2 h-4 w-4" />
-                            New Automotive Sale
-                        </Link>
-                    </Button>
-                    <Button asChild>
-                        <Link href="/batteries/sales/new">
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            New Battery Sale
+                            New Sale
                         </Link>
                     </Button>
                 </div>

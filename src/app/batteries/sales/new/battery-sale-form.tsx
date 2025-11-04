@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,7 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export default function NewBatterySalePage() {
+export default function BatterySaleForm() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedBattery, setSelectedBattery] = useState<Battery | null>(null);
   const [manufacturingCode, setManufacturingCode] = useState('');
@@ -126,7 +125,7 @@ export default function NewBatterySalePage() {
         title: 'Sale Successful',
         description: 'The battery sale has been recorded.',
       });
-      router.push('/batteries/sales');
+      router.push('/sales');
     } catch (error) {
       console.error('Error saving battery sale: ', error);
       toast({
@@ -141,7 +140,7 @@ export default function NewBatterySalePage() {
 
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>New Battery Sale</CardTitle>

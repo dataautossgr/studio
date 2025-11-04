@@ -75,7 +75,7 @@ interface CartItem {
 
 const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
 
-export default function SaleFormDetail() {
+export default function AutomotiveSaleForm() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -109,7 +109,7 @@ export default function SaleFormDetail() {
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
 
   const saleId = params.id as string;
-  const isNew = saleId === 'new';
+  const isNew = saleId === 'new' || !saleId; // Treat no ID as new
 
  useEffect(() => {
     if (customersLoading || productsLoading || !firestore || isNew) return;
@@ -181,8 +181,9 @@ export default function SaleFormDetail() {
              router.push('/sales');
         }
     };
-
-    fetchSale();
+    if(saleId) {
+      fetchSale();
+    }
   }, [saleId, isNew, router, firestore, products, customers, customersLoading, productsLoading]);
 
 
@@ -407,10 +408,10 @@ export default function SaleFormDetail() {
   const finalAmount = subtotal - discount;
   const changeToReturn = paymentMethod === 'cash' && cashReceived > finalAmount ? cashReceived - finalAmount : 0;
   
-  const pageTitle = isNew ? 'Create New Sale' : `Edit Sale - ${sale?.invoice || ''}`;
+  const pageTitle = isNew ? 'Create New Automotive Sale' : `Edit Sale - ${sale?.invoice || ''}`;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div>
       <Card>
         <CardHeader>
           <CardTitle>{pageTitle}</CardTitle>

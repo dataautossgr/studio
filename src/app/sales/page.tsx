@@ -1,5 +1,4 @@
 'use client';
-import { type Sale } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -7,301 +6,55 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, PlusCircle, Pencil, Trash2, Undo2, RotateCcw, CalendarDays } from 'lucide-react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-  } from '@/components/ui/dropdown-menu';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState, useMemo } from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { useToast } from '@/hooks/use-toast';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import type { DateRange } from 'react-day-picker';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AutomotiveSalesHistory from './automotive-sales-history';
+import BatterySalesHistory from '../batteries/sales/battery-sales-history';
 
-interface EnrichedSale extends Omit<Sale, 'customer'> {
-    customer: {
-        id: string;
-        name: string;
-    }
-}
 
 export default function SalesPage() {
-  const firestore = useFirestore();
-  const salesCollection = useMemoFirebase(() => collection(firestore, 'sales'), [firestore]);
-  const { data: allSales, isLoading, error } = useCollection<Sale>(salesCollection);
   
-  const [enrichedSales, setEnrichedSales] = useState<EnrichedSale[]>([]);
-  const [filteredSales, setFilteredSales] = useState<EnrichedSale[]>([]);
-  
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfDay(new Date()),
-    to: endOfDay(new Date())
-  });
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetDateRange, setResetDateRange] = useState<DateRange | undefined>();
-  const { toast } = useToast();
-  
-  useEffect(() => {
-    if (!allSales) return;
-
-    const enrichSalesData = async () => {
-        const enriched = await Promise.all(allSales.map(async (sale) => {
-            let customerName = 'Walk-in Customer';
-            let customerId = 'walk-in';
-
-            if (sale.customer && typeof sale.customer === 'object' && 'id' in sale.customer) {
-                const customerRef = sale.customer as DocumentReference;
-                try {
-                    const customerSnap = await getDoc(customerRef);
-                    if (customerSnap.exists()) {
-                        customerName = customerSnap.data().name;
-                        customerId = customerSnap.id;
-                    }
-                } catch(e) {
-                    console.error("Error fetching customer", e);
-                }
-            }
-            return {
-                ...sale,
-                customer: { id: customerId, name: customerName }
-            };
-        }));
-        setEnrichedSales(enriched);
-    };
-
-    enrichSalesData();
-}, [allSales]);
-
-
-  useEffect(() => {
-    let salesToFilter = enrichedSales;
-    if (dateRange?.from) {
-        const from = startOfDay(dateRange.from);
-        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-        const filtered = salesToFilter.filter(sale => {
-            const saleDate = new Date(sale.date);
-            return saleDate >= from && saleDate <= to;
-        });
-        setFilteredSales(filtered);
-    } else {
-        setFilteredSales(salesToFilter); // Show all if no date is selected
-    }
-  }, [dateRange, enrichedSales]);
-
-  const handleReset = () => {
-    // This function needs to be adapted for Firestore
-    toast({ title: "Resetting...", description: "This feature is being updated for Firestore." });
-    setIsResetting(false);
-  };
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
-    switch (status) {
-        case 'Paid':
-            return 'default';
-        case 'Unpaid':
-            return 'destructive';
-        case 'Partial':
-            return 'secondary';
-        default:
-            return 'default';
-    }
-  }
-
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Sales History</CardTitle>
-            <CardDescription>
-              View all past transactions and their status.
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                  <Button variant="outline">
-                      <CalendarDays className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                          dateRange.to ? (
-                              <>
-                                  {format(dateRange.from, "LLL dd, y")} -{" "}
-                                  {format(dateRange.to, "LLL dd, y")}
-                              </>
-                          ) : (
-                              format(dateRange.from, "LLL dd, y")
-                          )
-                      ) : (
-                          <span>Pick a date range</span>
-                      )}
-                  </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                  />
-              </PopoverContent>
-            </Popover>
+       <Tabs defaultValue="automotive">
+        <div className="flex items-center justify-between mb-8">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Sales History</h1>
+                <p className="text-muted-foreground">
+                    View all past transactions for automotive parts and batteries.
+                </p>
+            </div>
+             <div className="flex items-center gap-4">
+                <TabsList>
+                    <TabsTrigger value="automotive">Automotive</TabsTrigger>
+                    <TabsTrigger value="battery">Batteries</TabsTrigger>
+                </TabsList>
+                 <div className="hidden md:flex items-center gap-2">
+                    <Button asChild variant="outline">
+                        <Link href="/sales/new">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            New Automotive Sale
+                        </Link>
+                    </Button>
+                    <Button asChild>
+                        <Link href="/batteries/sales/new">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            New Battery Sale
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+        </div>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon">
-                      <RotateCcw className="h-4 w-4" />
-                  </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                  <div className="p-4 space-y-4">
-                      <p className="text-sm text-muted-foreground">Select a date range to reset data for that period. Leave blank to reset all data.</p>
-                      <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={resetDateRange?.from}
-                          selected={resetDateRange}
-                          onSelect={setResetDateRange}
-                          numberOfMonths={1}
-                      />
-                      <Button variant="destructive" className="w-full" onClick={() => setIsResetting(true)}>
-                          Reset Data
-                      </Button>
-                  </div>
-              </PopoverContent>
-            </Popover>
-
-            <Button asChild>
-              <Link href="/sales/new">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  New Sale
-              </Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead className="hidden md:table-cell">Date & Time</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                <TableRow>
-                    <TableCell colSpan={6} className="text-center">Loading sales...</TableCell>
-                </TableRow>
-              )}
-              {filteredSales.map((sale) => (
-                <TableRow key={sale.id}>
-                  <TableCell className="font-medium">{sale.invoice}</TableCell>
-                  <TableCell>{sale.customer.name}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {format(new Date(sale.date), 'dd MMM, yyyy, hh:mm a')}
-                  </TableCell>
-                  <TableCell>Rs. {sale.total.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(sale.status)}>{sale.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
-                            <Link href={`/sales/invoice/${sale.id}`}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                View Invoice
-                            </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <Link href={`/sales/${sale.id}`}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit
-                            </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <Undo2 className="mr-2 h-4 w-4" />
-                            Return / Exchange
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      
-      <AlertDialog open={isResetting} onOpenChange={() => setIsResetting(false)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to reset?</AlertDialogTitle>
-            <AlertDialogDescription>
-                {resetDateRange?.from
-                    ? `This will reset sales data from ${format(resetDateRange.from, 'PPP')} ${resetDateRange.to ? `to ${format(resetDateRange.to, 'PPP')}` : ''}. Any changes you've made in this period will be lost.`
-                    : "This will reset the entire sales history to its original state. Any changes you've made will be lost."
-                }
-                {' '}This will not affect your cloud backup.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReset}>Reset Data</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+        <TabsContent value="automotive">
+            <AutomotiveSalesHistory />
+        </TabsContent>
+        <TabsContent value="battery">
+            <BatterySalesHistory />
+        </TabsContent>
+    </Tabs>
     </div>
   );
 }

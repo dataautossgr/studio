@@ -80,11 +80,13 @@ export default function BatterySaleForm() {
                     }
                 }
 
-                const battery = batteries.find(b => b.id === saleData.batteryId);
-                setSelectedBattery(battery || null);
+                if (saleData.batteryId) {
+                  const battery = batteries.find(b => b.id === saleData.batteryId);
+                  setSelectedBattery(battery || null);
+                }
                 
                 setManufacturingCode(saleData.manufacturingCode || '');
-                setSalePrice(saleData.salePrice);
+                setSalePrice(saleData.salePrice || 0);
                 setScrapWeight(saleData.scrapBatteryWeight || 0);
                 setScrapRate(saleData.scrapBatteryRate || 0);
                 setSaleDate(new Date(saleData.date));
@@ -103,6 +105,8 @@ export default function BatterySaleForm() {
   useEffect(() => {
     if (selectedBattery) {
       setSalePrice(selectedBattery.salePrice);
+    } else {
+      setSalePrice(0); // Reset sale price if no battery is selected
     }
   }, [selectedBattery]);
   
@@ -121,11 +125,19 @@ export default function BatterySaleForm() {
 
 
   const handleSave = async () => {
-    if ((customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName) || !selectedBattery) {
+    if ((customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName)) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
-        description: 'Please select a customer, enter name (for walk-in), and select a battery.',
+        description: 'Please select a customer or enter a name for a walk-in customer.',
+      });
+      return;
+    }
+     if (!selectedBattery && !addChargingService) {
+      toast({
+        variant: 'destructive',
+        title: 'Validation Error',
+        description: 'You must either sell a battery or add a charging service.',
       });
       return;
     }
@@ -135,7 +147,7 @@ export default function BatterySaleForm() {
   const confirmSave = async () => {
     setShowConfirmation(false);
     setIsSaving(true);
-    if (!firestore || !selectedBattery) return;
+    if (!firestore) return;
 
     const batch = writeBatch(firestore);
 
@@ -149,15 +161,12 @@ export default function BatterySaleForm() {
         balance: 0,
         type: 'walk-in',
       };
-      // We don't pre-register walk-in customers unless the sale is unpaid.
-      // We'll create a reference on the fly if needed.
       if (status !== 'Paid') {
           const newCustomerRef = doc(collection(firestore, 'customers'));
           batch.set(newCustomerRef, { ...walkInCustomer, type: 'registered', balance: finalAmount });
           customerIdToSave = newCustomerRef.id;
       } else {
-          // For paid walk-in, we just store the name on the sale, not create a customer doc
-          customerIdToSave = 'walk-in-customer'; // Placeholder
+          customerIdToSave = 'walk-in-customer'; 
       }
     }
 
@@ -170,10 +179,10 @@ export default function BatterySaleForm() {
     
     // 1. Create/Update Battery Sale document
     const saleRef = editId ? doc(firestore, 'battery_sales', editId) : doc(collection(firestore, 'battery_sales'));
-    const saleData: Omit<BatterySale, 'id'> = {
+    const saleData: Partial<BatterySale> = {
       customerId: customerIdToSave,
       customerName: customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name || 'N/A',
-      batteryId: selectedBattery.id,
+      batteryId: selectedBattery?.id || '',
       date: saleDate.toISOString(),
       manufacturingCode,
       salePrice,
@@ -187,8 +196,8 @@ export default function BatterySaleForm() {
     };
     batch.set(saleRef, saleData);
 
-    // 2. Update battery stock (only on new sales)
-    if(!editId) {
+    // 2. Update battery stock (only on new sales and if a battery was sold)
+    if(!editId && selectedBattery) {
       const batteryRef = doc(firestore, 'batteries', selectedBattery.id);
       batch.update(batteryRef, { stock: selectedBattery.stock - 1 });
     }
@@ -207,8 +216,6 @@ export default function BatterySaleForm() {
 
     // 4. Update customer balance if registered and unpaid (handle with care for edits)
     if (customerType === 'registered' && selectedCustomer && status !== 'Paid') {
-      // For edits, this logic needs to be more complex to calculate the difference.
-      // For simplicity on new sales:
       if(!editId) {
         const customerRef = doc(firestore, 'customers', selectedCustomer.id);
         batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + finalAmount });
@@ -219,15 +226,15 @@ export default function BatterySaleForm() {
       await batch.commit();
       toast({
         title: 'Sale Successful',
-        description: `The battery sale has been ${editId ? 'updated' : 'recorded'}.`,
+        description: `The battery transaction has been ${editId ? 'updated' : 'recorded'}.`,
       });
-      router.push('/sales');
+      router.push('/sales?tab=battery');
     } catch (error) {
       console.error('Error saving battery sale: ', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'There was a problem saving the sale.',
+        description: 'There was a problem saving the transaction.',
       });
     } finally {
       setIsSaving(false);
@@ -239,7 +246,7 @@ export default function BatterySaleForm() {
     <div>
       <Card>
         <CardHeader>
-          <CardTitle>{editId ? 'Edit' : 'New'} Battery Sale</CardTitle>
+          <CardTitle>{editId ? 'Edit' : 'New'} Battery Transaction</CardTitle>
           <CardDescription>Create a new sale for batteries, including scrap trade-in and services.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -312,12 +319,13 @@ export default function BatterySaleForm() {
 
             {/* Battery Selection */}
             <div className="space-y-2">
-                <Label>Select Battery</Label>
-                 <Select onValueChange={(id) => setSelectedBattery(batteries?.find(b => b.id === id) || null)} value={selectedBattery?.id}>
+                <Label>Select Battery (Optional)</Label>
+                 <Select onValueChange={(id) => setSelectedBattery(batteries?.find(b => b.id === id) || null)} value={selectedBattery?.id || ''}>
                     <SelectTrigger>
                         <SelectValue placeholder="Choose a battery from stock..." />
                     </SelectTrigger>
                     <SelectContent>
+                        <SelectItem value="">No Battery (Service Only)</SelectItem>
                         {batteries?.filter(b => b.stock > 0 || b.id === selectedBattery?.id).map(battery => (
                             <SelectItem key={battery.id} value={battery.id}>
                                 {battery.brand} {battery.model} ({battery.ampere}Ah) - Stock: {battery.stock}
@@ -326,44 +334,8 @@ export default function BatterySaleForm() {
                     </SelectContent>
                 </Select>
             </div>
-
-            {selectedBattery && (
-                <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
-                    {/* New Battery Details */}
-                    <div className="space-y-6">
-                        <h3 className="font-semibold text-lg text-primary">New Battery Details</h3>
-                        <div className="space-y-2">
-                            <Label htmlFor="manufacturing-code">Manufacturing Code</Label>
-                            <Input id="manufacturing-code" placeholder="Enter unique battery code" value={manufacturingCode} onChange={e => setManufacturingCode(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="sale-price">Sale Price (Rs.)</Label>
-                            <Input id="sale-price" type="number" value={salePrice} onChange={e => setSalePrice(Number(e.target.value))} />
-                        </div>
-                         <div className="p-3 bg-muted rounded-md text-sm">
-                            <p><strong>Warranty:</strong> {selectedBattery.warrantyMonths} months</p>
-                            {warrantyEndDate && <p><strong>Warranty Ends On:</strong> {format(warrantyEndDate, 'dd MMMM, yyyy')}</p>}
-                        </div>
-                    </div>
-                     {/* Scrap Battery Details */}
-                    <div className="space-y-6">
-                        <h3 className="font-semibold text-lg text-destructive">Scrap Battery Trade-in (Optional)</h3>
-                        <div className="space-y-2">
-                            <Label htmlFor="scrap-weight">Scrap Battery Weight (KG)</Label>
-                            <Input id="scrap-weight" type="number" placeholder="e.g., 15.5" value={scrapWeight} onChange={e => setScrapWeight(Number(e.target.value))}/>
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="scrap-rate">Scrap Rate (Rs. per KG)</Label>
-                            <Input id="scrap-rate" type="number" placeholder="e.g., 250" value={scrapRate} onChange={e => setScrapRate(Number(e.target.value))}/>
-                        </div>
-                        <div className="p-3 bg-muted rounded-md text-sm">
-                            <p className="font-semibold">Calculated Scrap Value: <span className="font-mono">Rs. {scrapBatteryValue.toLocaleString()}</span></p>
-                        </div>
-                    </div>
-                </div>
-            )}
             
-            {/* Additional Services */}
+             {/* Additional Services */}
             <div className="space-y-4 pt-4 border-t">
                 <h3 className="font-semibold text-lg text-primary">Additional Services</h3>
                 <div className="flex items-center space-x-2">
@@ -380,6 +352,46 @@ export default function BatterySaleForm() {
                 )}
             </div>
 
+            {/* Transaction Details */}
+            {(selectedBattery || scrapWeight > 0) && (
+                <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
+                    {/* New Battery Details */}
+                    {selectedBattery && (
+                        <div className="space-y-6">
+                            <h3 className="font-semibold text-lg text-primary">New Battery Details</h3>
+                            <div className="space-y-2">
+                                <Label htmlFor="manufacturing-code">Manufacturing Code</Label>
+                                <Input id="manufacturing-code" placeholder="Enter unique battery code" value={manufacturingCode} onChange={e => setManufacturingCode(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="sale-price">Sale Price (Rs.)</Label>
+                                <Input id="sale-price" type="number" value={salePrice} onChange={e => setSalePrice(Number(e.target.value))} />
+                            </div>
+                            <div className="p-3 bg-muted rounded-md text-sm">
+                                <p><strong>Warranty:</strong> {selectedBattery.warrantyMonths} months</p>
+                                {warrantyEndDate && <p><strong>Warranty Ends On:</strong> {format(warrantyEndDate, 'dd MMMM, yyyy')}</p>}
+                            </div>
+                        </div>
+                    )}
+                    {/* Scrap Battery Details */}
+                    <div className="space-y-6">
+                        <h3 className="font-semibold text-lg text-destructive">Scrap Battery Trade-in (Optional)</h3>
+                        <div className="space-y-2">
+                            <Label htmlFor="scrap-weight">Scrap Battery Weight (KG)</Label>
+                            <Input id="scrap-weight" type="number" placeholder="e.g., 15.5" value={scrapWeight} onChange={e => setScrapWeight(Number(e.target.value))}/>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="scrap-rate">Scrap Rate (Rs. per KG)</Label>
+                            <Input id="scrap-rate" type="number" placeholder="e.g., 250" value={scrapRate} onChange={e => setScrapRate(Number(e.target.value))}/>
+                        </div>
+                        <div className="p-3 bg-muted rounded-md text-sm">
+                            <p className="font-semibold">Calculated Scrap Value: <span className="font-mono">Rs. {scrapBatteryValue.toLocaleString()}</span></p>
+                        </div>
+                    </div>
+                </div>
+            )}
+           
+
             {/* Final Calculation */}
             <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
                 <div className="space-y-2">
@@ -395,8 +407,8 @@ export default function BatterySaleForm() {
                     </Select>
                 </div>
                  <div className="flex flex-col items-end space-y-2">
-                    <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Sale Price:</span><span className="font-mono">Rs. {salePrice.toLocaleString()}</span></div>
-                    <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Scrap Deduction:</span><span className="font-mono">- Rs. {scrapBatteryValue.toLocaleString()}</span></div>
+                    {selectedBattery && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Sale Price:</span><span className="font-mono">Rs. {salePrice.toLocaleString()}</span></div>}
+                    {scrapWeight > 0 && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Scrap Deduction:</span><span className="font-mono">- Rs. {scrapBatteryValue.toLocaleString()}</span></div>}
                     {addChargingService && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Charging Service:</span><span className="font-mono">+ Rs. {chargingServiceAmount.toLocaleString()}</span></div>}
                     <div className="flex justify-between w-full max-w-xs text-xl font-bold border-t pt-2 mt-2"><span>Final Amount:</span><span className="font-mono">Rs. {finalAmount.toLocaleString()}</span></div>
                 </div>
@@ -404,9 +416,9 @@ export default function BatterySaleForm() {
 
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button size="lg" onClick={handleSave} disabled={isSaving || !selectedBattery || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName)}>
+          <Button size="lg" onClick={handleSave} disabled={isSaving || (!selectedBattery && !addChargingService) || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName)}>
             <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Saving...' : (editId ? 'Update Sale' : 'Save Sale')}
+            {isSaving ? 'Saving...' : (editId ? 'Update Transaction' : 'Save Transaction')}
           </Button>
         </CardFooter>
       </Card>
@@ -414,12 +426,12 @@ export default function BatterySaleForm() {
        <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                <AlertDialogTitle>Confirm Sale Details</AlertDialogTitle>
+                <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
                 <AlertDialogDescription>
                     Please review the details before saving. This action will update stock and cannot be easily undone.
                      <div className="my-4 space-y-1 text-sm text-foreground">
                         <p><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</p>
-                        <p><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</p>
+                        {selectedBattery && <p><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</p>}
                         {addChargingService && <p><strong>Charging Service:</strong> Rs. {chargingServiceAmount.toLocaleString()}</p>}
                         <p><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</p>
                         <p><strong>Status:</strong> {status}</p>

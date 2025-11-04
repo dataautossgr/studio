@@ -454,7 +454,7 @@
     "BatterySale": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "BatterySale",
-      "description": "Represents a sale transaction involving batteries.",
+      "description": "Represents a sale transaction involving batteries or services.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -471,7 +471,7 @@
         "status": { "type": "string", "enum": ["Paid", "Unpaid"] },
         "chargingServiceAmount": { "type": "number" }
       },
-      "required": ["id", "customerId", "batteryId", "date", "salePrice", "finalAmount", "status"]
+      "required": ["id", "customerId", "date", "finalAmount", "status"]
     },
     "BatteryPurchase": {
       "$schema": "http://json-schema.org/draft-07/schema#",

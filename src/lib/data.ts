@@ -134,15 +134,15 @@ export interface BatterySale {
   id: string;
   customerId: string;
   customerName: string;
-  batteryId: string;
+  batteryId?: string;
   date: string;
-  manufacturingCode: string;
-  salePrice: number;
-  scrapBatteryWeight: number;
-  scrapBatteryRate: number;
-  scrapBatteryValue: number;
+  manufacturingCode?: string;
+  salePrice?: number;
+  scrapBatteryWeight?: number;
+  scrapBatteryRate?: number;
+  scrapBatteryValue?: number;
   finalAmount: number;
-  warrantyEndDate: string;
+  warrantyEndDate?: string;
   status: 'Paid' | 'Unpaid';
   chargingServiceAmount?: number;
 }
@@ -303,5 +303,3 @@ export const seedInitialData = async (db: any) => {
     
     console.log("Data seeding complete.");
 };
-
-    

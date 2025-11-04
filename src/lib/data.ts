@@ -144,6 +144,7 @@ export interface BatterySale {
   finalAmount: number;
   warrantyEndDate: string;
   status: 'Paid' | 'Unpaid';
+  chargingServiceAmount?: number;
 }
 
 export interface ScrapPurchase {

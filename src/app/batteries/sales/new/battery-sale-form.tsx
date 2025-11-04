@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { CustomerDialog } from '@/app/customers/customer-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function BatterySaleForm() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -41,6 +42,9 @@ export default function BatterySaleForm() {
   const [saleDate, setSaleDate] = useState<Date>(new Date());
   const [status, setStatus] = useState<'Paid' | 'Unpaid'>('Paid');
   
+  const [addChargingService, setAddChargingService] = useState(false);
+  const [chargingServiceAmount, setChargingServiceAmount] = useState(0);
+
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
@@ -85,6 +89,10 @@ export default function BatterySaleForm() {
                 setScrapRate(saleData.scrapBatteryRate || 0);
                 setSaleDate(new Date(saleData.date));
                 setStatus(saleData.status);
+                if (saleData.chargingServiceAmount && saleData.chargingServiceAmount > 0) {
+                    setAddChargingService(true);
+                    setChargingServiceAmount(saleData.chargingServiceAmount);
+                }
             }
         };
         fetchSaleData();
@@ -99,7 +107,11 @@ export default function BatterySaleForm() {
   }, [selectedBattery]);
   
   const scrapBatteryValue = useMemo(() => scrapWeight * scrapRate, [scrapWeight, scrapRate]);
-  const finalAmount = useMemo(() => salePrice - scrapBatteryValue, [salePrice, scrapBatteryValue]);
+  const finalAmount = useMemo(() => {
+      const baseAmount = salePrice - scrapBatteryValue;
+      return addChargingService ? baseAmount + chargingServiceAmount : baseAmount;
+  }, [salePrice, scrapBatteryValue, addChargingService, chargingServiceAmount]);
+
   const warrantyEndDate = useMemo(() => {
     if (selectedBattery && selectedBattery.warrantyMonths > 0) {
       return addMonths(saleDate, selectedBattery.warrantyMonths);
@@ -171,6 +183,7 @@ export default function BatterySaleForm() {
       finalAmount,
       warrantyEndDate: warrantyEndDate ? warrantyEndDate.toISOString() : '',
       status,
+      chargingServiceAmount: addChargingService ? chargingServiceAmount : 0,
     };
     batch.set(saleRef, saleData);
 
@@ -227,7 +240,7 @@ export default function BatterySaleForm() {
       <Card>
         <CardHeader>
           <CardTitle>{editId ? 'Edit' : 'New'} Battery Sale</CardTitle>
-          <CardDescription>Create a new sale for batteries, including scrap trade-in.</CardDescription>
+          <CardDescription>Create a new sale for batteries, including scrap trade-in and services.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
             {/* Customer & Date */}
@@ -350,6 +363,23 @@ export default function BatterySaleForm() {
                 </div>
             )}
             
+            {/* Additional Services */}
+            <div className="space-y-4 pt-4 border-t">
+                <h3 className="font-semibold text-lg text-primary">Additional Services</h3>
+                <div className="flex items-center space-x-2">
+                    <Checkbox id="charging-service" checked={addChargingService} onCheckedChange={(checked) => setAddChargingService(checked as boolean)} />
+                    <Label htmlFor="charging-service" className="cursor-pointer">Add Battery Charging Service</Label>
+                </div>
+                {addChargingService && (
+                    <div className="grid md:grid-cols-3 gap-6 pl-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="charging-amount">Charging Amount (Rs.)</Label>
+                            <Input id="charging-amount" type="number" value={chargingServiceAmount} onChange={(e) => setChargingServiceAmount(Number(e.target.value))} />
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* Final Calculation */}
             <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
                 <div className="space-y-2">
@@ -367,6 +397,7 @@ export default function BatterySaleForm() {
                  <div className="flex flex-col items-end space-y-2">
                     <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Sale Price:</span><span className="font-mono">Rs. {salePrice.toLocaleString()}</span></div>
                     <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Scrap Deduction:</span><span className="font-mono">- Rs. {scrapBatteryValue.toLocaleString()}</span></div>
+                    {addChargingService && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Charging Service:</span><span className="font-mono">+ Rs. {chargingServiceAmount.toLocaleString()}</span></div>}
                     <div className="flex justify-between w-full max-w-xs text-xl font-bold border-t pt-2 mt-2"><span>Final Amount:</span><span className="font-mono">Rs. {finalAmount.toLocaleString()}</span></div>
                 </div>
             </div>
@@ -389,6 +420,7 @@ export default function BatterySaleForm() {
                      <div className="my-4 space-y-1 text-sm text-foreground">
                         <p><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</p>
                         <p><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</p>
+                        {addChargingService && <p><strong>Charging Service:</strong> Rs. {chargingServiceAmount.toLocaleString()}</p>}
                         <p><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</p>
                         <p><strong>Status:</strong> {status}</p>
                      </div>

@@ -446,9 +446,10 @@
       "type": "object",
       "properties": {
         "id": { "type": "string", "description": "Usually a singleton document ID like 'main'" },
-        "totalWeightKg": { "type": "number" }
+        "totalWeightKg": { "type": "number" },
+        "totalScrapValue": { "type": "number" }
       },
-      "required": ["id", "totalWeightKg"]
+      "required": ["id", "totalWeightKg", "totalScrapValue"]
     },
     "BatterySale": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -726,7 +727,7 @@
         "definition": {
           "entityName": "ScrapStock",
           "schema": { "$ref": "#/backend/entities/ScrapStock" },
-          "description": "Stores the total weight of scrap batteries."
+          "description": "Stores the total weight and value of scrap batteries."
         }
       },
       {

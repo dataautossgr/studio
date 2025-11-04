@@ -184,8 +184,12 @@ export default function BatterySaleForm() {
     if(!editId && scrapWeight > 0) {
       const scrapStockRef = doc(firestore, 'scrap_stock', 'main');
       const scrapSnap = await getDoc(scrapStockRef);
-      const currentScrap = scrapSnap.exists() ? scrapSnap.data().totalWeightKg : 0;
-      batch.set(scrapStockRef, { totalWeightKg: currentScrap + scrapWeight }, { merge: true });
+      const currentScrapWeight = scrapSnap.exists() ? scrapSnap.data().totalWeightKg : 0;
+      const currentScrapValue = scrapSnap.exists() ? scrapSnap.data().totalScrapValue : 0;
+      batch.set(scrapStockRef, { 
+        totalWeightKg: currentScrapWeight + scrapWeight,
+        totalScrapValue: currentScrapValue + scrapBatteryValue,
+      }, { merge: true });
     }
 
     // 4. Update customer balance if registered and unpaid (handle with care for edits)

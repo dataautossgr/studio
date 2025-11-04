@@ -24,7 +24,8 @@ import {
   PlusCircle,
   Trash2,
   BatteryCharging,
-  Trash
+  Trash,
+  Archive,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -49,10 +50,12 @@ import type { Battery, ScrapStock } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { BatteryDialog } from './battery-dialog';
 import type { BatteryFormData } from './battery-dialog';
+import { useStoreSettings } from '@/context/store-settings-context';
 
 
 export default function BatteryStockPage() {
   const firestore = useFirestore();
+  const { settings } = useStoreSettings();
   const batteriesCollection = useMemoFirebase(() => collection(firestore, 'batteries'), [firestore]);
   const scrapStockRef = useMemoFirebase(() => doc(firestore, 'scrap_stock', 'main'), [firestore]);
   
@@ -95,6 +98,14 @@ export default function BatteryStockPage() {
     setBatteryToDelete(null);
   };
 
+  const totalBatteryStockValue = useMemo(() => {
+    return batteries?.reduce((acc, battery) => acc + (battery.costPrice * battery.stock), 0) || 0;
+  }, [batteries]);
+
+  const totalScrapValue = useMemo(() => {
+    return scrapStock?.totalScrapValue || 0;
+  }, [scrapStock]);
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -109,6 +120,16 @@ export default function BatteryStockPage() {
                 <p className="text-xs text-muted-foreground">Unique battery models in stock</p>
             </CardContent>
         </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Battery Stock Value</CardTitle>
+                <Archive className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">Rs. {totalBatteryStockValue.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">Total cost value of new batteries</p>
+            </CardContent>
+        </Card>
          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Scrap Stock (Weight)</CardTitle>
@@ -117,6 +138,16 @@ export default function BatteryStockPage() {
             <CardContent>
                 <div className="text-2xl font-bold">{(scrapStock?.totalWeightKg || 0).toLocaleString()} KG</div>
                 <p className="text-xs text-muted-foreground">Total weight of scrap batteries</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Scrap Stock Value</CardTitle>
+                <Trash className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">Rs. {totalScrapValue.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">Estimated value of scrap stock</p>
             </CardContent>
         </Card>
       </div>

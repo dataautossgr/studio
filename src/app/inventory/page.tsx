@@ -30,33 +30,30 @@ export default function InventoryPage() {
   const {
     totalSaleValue,
     totalCostValue,
-    totalUniqueProducts,
-    totalStockQuantity,
     totalBatteryStockValue,
     totalScrapValue,
-    totalScrapWeight
   } = useMemo(() => {
     const automotiveCost = products?.reduce((acc, p) => acc + (p.costPrice * p.stock), 0) || 0;
     const automotiveSale = products?.reduce((acc, p) => acc + (p.salePrice * p.stock), 0) || 0;
+    
     const batteryCost = batteries?.reduce((acc, b) => acc + (b.costPrice * b.stock), 0) || 0;
+    const batterySale = batteries?.reduce((acc, b) => acc + (b.salePrice * b.stock), 0) || 0;
+
     const scrapValueCalc = scrapStock?.totalScrapValue || 0;
 
     return {
-      totalCostValue: automotiveCost,
-      totalSaleValue: automotiveSale,
-      totalUniqueProducts: products?.length || 0,
-      totalStockQuantity: products?.reduce((acc, p) => acc + p.stock, 0) || 0,
+      totalCostValue: automotiveCost + batteryCost,
+      totalSaleValue: automotiveSale + batterySale,
       totalBatteryStockValue: batteryCost,
       totalScrapValue: scrapValueCalc,
-      totalScrapWeight: scrapStock?.totalWeightKg || 0,
     };
   }, [products, batteries, scrapStock]);
   
   const isLoading = isLoadingProducts || isLoadingBatteries || isLoadingScrap;
 
   const inventoryStats = [
-    { title: "Automotive Stock Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
-    { title: "Automotive Stock Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
+    { title: "Total Stock Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
+    { title: "Total Stock Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
     { title: "Battery Stock Value (Cost)", value: `Rs. ${totalBatteryStockValue.toLocaleString()}`, icon: BatteryCharging },
     { title: "Scrap Stock Value", value: `Rs. ${totalScrapValue.toLocaleString()}`, icon: Trash },
   ];

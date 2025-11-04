@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -18,7 +19,7 @@ import BatteryInventory from './battery-inventory';
 export default function InventoryPage() {
   const firestore = useFirestore();
   const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
-  const batteriesCollection = useMemoFirebase(() => collection(firestore, 'batteries'), [firestore]);
+  const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
   const scrapStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'scrap_stock', 'main') : null, [firestore]);
 
   const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
@@ -38,6 +39,7 @@ export default function InventoryPage() {
     const automotiveCost = products?.reduce((acc, p) => acc + (p.costPrice * p.stock), 0) || 0;
     const automotiveSale = products?.reduce((acc, p) => acc + (p.salePrice * p.stock), 0) || 0;
     const batteryCost = batteries?.reduce((acc, b) => acc + (b.costPrice * b.stock), 0) || 0;
+    const scrapValueCalc = scrapStock?.totalScrapValue || 0;
 
     return {
       totalCostValue: automotiveCost,
@@ -45,7 +47,7 @@ export default function InventoryPage() {
       totalUniqueProducts: products?.length || 0,
       totalStockQuantity: products?.reduce((acc, p) => acc + p.stock, 0) || 0,
       totalBatteryStockValue: batteryCost,
-      totalScrapValue: scrapStock?.totalScrapValue || 0,
+      totalScrapValue: scrapValueCalc,
       totalScrapWeight: scrapStock?.totalWeightKg || 0,
     };
   }, [products, batteries, scrapStock]);

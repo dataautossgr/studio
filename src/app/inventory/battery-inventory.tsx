@@ -23,6 +23,9 @@ import {
   Pencil,
   PlusCircle,
   Trash2,
+  DollarSign,
+  Archive,
+  BatteryCharging,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -52,16 +55,24 @@ import { ScrapPurchaseDialog, type ScrapPurchaseFormData } from './scrap-purchas
 
 export default function BatteryInventory() {
   const firestore = useFirestore();
-  const batteriesCollection = useMemoFirebase(() => collection(firestore, 'batteries'), [firestore]);
-  const scrapStockRef = useMemoFirebase(() => doc(firestore, 'scrap_stock', 'main'), [firestore]);
+  const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
+  const scrapStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'scrap_stock', 'main') : null, [firestore]);
   
   const { data: batteries, isLoading: isLoadingBatteries } = useCollection<Battery>(batteriesCollection);
+  const { data: scrapStock, isLoading: isLoadingScrap } = useDoc<ScrapStock>(scrapStockRef);
   
   const [isBatteryDialogOpen, setIsBatteryDialogOpen] = useState(false);
   const [isScrapDialogOpen, setIsScrapDialogOpen] = useState(false);
   const [selectedBattery, setSelectedBattery] = useState<Battery | null>(null);
   const [batteryToDelete, setBatteryToDelete] = useState<Battery | null>(null);
   const { toast } = useToast();
+
+  const { totalSaleValue, totalCostValue } = useMemo(() => {
+    if (!batteries) return { totalSaleValue: 0, totalCostValue: 0 };
+    const cost = batteries.reduce((acc, b) => acc + (b.costPrice * b.stock), 0);
+    const sale = batteries.reduce((acc, b) => acc + (b.salePrice * b.stock), 0);
+    return { totalSaleValue: sale, totalCostValue: cost };
+  }, [batteries]);
 
   const handleAddBattery = () => {
     setSelectedBattery(null);
@@ -135,9 +146,40 @@ export default function BatteryInventory() {
     }
   };
 
+  const isLoading = isLoadingBatteries || isLoadingScrap;
+
+  const summaryCards = [
+    { title: "Total Battery Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
+    { title: "Total Battery Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
+    { title: "Scrap Stock Value", value: `Rs. ${(scrapStock?.totalScrapValue || 0).toLocaleString()}`, icon: Trash2 },
+    { title: "Scrap Stock Weight", value: `${(scrapStock?.totalWeightKg || 0).toLocaleString()} KG`, icon: BatteryCharging },
+  ];
 
   return (
     <div className="space-y-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {isLoading ? Array.from({length: 4}).map((_, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div className="h-4 w-2/3 bg-muted rounded-md animate-pulse" />
+                    </CardHeader>
+                    <CardContent>
+                    <div className="h-8 w-1/2 bg-muted rounded-md animate-pulse" />
+                    </CardContent>
+                </Card>
+            )) : summaryCards.map((stat, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <stat.icon className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>

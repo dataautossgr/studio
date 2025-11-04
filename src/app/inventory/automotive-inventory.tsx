@@ -33,6 +33,8 @@ import {
   Search,
   RotateCcw,
   Download,
+  DollarSign,
+  Archive,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ProductDialog } from './product-dialog';
@@ -74,6 +76,13 @@ export default function AutomotiveInventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isResetting, setIsResetting] = useState(false);
   const { toast } = useToast();
+  
+  const { totalSaleValue, totalCostValue } = useMemo(() => {
+    if (!products) return { totalSaleValue: 0, totalCostValue: 0 };
+    const cost = products.reduce((acc, p) => acc + (p.costPrice * p.stock), 0);
+    const sale = products.reduce((acc, p) => acc + (p.salePrice * p.stock), 0);
+    return { totalSaleValue: sale, totalCostValue: cost };
+  }, [products]);
 
   const displayProducts = useMemo(() => {
     if (!products || !purchases || !dealers) return [];
@@ -202,8 +211,36 @@ export default function AutomotiveInventory() {
   
   const isLoading = isLoadingProducts || isLoadingPurchases || isLoadingDealers;
 
+  const summaryCards = [
+    { title: "Total Stock Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
+    { title: "Total Stock Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
+  ];
+
   return (
     <div className="space-y-8">
+        <div className="grid gap-4 md:grid-cols-2">
+            {isLoading ? Array.from({length: 2}).map((_, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div className="h-4 w-2/3 bg-muted rounded-md animate-pulse" />
+                    </CardHeader>
+                    <CardContent>
+                    <div className="h-8 w-1/2 bg-muted rounded-md animate-pulse" />
+                    </CardContent>
+                </Card>
+            )) : summaryCards.map((stat, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <stat.icon className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+
        <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="flex-1">

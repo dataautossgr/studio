@@ -45,12 +45,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import type { Battery, ScrapStock } from '@/lib/data';
+import { collection, doc, runTransaction } from 'firebase/firestore';
+import type { Battery, ScrapStock, ScrapPurchase } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { BatteryDialog } from './battery-dialog';
 import type { BatteryFormData } from './battery-dialog';
 import { useStoreSettings } from '@/context/store-settings-context';
+import { ScrapPurchaseDialog, type ScrapPurchaseFormData } from './scrap-purchase-dialog';
 
 
 export default function BatteryStockPage() {
@@ -62,19 +63,20 @@ export default function BatteryStockPage() {
   const { data: batteries, isLoading: isLoadingBatteries } = useCollection<Battery>(batteriesCollection);
   const { data: scrapStock, isLoading: isLoadingScrap } = useDoc<ScrapStock>(scrapStockRef);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBatteryDialogOpen, setIsBatteryDialogOpen] = useState(false);
+  const [isScrapDialogOpen, setIsScrapDialogOpen] = useState(false);
   const [selectedBattery, setSelectedBattery] = useState<Battery | null>(null);
   const [batteryToDelete, setBatteryToDelete] = useState<Battery | null>(null);
   const { toast } = useToast();
 
   const handleAddBattery = () => {
     setSelectedBattery(null);
-    setIsDialogOpen(true);
+    setIsBatteryDialogOpen(true);
   };
 
   const handleEditBattery = (battery: Battery) => {
     setSelectedBattery(battery);
-    setIsDialogOpen(true);
+    setIsBatteryDialogOpen(true);
   };
   
   const handleSaveBattery = (batteryData: BatteryFormData) => {
@@ -88,7 +90,7 @@ export default function BatteryStockPage() {
       addDocumentNonBlocking(collection(firestore, 'batteries'), batteryData);
       toast({ title: 'Success', description: 'New battery added to stock.' });
     }
-    setIsDialogOpen(false);
+    setIsBatteryDialogOpen(false);
   };
 
   const handleDeleteBattery = () => {
@@ -97,6 +99,48 @@ export default function BatteryStockPage() {
     toast({ title: 'Battery Deleted', description: 'The battery has been removed from stock.' });
     setBatteryToDelete(null);
   };
+  
+  const handleSaveScrapPurchase = async (data: ScrapPurchaseFormData) => {
+    if (!firestore) return;
+
+    const totalValue = data.weightKg * data.ratePerKg;
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            // 1. Get current scrap stock
+            const scrapStockDoc = await transaction.get(scrapStockRef);
+            const currentWeight = scrapStockDoc.exists() ? scrapStockDoc.data().totalWeightKg : 0;
+            const currentValue = scrapStockDoc.exists() ? scrapStockDoc.data().totalScrapValue : 0;
+
+            // 2. Create new scrap purchase record
+            const newScrapPurchaseRef = doc(collection(firestore, 'scrap_purchases'));
+            const purchaseRecord: Omit<ScrapPurchase, 'id'> = {
+                date: new Date().toISOString(),
+                sellerName: data.sellerName,
+                sellerAddress: data.sellerAddress,
+                sellerNIC: data.sellerNIC,
+                weightKg: data.weightKg,
+                ratePerKg: data.ratePerKg,
+                totalValue: totalValue,
+            };
+            transaction.set(newScrapPurchaseRef, purchaseRecord);
+
+            // 3. Update the main scrap stock document
+            transaction.set(scrapStockRef, {
+                totalWeightKg: currentWeight + data.weightKg,
+                totalScrapValue: currentValue + totalValue,
+            }, { merge: true });
+        });
+        
+        toast({ title: "Scrap Purchase Saved", description: "Scrap stock has been updated." });
+        setIsScrapDialogOpen(false);
+
+    } catch (e) {
+        console.error("Scrap purchase transaction failed: ", e);
+        toast({ variant: 'destructive', title: "Error", description: "Failed to save scrap purchase." });
+    }
+  };
+
 
   const totalBatteryStockValue = useMemo(() => {
     return batteries?.reduce((acc, battery) => acc + (battery.costPrice * battery.stock), 0) || 0;
@@ -157,10 +201,16 @@ export default function BatteryStockPage() {
             <CardTitle>Battery Inventory</CardTitle>
             <CardDescription>Manage your new and scrap battery inventory.</CardDescription>
           </div>
-          <Button onClick={handleAddBattery}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Battery
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setIsScrapDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Scrap Purchase
+            </Button>
+            <Button onClick={handleAddBattery}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Battery
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -221,10 +271,16 @@ export default function BatteryStockPage() {
       </Card>
       
       <BatteryDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
+        isOpen={isBatteryDialogOpen}
+        onClose={() => setIsBatteryDialogOpen(false)}
         onSave={handleSaveBattery}
         battery={selectedBattery}
+      />
+
+      <ScrapPurchaseDialog
+        isOpen={isScrapDialogOpen}
+        onClose={() => setIsScrapDialogOpen(false)}
+        onSave={handleSaveScrapPurchase}
       />
       
       <AlertDialog open={!!batteryToDelete} onOpenChange={() => setBatteryToDelete(null)}>
@@ -244,3 +300,5 @@ export default function BatteryStockPage() {
     </div>
   );
 }
+
+    

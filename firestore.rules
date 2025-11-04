@@ -254,5 +254,18 @@ service cloud.firestore {
     match /battery_purchases/{purchaseId} {
       allow get, list, create, update, delete: if true;
     }
+
+     /**
+     * @description Allows read and write access to scrap purchases.
+     * @path /scrap_purchases/{scrapPurchaseId}
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /scrap_purchases/{scrapPurchaseId} {
+      allow get, list, create, update, delete: if true;
+    }
   }
 }
+
+    

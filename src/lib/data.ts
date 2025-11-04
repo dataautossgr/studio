@@ -127,6 +127,7 @@ export interface Battery {
 export interface ScrapStock {
   id: string; // Should be a singleton document, e.g., 'main'
   totalWeightKg: number;
+  totalScrapValue: number;
 }
 
 export interface BatterySale {
@@ -143,6 +144,17 @@ export interface BatterySale {
   finalAmount: number;
   warrantyEndDate: string;
   status: 'Paid' | 'Unpaid';
+}
+
+export interface ScrapPurchase {
+    id: string;
+    date: string;
+    sellerName?: string;
+    sellerAddress?: string;
+    sellerNIC?: string;
+    weightKg: number;
+    ratePerKg: number;
+    totalValue: number;
 }
 
 
@@ -290,3 +302,5 @@ export const seedInitialData = async (db: any) => {
     
     console.log("Data seeding complete.");
 };
+
+    

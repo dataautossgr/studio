@@ -3,11 +3,15 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AutomotiveSaleForm from './automotive-sale-form';
 import BatterySaleForm from '@/app/batteries/sales/new/battery-sale-form';
+import { useSearchParams } from 'next/navigation';
 
 export default function NewSalePage() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'automotive';
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <Tabs defaultValue="automotive" className="w-full">
+      <Tabs defaultValue={initialTab} className="w-full">
         <div className="flex items-center justify-between mb-8">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Create New Sale</h1>

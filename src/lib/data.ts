@@ -112,6 +112,39 @@ export interface RepairJobItem {
   price: number;
 }
 
+export interface Battery {
+  id: string;
+  brand: string;
+  model: string;
+  ampere: number;
+  type: 'Lead-Acid' | 'Lithium' | 'AGM';
+  costPrice: number;
+  salePrice: number;
+  stock: number;
+  warrantyMonths: number;
+}
+
+export interface ScrapStock {
+  id: string; // Should be a singleton document, e.g., 'main'
+  totalWeightKg: number;
+}
+
+export interface BatterySale {
+  id: string;
+  customerId: string;
+  customerName: string;
+  batteryId: string;
+  date: string;
+  manufacturingCode: string;
+  salePrice: number;
+  scrapBatteryWeight: number;
+  scrapBatteryRate: number;
+  scrapBatteryValue: number;
+  finalAmount: number;
+  warrantyEndDate: string;
+  status: 'Paid' | 'Unpaid';
+}
+
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
   { name: 'Spark Plugs (4-pack)', category: 'Engine Parts', brand: 'NGK', model: 'BKR6E-11', costPrice: 800, salePrice: 1200, stock: 50, unit: 'piece', lowStockThreshold: 10, dealerId: 'DLR001', location: 'Shelf A-1' },

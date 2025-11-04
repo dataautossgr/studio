@@ -27,7 +27,8 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
+import { collection, getDoc, doc, type DocumentReference } from 'firebase/firestore';
+import type { Battery } from '@/lib/data';
 
 interface EnrichedBatterySale extends Omit<BatterySale, 'customerId' | 'batteryId'> {
     customerName: string;
@@ -42,32 +43,37 @@ export default function BatterySalesHistory() {
   const [enrichedSales, setEnrichedSales] = useState<EnrichedBatterySale[]>([]);
   
   useEffect(() => {
-    if (!allSales) return;
+    if (!allSales || !firestore) return;
 
     const enrichSalesData = async () => {
         const enriched = await Promise.all(allSales.map(async (sale) => {
-            let customerName = 'N/A';
+            let customerName = sale.customerName || 'N/A';
             let batteryInfo = 'N/A';
 
-            try {
-                if (sale.customerId) {
+            // If customerName is not on the sale, try to fetch it
+            if (!sale.customerName && sale.customerId !== 'walk-in-customer') {
+                try {
                     const customerRef = doc(firestore, 'customers', sale.customerId);
                     const customerSnap = await getDoc(customerRef);
                     if (customerSnap.exists()) {
                         customerName = (customerSnap.data() as Customer).name;
                     }
-                }
+                } catch(e) { console.error("Error fetching customer", e); }
+            }
+
+            try {
                  if (sale.batteryId) {
                     const batteryRef = doc(firestore, 'batteries', sale.batteryId);
                     const batterySnap = await getDoc(batteryRef);
                     if (batterySnap.exists()) {
-                        const battery = batterySnap.data();
+                        const battery = batterySnap.data() as Battery;
                         batteryInfo = `${battery.brand} ${battery.model} (${battery.ampere}Ah)`;
                     }
                 }
             } catch(e) {
                 console.error("Error enriching battery sale data", e);
             }
+
             return {
                 ...sale,
                 customerName: customerName,
@@ -147,7 +153,7 @@ export default function BatterySalesHistory() {
                           </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                          <Link href={`/batteries/sales/new?edit=${sale.id}`}>
+                          <Link href={`/sales/new?tab=battery&edit=${sale.id}`}>
                               <Pencil className="mr-2 h-4 w-4" />
                               Edit
                           </Link>

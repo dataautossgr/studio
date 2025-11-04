@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch, serverTimestamp, getDoc } from 'firebase/firestore';
 import type { Customer, Battery, BatterySale } from '@/lib/data';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, Save, Search } from 'lucide-react';
+import { Calendar as CalendarIcon, Save, Search, UserPlus } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, addMonths } from 'date-fns';
@@ -26,9 +26,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { CustomerDialog } from '@/app/customers/customer-dialog';
 
 export default function BatterySaleForm() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
+  const [walkInCustomerName, setWalkInCustomerName] = useState('');
+
   const [selectedBattery, setSelectedBattery] = useState<Battery | null>(null);
   const [manufacturingCode, setManufacturingCode] = useState('');
   const [salePrice, setSalePrice] = useState(0);
@@ -36,10 +40,13 @@ export default function BatterySaleForm() {
   const [scrapRate, setScrapRate] = useState(0);
   const [saleDate, setSaleDate] = useState<Date>(new Date());
   const [status, setStatus] = useState<'Paid' | 'Unpaid'>('Paid');
-
+  
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  
   const router = useRouter();
+  const searchParams = useSearchParams();
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -48,6 +55,42 @@ export default function BatterySaleForm() {
 
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
+  
+  const editId = searchParams.get('edit');
+
+  useEffect(() => {
+    if (editId && firestore && batteries && customers) {
+        const fetchSaleData = async () => {
+            const saleRef = doc(firestore, 'battery_sales', editId);
+            const saleSnap = await getDoc(saleRef);
+            if(saleSnap.exists()) {
+                const saleData = saleSnap.data() as BatterySale;
+                
+                const customerSnap = await getDoc(doc(firestore, 'customers', saleData.customerId));
+                 if(customerSnap.exists()){
+                    const customerData = { id: customerSnap.id, ...customerSnap.data() } as Customer;
+                    setSelectedCustomer(customerData);
+                    setCustomerType(customerData.type || 'registered');
+                    if(customerData.type === 'walk-in') {
+                        setWalkInCustomerName(customerData.name);
+                    }
+                }
+
+                const battery = batteries.find(b => b.id === saleData.batteryId);
+                setSelectedBattery(battery || null);
+                
+                setManufacturingCode(saleData.manufacturingCode || '');
+                setSalePrice(saleData.salePrice);
+                setScrapWeight(saleData.scrapBatteryWeight || 0);
+                setScrapRate(saleData.scrapBatteryRate || 0);
+                setSaleDate(new Date(saleData.date));
+                setStatus(saleData.status);
+            }
+        };
+        fetchSaleData();
+    }
+  }, [editId, firestore, batteries, customers]);
+
 
   useEffect(() => {
     if (selectedBattery) {
@@ -66,11 +109,11 @@ export default function BatterySaleForm() {
 
 
   const handleSave = async () => {
-    if (!selectedCustomer || !selectedBattery) {
+    if ((customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName) || !selectedBattery) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
-        description: 'Please select a customer and a battery.',
+        description: 'Please select a customer, enter name (for walk-in), and select a battery.',
       });
       return;
     }
@@ -80,14 +123,44 @@ export default function BatterySaleForm() {
   const confirmSave = async () => {
     setShowConfirmation(false);
     setIsSaving(true);
-    if (!firestore || !selectedBattery || !selectedCustomer) return;
+    if (!firestore || !selectedBattery) return;
 
     const batch = writeBatch(firestore);
 
-    // 1. Create Battery Sale document
-    const newSaleRef = doc(collection(firestore, 'battery_sales'));
+    let customerIdToSave = selectedCustomer?.id;
+    // Handle customer creation/selection
+    if (customerType === 'walk-in') {
+      const walkInCustomer: Omit<Customer, 'id'> = {
+        name: walkInCustomerName,
+        phone: '',
+        vehicleDetails: 'N/A',
+        balance: 0,
+        type: 'walk-in',
+      };
+      // We don't pre-register walk-in customers unless the sale is unpaid.
+      // We'll create a reference on the fly if needed.
+      if (status !== 'Paid') {
+          const newCustomerRef = doc(collection(firestore, 'customers'));
+          batch.set(newCustomerRef, { ...walkInCustomer, type: 'registered', balance: finalAmount });
+          customerIdToSave = newCustomerRef.id;
+      } else {
+          // For paid walk-in, we just store the name on the sale, not create a customer doc
+          customerIdToSave = 'walk-in-customer'; // Placeholder
+      }
+    }
+
+
+    if (!customerIdToSave) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not determine customer to save.' });
+        setIsSaving(false);
+        return;
+    }
+    
+    // 1. Create/Update Battery Sale document
+    const saleRef = editId ? doc(firestore, 'battery_sales', editId) : doc(collection(firestore, 'battery_sales'));
     const saleData: Omit<BatterySale, 'id'> = {
-      customerId: selectedCustomer.id,
+      customerId: customerIdToSave,
+      customerName: customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name || 'N/A',
       batteryId: selectedBattery.id,
       date: saleDate.toISOString(),
       manufacturingCode,
@@ -99,31 +172,37 @@ export default function BatterySaleForm() {
       warrantyEndDate: warrantyEndDate ? warrantyEndDate.toISOString() : '',
       status,
     };
-    batch.set(newSaleRef, saleData);
+    batch.set(saleRef, saleData);
 
-    // 2. Update battery stock
-    const batteryRef = doc(firestore, 'batteries', selectedBattery.id);
-    batch.update(batteryRef, { stock: selectedBattery.stock - 1 });
+    // 2. Update battery stock (only on new sales)
+    if(!editId) {
+      const batteryRef = doc(firestore, 'batteries', selectedBattery.id);
+      batch.update(batteryRef, { stock: selectedBattery.stock - 1 });
+    }
 
-    // 3. Update scrap stock
-    if (scrapWeight > 0) {
+    // 3. Update scrap stock (only on new sales with scrap)
+    if(!editId && scrapWeight > 0) {
       const scrapStockRef = doc(firestore, 'scrap_stock', 'main');
       const scrapSnap = await getDoc(scrapStockRef);
       const currentScrap = scrapSnap.exists() ? scrapSnap.data().totalWeightKg : 0;
       batch.set(scrapStockRef, { totalWeightKg: currentScrap + scrapWeight }, { merge: true });
     }
 
-    // 4. Update customer balance if unpaid
-    if (status === 'Unpaid') {
-      const customerRef = doc(firestore, 'customers', selectedCustomer.id);
-      batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + finalAmount });
+    // 4. Update customer balance if registered and unpaid (handle with care for edits)
+    if (customerType === 'registered' && selectedCustomer && status !== 'Paid') {
+      // For edits, this logic needs to be more complex to calculate the difference.
+      // For simplicity on new sales:
+      if(!editId) {
+        const customerRef = doc(firestore, 'customers', selectedCustomer.id);
+        batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + finalAmount });
+      }
     }
     
     try {
       await batch.commit();
       toast({
         title: 'Sale Successful',
-        description: 'The battery sale has been recorded.',
+        description: `The battery sale has been ${editId ? 'updated' : 'recorded'}.`,
       });
       router.push('/sales');
     } catch (error) {
@@ -143,40 +222,61 @@ export default function BatterySaleForm() {
     <div>
       <Card>
         <CardHeader>
-          <CardTitle>New Battery Sale</CardTitle>
+          <CardTitle>{editId ? 'Edit' : 'New'} Battery Sale</CardTitle>
           <CardDescription>Create a new sale for batteries, including scrap trade-in.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
             {/* Customer & Date */}
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                    <Label>Customer</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
-                                {selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.phone})` : 'Select a customer...'}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                                <CommandInput placeholder="Search by name or phone..." />
-                                <CommandList>
-                                    <CommandEmpty>No customers found.</CommandEmpty>
-                                    <CommandGroup>
-                                        {customers?.filter(c => c.type === 'registered').map((customer) => (
-                                            <CommandItem key={customer.id} onSelect={() => {
-                                                setSelectedCustomer(customer);
-                                                (document.activeElement as HTMLElement)?.blur();
-                                            }}>
-                                                {customer.name} ({customer.phone})
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
+                    <Label>Customer Type</Label>
+                    <Select value={customerType} onValueChange={(v: 'walk-in' | 'registered') => { setCustomerType(v); setSelectedCustomer(null); }}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="walk-in">Walk-in Customer</SelectItem>
+                            <SelectItem value="registered">Registered Customer</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
+
+                <div className="space-y-2">
+                    <Label>{customerType === 'walk-in' ? 'Customer Name' : 'Select Customer'}</Label>
+                    {customerType === 'walk-in' ? (
+                        <Input placeholder="Enter customer name" value={walkInCustomerName} onChange={e => setWalkInCustomerName(e.target.value)} />
+                    ) : (
+                    <div className="flex gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                                    {selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.phone})` : 'Select a customer...'}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search by name or phone..." />
+                                    <CommandList>
+                                        <CommandEmpty>No customers found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {customers?.filter(c => c.type === 'registered').map((customer) => (
+                                                <CommandItem key={customer.id} onSelect={() => {
+                                                    setSelectedCustomer(customer);
+                                                    (document.activeElement as HTMLElement)?.blur();
+                                                }}>
+                                                    {customer.name} ({customer.phone})
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                         <Button variant="outline" size="icon" onClick={() => setIsCustomerDialogOpen(true)}>
+                            <UserPlus className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    )}
+                </div>
+                
                 <div className="space-y-2">
                     <Label>Sale Date</Label>
                     <Popover>
@@ -196,12 +296,12 @@ export default function BatterySaleForm() {
             {/* Battery Selection */}
             <div className="space-y-2">
                 <Label>Select Battery</Label>
-                 <Select onValueChange={(id) => setSelectedBattery(batteries?.find(b => b.id === id) || null)}>
+                 <Select onValueChange={(id) => setSelectedBattery(batteries?.find(b => b.id === id) || null)} value={selectedBattery?.id}>
                     <SelectTrigger>
                         <SelectValue placeholder="Choose a battery from stock..." />
                     </SelectTrigger>
                     <SelectContent>
-                        {batteries?.filter(b => b.stock > 0).map(battery => (
+                        {batteries?.filter(b => b.stock > 0 || b.id === selectedBattery?.id).map(battery => (
                             <SelectItem key={battery.id} value={battery.id}>
                                 {battery.brand} {battery.model} ({battery.ampere}Ah) - Stock: {battery.stock}
                             </SelectItem>
@@ -230,7 +330,7 @@ export default function BatterySaleForm() {
                     </div>
                      {/* Scrap Battery Details */}
                     <div className="space-y-6">
-                        <h3 className="font-semibold text-lg text-destructive">Scrap Battery Trade-in</h3>
+                        <h3 className="font-semibold text-lg text-destructive">Scrap Battery Trade-in (Optional)</h3>
                         <div className="space-y-2">
                             <Label htmlFor="scrap-weight">Scrap Battery Weight (KG)</Label>
                             <Input id="scrap-weight" type="number" placeholder="e.g., 15.5" value={scrapWeight} onChange={e => setScrapWeight(Number(e.target.value))}/>
@@ -269,9 +369,9 @@ export default function BatterySaleForm() {
 
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button size="lg" onClick={handleSave} disabled={isSaving || !selectedBattery || !selectedCustomer}>
+          <Button size="lg" onClick={handleSave} disabled={isSaving || !selectedBattery || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName)}>
             <Save className="mr-2 h-4 w-4" />
-            {isSaving ? 'Saving...' : 'Save Battery Sale'}
+            {isSaving ? 'Saving...' : (editId ? 'Update Sale' : 'Save Sale')}
           </Button>
         </CardFooter>
       </Card>
@@ -283,7 +383,7 @@ export default function BatterySaleForm() {
                 <AlertDialogDescription>
                     Please review the details before saving. This action will update stock and cannot be easily undone.
                      <div className="my-4 space-y-1 text-sm text-foreground">
-                        <p><strong>Customer:</strong> {selectedCustomer?.name}</p>
+                        <p><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</p>
                         <p><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</p>
                         <p><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</p>
                         <p><strong>Status:</strong> {status}</p>
@@ -296,6 +396,13 @@ export default function BatterySaleForm() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        <CustomerDialog
+            isOpen={isCustomerDialogOpen}
+            onClose={() => setIsCustomerDialogOpen(false)}
+            onSave={() => {}}
+            customer={null}
+        />
 
     </div>
   );

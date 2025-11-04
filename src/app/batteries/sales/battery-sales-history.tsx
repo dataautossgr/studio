@@ -23,24 +23,32 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, getDoc, doc, type DocumentReference } from 'firebase/firestore';
 import type { Battery } from '@/lib/data';
+import type { DateRange } from 'react-day-picker';
+
 
 interface EnrichedBatterySale extends Omit<BatterySale, 'customerId' | 'batteryId'> {
     customerName: string;
     batteryInfo: string;
 }
 
-export default function BatterySalesHistory() {
+interface BatterySalesHistoryProps {
+  dateRange: DateRange | undefined;
+}
+
+
+export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryProps) {
   const firestore = useFirestore();
   const salesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'battery_sales') : null, [firestore]);
   const { data: allSales, isLoading } = useCollection<BatterySale>(salesCollection);
   
   const [enrichedSales, setEnrichedSales] = useState<EnrichedBatterySale[]>([]);
+  const [filteredSales, setFilteredSales] = useState<EnrichedBatterySale[]>([]);
   
   useEffect(() => {
     if (!allSales || !firestore) return;
@@ -86,6 +94,20 @@ export default function BatterySalesHistory() {
     enrichSalesData();
 }, [allSales, firestore]);
 
+  useEffect(() => {
+    if (dateRange?.from) {
+      const from = startOfDay(dateRange.from);
+      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      const filtered = enrichedSales.filter((sale) => {
+        const saleDate = new Date(sale.date);
+        return saleDate >= from && saleDate <= to;
+      });
+      setFilteredSales(filtered);
+    } else {
+      setFilteredSales(enrichedSales);
+    }
+  }, [dateRange, enrichedSales]);
+
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
     switch (status) {
         case 'Paid':
@@ -120,7 +142,7 @@ export default function BatterySalesHistory() {
                   <TableCell colSpan={7} className="text-center">Loading battery sales...</TableCell>
               </TableRow>
             )}
-            {enrichedSales.map((sale) => (
+            {filteredSales.map((sale) => (
               <TableRow key={sale.id}>
                 <TableCell>
                   {format(new Date(sale.date), 'dd MMM, yyyy')}

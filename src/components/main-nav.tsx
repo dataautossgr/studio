@@ -22,7 +22,6 @@ import {
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 
@@ -66,7 +65,7 @@ export function MainNav() {
         ))}
          <SidebarMenuItem>
             <Collapsible>
-                <CollapsibleTrigger className="w-full">
+                <CollapsibleTrigger asChild className="w-full">
                     <SidebarMenuButton
                         className="w-full"
                         isActive={pathname.startsWith('/batteries')}
@@ -80,7 +79,7 @@ export function MainNav() {
                     <SidebarMenuSub>
                         <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/batteries/sales')}>
-                                <Link href="/batteries/sales">Battery Sales</Link>
+                                <Link href="/sales">Battery Sales</Link>
                             </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>

@@ -34,11 +34,6 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
   const { data: customers } = useCollection<Customer>(customersCollection);
   const { data: dealers } = useCollection<Dealer>(dealersCollection);
   
-  const runCommand = (command: () => unknown) => {
-    onOpenChange(false);
-    command();
-  };
-
   return (
       <CommandDialog open={open} onOpenChange={onOpenChange}>
         <CommandInput placeholder="Search for products, batteries, customers, dealers..." />
@@ -51,7 +46,7 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                 <CommandItem
                   key={`prod-${product.id}`}
                   value={`product-${product.name}-${product.brand}`}
-                  onSelect={() => runCommand(() => router.push('/inventory?tab=automotive'))}
+                  onSelect={() => { onOpenChange(false); router.push('/inventory?tab=automotive'); }}
                 >
                   <File className="mr-2 h-4 w-4" />
                   <span>{product.name} ({product.brand})</span>
@@ -62,7 +57,7 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                 <CommandItem
                   key={`batt-${battery.id}`}
                   value={`battery-${battery.brand}-${battery.model}`}
-                  onSelect={() => runCommand(() => router.push('/inventory?tab=batteries'))}
+                  onSelect={() => { onOpenChange(false); router.push('/inventory?tab=batteries'); }}
                 >
                   <BatteryIcon className="mr-2 h-4 w-4" />
                   <span>{battery.brand} {battery.model} ({battery.ampere}Ah)</span>
@@ -78,7 +73,7 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                 <CommandItem
                   key={customer.id}
                   value={`customer-${customer.name}-${customer.phone}`}
-                  onSelect={() => runCommand(() => router.push(`/customers/${customer.id}`))}
+                  onSelect={() => { onOpenChange(false); router.push(`/customers/${customer.id}`); }}
                 >
                   <User className="mr-2 h-4 w-4" />
                   <span>{customer.name} ({customer.type})</span>
@@ -93,7 +88,7 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                     <CommandItem
                     key={dealer.id}
                     value={`dealer-${dealer.company}-${dealer.name}`}
-                    onSelect={() => runCommand(() => router.push(`/dealers/${dealer.id}`))}
+                    onSelect={() => { onOpenChange(false); router.push(`/dealers/${dealer.id}`); }}
                     >
                     <Building className="mr-2 h-4 w-4" />
                     <span>{dealer.company} ({dealer.type})</span>

@@ -26,6 +26,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import type { Expense } from '@/app/expenses/page';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 export default function DashboardPage() {
@@ -44,8 +45,8 @@ export default function DashboardPage() {
   const expensesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'expenses'), where('date', '>=', todayStart.toISOString())) : null, [firestore, todayStart]);
 
 
-  const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
-  const { data: batterySales, isLoading: batterySalesLoading } = useCollection<BatterySale>(batterySalesCollection);
+  const { data: salesData, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
+  const { data: batterySalesData, isLoading: batterySalesLoading } = useCollection<BatterySale>(batterySalesCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
@@ -66,29 +67,35 @@ export default function DashboardPage() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const { lowStockCount, automotivePendingPayments, batteryPendingPayments, todaysRevenue, todaysCashIn, isAcidLow, recentSales, automotiveDuesCount, batteryDuesCount } = useMemo(() => {
-    const todayStart = startOfToday();
-    const todaysAutomotiveSales = sales?.filter(s => new Date(s.date) >= todayStart) || [];
-    const todaysBatterySales = batterySales?.filter(s => new Date(s.date) >= todayStart) || [];
+  const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading || paymentsLoading || expensesLoading;
+
+  const dashboardStats = useMemo(() => {
+    if (isLoading || !salesData || !batterySalesData || !products || !customers || !batteries) {
+        return {
+            lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0,
+            todaysRevenue: 0, todaysCashIn: 0, isAcidLow: false, recentSales: [],
+            automotiveDuesCount: 0, batteryDuesCount: 0
+        };
+    }
   
-    // Calculate low stock items
-    const lowStockProducts = products?.filter(p => p.stock <= p.lowStockThreshold).length || 0;
-    const lowStockBatteries = batteries?.filter(b => b.stock <= b.lowStockThreshold).length || 0;
+    const todayStart = startOfToday();
+    const todaysAutomotiveSales = salesData.filter(s => new Date(s.date) >= todayStart);
+    const todaysBatterySales = batterySalesData.filter(s => new Date(s.date) >= todayStart);
+  
+    const lowStockProducts = products.filter(p => p.stock <= p.lowStockThreshold).length;
+    const lowStockBatteries = batteries.filter(b => b.stock <= b.lowStockThreshold).length;
     const lowStockCount = lowStockProducts + lowStockBatteries;
     const isAcidLow = acidStock ? acidStock.totalQuantityKg <= acidStock.lowStockThreshold : false;
   
-    // Calculate pending payments from customers
-    const automotiveCustomersWithDues = customers?.filter(c => c.type === 'automotive' && c.balance > 0) || [];
-    const batteryCustomersWithDues = customers?.filter(c => c.type === 'battery' && c.balance > 0) || [];
+    const automotiveCustomersWithDues = customers.filter(c => c.type === 'automotive' && c.balance > 0);
+    const batteryCustomersWithDues = customers.filter(c => c.type === 'battery' && c.balance > 0);
     const automotivePendingPayments = automotiveCustomersWithDues.reduce((acc, c) => acc + c.balance, 0);
     const batteryPendingPayments = batteryCustomersWithDues.reduce((acc, c) => acc + c.balance, 0);
 
-    // Calculate today's revenue
     const automotiveRevenue = todaysAutomotiveSales.reduce((acc, sale) => acc + sale.total, 0);
     const batteryRevenue = todaysBatterySales.reduce((acc, sale) => acc + sale.total, 0);
     const todaysRevenue = automotiveRevenue + batteryRevenue;
   
-    // Calculate today's net cash
     const getCashFromSale = (sale: Sale | BatterySale) => {
         if (sale.paymentMethod !== 'cash') return 0;
         if (sale.status === 'Paid') return sale.total;
@@ -101,8 +108,7 @@ export default function DashboardPage() {
     const cashFromExpenses = todayExpenses?.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0) || 0;
     const todaysCashIn = cashFromAutomotiveSales + cashFromBatterySales + cashFromDues - cashFromExpenses;
   
-    // Get recent sales
-    const allRecentSales = [...(sales || []), ...(batterySales || [])]
+    const allRecentSales = [...salesData, ...batterySalesData]
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
   
@@ -117,9 +123,9 @@ export default function DashboardPage() {
       automotiveDuesCount: automotiveCustomersWithDues.length,
       batteryDuesCount: batteryCustomersWithDues.length
     };
-  }, [sales, batterySales, products, customers, batteries, acidStock, todayPayments, todayExpenses]);
-  
-  const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading || paymentsLoading || expensesLoading;
+  }, [isLoading, salesData, batterySalesData, products, customers, batteries, acidStock, todayPayments, todayExpenses]);
+
+  const { todaysRevenue, todaysCashIn, lowStockCount, isAcidLow, automotivePendingPayments, batteryPendingPayments, automotiveDuesCount, batteryDuesCount, recentSales } = dashboardStats;
 
   const reportCards = [
     {
@@ -201,11 +207,11 @@ export default function DashboardPage() {
         {isLoading ? Array.from({length: 5}).map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="h-4 w-2/3 bg-muted rounded-md animate-pulse" />
+              <Skeleton className="h-4 w-2/3" />
             </CardHeader>
             <CardContent>
-              <div className="h-8 w-1/2 bg-muted rounded-md animate-pulse mb-2" />
-              <div className="h-3 w-full bg-muted rounded-md animate-pulse" />
+              <Skeleton className="h-8 w-1/2 mb-2" />
+              <Skeleton className="h-3 w-full" />
             </CardContent>
           </Card>
         )) : reportCards.map((card, i) => (

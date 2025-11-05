@@ -33,9 +33,9 @@ export function Header() {
   };
   
   const getPageTitle = () => {
-    if (pathname === '/') return 'Dashboard';
+    if (pathname === '/') return ''; // Return empty string for the dashboard
     const segment = pathname.split('/')[1];
-    if (!segment) return 'Dashboard';
+    if (!segment) return ''; // Default to empty
     // Capitalize first letter and handle hyphenated names
     return segment.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };

@@ -70,6 +70,7 @@ export default function DashboardPage() {
   const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading || paymentsLoading || expensesLoading;
   
   const dashboardStats = useMemo(() => {
+    // This guard clause is crucial. It ensures calculations only run when all data is available.
     if (!salesData || !batterySalesData || !products || !customers || !batteries || !todayPayments || !todayExpenses) {
         return {
             lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0,
@@ -260,17 +261,20 @@ export default function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                    <TableRow>
-                        <TableCell colSpan={2} className="text-center">Loading...</TableCell>
-                    </TableRow>
+                    Array.from({length: 5}).map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
+                        </TableRow>
+                    ))
                 ) : (
                     recentSales?.map((sale) => (
                         <TableRow key={sale.id}>
                             <TableCell>
                             <div className="font-medium">{
-                                sale.customer instanceof DocumentReference
-                                  ? customers?.find(c => c.id === (sale.customer as DocumentReference).id)?.name || 'Walk-in Customer'
-                                  : 'Walk-in Customer' // Fallback for old string-based customer names in battery sales
+                                sale.customer instanceof DocumentReference && customers
+                                  ? customers.find(c => c.id === (sale.customer as DocumentReference).id)?.name || 'Walk-in Customer'
+                                  : typeof sale.customer === 'string' ? sale.customer : 'Walk-in Customer'
                               }</div>
                             <div className="text-sm text-muted-foreground hidden sm:inline">
                                 {format(new Date(sale.date), 'dd MMM, yyyy')}
@@ -290,5 +294,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

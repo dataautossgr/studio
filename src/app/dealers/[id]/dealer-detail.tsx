@@ -40,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, runTransaction, DocumentReference } from 'firebase/firestore';
 
 
@@ -55,7 +55,13 @@ export interface Transaction {
     paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
 }
 
-export default function DealerLedgerDetail() {
+interface DealerLedgerDetailProps {
+    dealerPurchases: Purchase[] | null;
+    dealerPayments: Payment[] | null;
+    isLoading: boolean;
+}
+
+export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, isLoading }: DealerLedgerDetailProps) {
     const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
@@ -70,20 +76,6 @@ export default function DealerLedgerDetail() {
     
     const dealerRef = useMemoFirebase(() => dealerId && firestore ? doc(firestore, 'dealers', dealerId) : null, [firestore, dealerId]);
     const { data: dealer, isLoading: isDealerLoading } = useDoc<Dealer>(dealerRef);
-
-    const purchasesQuery = useMemoFirebase(() => {
-      if (!firestore || !dealerId) return null;
-      return query(collection(firestore, 'purchases'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
-    }, [firestore, dealerId]);
-    const { data: dealerPurchases, isLoading: arePurchasesLoading } = useCollection<Purchase>(purchasesQuery);
-    
-    // Assuming payments to dealers are stored in a 'dealer_payments' collection
-    const paymentsQuery = useMemoFirebase(() => {
-      if (!firestore || !dealerId) return null;
-      return query(collection(firestore, 'dealer_payments'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
-    }, [firestore, dealerId]);
-    const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<any>(paymentsQuery);
-
 
     useEffect(() => {
       if (dealerPurchases && dealerPayments && dealer) {
@@ -222,7 +214,7 @@ export default function DealerLedgerDetail() {
         return 'default';
     }
 
-    if (isDealerLoading || arePurchasesLoading || arePaymentsLoading) {
+    if (isDealerLoading || isLoading) {
         return <div className="p-8">Loading dealer information...</div>;
     }
     

@@ -1,12 +1,34 @@
 
-import DealerLedgerDetail from './dealer-detail';
+'use client';
 
-export async function generateStaticParams() {
-  // Returning an empty array tells Next.js not to generate any pages at build time.
-  // The pages will be generated on-demand at request time.
-  return [];
-}
+import { useMemo } from 'react';
+import { useParams } from 'next/navigation';
+import DealerLedgerDetail from './dealer-detail';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
+import type { Purchase, Payment } from '@/lib/data';
 
 export default function DealerLedgerPage() {
-    return <DealerLedgerDetail />;
+    const params = useParams();
+    const firestore = useFirestore();
+    const dealerId = params.id as string;
+
+    const purchasesQuery = useMemoFirebase(() => {
+      if (!firestore || !dealerId) return null;
+      return query(collection(firestore, 'purchases'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
+    }, [firestore, dealerId]);
+
+    const paymentsQuery = useMemoFirebase(() => {
+      if (!firestore || !dealerId) return null;
+      return query(collection(firestore, 'dealer_payments'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
+    }, [firestore, dealerId]);
+
+    const { data: dealerPurchases, isLoading: arePurchasesLoading } = useCollection<Purchase>(purchasesQuery);
+    const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
+
+    return <DealerLedgerDetail 
+        dealerPurchases={dealerPurchases} 
+        dealerPayments={dealerPayments}
+        isLoading={arePurchasesLoading || arePaymentsLoading} 
+    />;
 }

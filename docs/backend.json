@@ -514,6 +514,33 @@
         "totalValue": { "type": "number" }
       },
       "required": ["id", "date", "weightKg", "ratePerKg", "totalValue"]
+    },
+    "AcidStock": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AcidStock",
+      "description": "Represents the total stock of acid.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Singleton document ID, e.g., 'main'" },
+        "totalQuantityKg": { "type": "number" },
+        "totalValue": { "type": "number" }
+      },
+      "required": ["id", "totalQuantityKg", "totalValue"]
+    },
+    "AcidPurchase": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AcidPurchase",
+      "description": "Represents a single purchase of acid.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "quantityKg": { "type": "number" },
+        "ratePerKg": { "type": "number" },
+        "totalValue": { "type": "number" },
+        "supplier": { "type": "string" }
+      },
+      "required": ["id", "date", "quantityKg", "ratePerKg", "totalValue"]
     }
   },
   "auth": {
@@ -770,6 +797,22 @@
           "entityName": "ScrapPurchase",
           "schema": { "$ref": "#/backend/entities/ScrapPurchase" },
           "description": "Stores individual scrap battery purchase transactions."
+        }
+      },
+      {
+        "path": "/acid_stock/{stockId}",
+        "definition": {
+          "entityName": "AcidStock",
+          "schema": { "$ref": "#/backend/entities/AcidStock" },
+          "description": "Stores the total quantity and value of acid stock."
+        }
+      },
+      {
+        "path": "/acid_purchases/{purchaseId}",
+        "definition": {
+          "entityName": "AcidPurchase",
+          "schema": { "$ref": "#/backend/entities/AcidPurchase" },
+          "description": "Stores individual acid purchase transactions."
         }
       }
     ],

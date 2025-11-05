@@ -158,6 +158,21 @@ export interface ScrapPurchase {
     totalValue: number;
 }
 
+export interface AcidStock {
+  id: string; // Singleton document ID, e.g., 'main'
+  totalQuantityKg: number;
+  totalValue: number;
+}
+
+export interface AcidPurchase {
+  id: string;
+  date: string;
+  quantityKg: number;
+  ratePerKg: number;
+  totalValue: number;
+  supplier?: string;
+}
+
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
   { name: 'Spark Plugs (4-pack)', category: 'Engine Parts', brand: 'NGK', model: 'BKR6E-11', costPrice: 800, salePrice: 1200, stock: 50, unit: 'piece', lowStockThreshold: 10, dealerId: 'DLR001', location: 'Shelf A-1' },

@@ -265,7 +265,25 @@ service cloud.firestore {
     match /scrap_purchases/{scrapPurchaseId} {
       allow get, list, create, update, delete: if true;
     }
+
+    /**
+     * @description Allows read and write access to acid stock.
+     * @path /acid_stock/{stockId}
+     * @allow (get, list, create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /acid_stock/{stockId} {
+      allow get, list, create, update, delete: if true;
+    }
+
+    /**
+     * @description Allows read and write access to acid purchases.
+     * @path /acid_purchases/{purchaseId}
+     * @allow (get, list, create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /acid_purchases/{purchaseId} {
+      allow get, list, create, update, delete: if true;
+    }
   }
 }
-
-    

@@ -64,5 +64,3 @@ export function MainNav() {
     </div>
   );
 }
-
-    

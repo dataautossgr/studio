@@ -37,8 +37,15 @@ export default function BatterySaleForm() {
   const [selectedBattery, setSelectedBattery] = useState<Battery | null>(null);
   const [manufacturingCode, setManufacturingCode] = useState('');
   const [salePrice, setSalePrice] = useState(0);
+  
+  // Scrap State
   const [scrapWeight, setScrapWeight] = useState(0);
   const [scrapRate, setScrapRate] = useState(0);
+  
+  // Acid Sale State
+  const [acidSaleQuantity, setAcidSaleQuantity] = useState(0);
+  const [acidSaleRate, setAcidSaleRate] = useState(0);
+
   const [saleDate, setSaleDate] = useState<Date>(new Date());
   const [status, setStatus] = useState<'Paid' | 'Unpaid'>('Paid');
   
@@ -89,6 +96,8 @@ export default function BatterySaleForm() {
                 setSalePrice(saleData.salePrice || 0);
                 setScrapWeight(saleData.scrapBatteryWeight || 0);
                 setScrapRate(saleData.scrapBatteryRate || 0);
+                setAcidSaleQuantity(saleData.acidSaleQuantityKg || 0);
+                setAcidSaleRate(saleData.acidSaleRatePerKg || 0);
                 setSaleDate(new Date(saleData.date));
                 setStatus(saleData.status);
                 if (saleData.chargingServiceAmount && saleData.chargingServiceAmount > 0) {
@@ -111,10 +120,12 @@ export default function BatterySaleForm() {
   }, [selectedBattery]);
   
   const scrapBatteryValue = useMemo(() => scrapWeight * scrapRate, [scrapWeight, scrapRate]);
+  const acidSaleValue = useMemo(() => acidSaleQuantity * acidSaleRate, [acidSaleQuantity, acidSaleRate]);
+
   const finalAmount = useMemo(() => {
-      const baseAmount = (salePrice || 0) - scrapBatteryValue;
+      const baseAmount = (salePrice || 0) - scrapBatteryValue + acidSaleValue;
       return addChargingService ? baseAmount + chargingServiceAmount : baseAmount;
-  }, [salePrice, scrapBatteryValue, addChargingService, chargingServiceAmount]);
+  }, [salePrice, scrapBatteryValue, acidSaleValue, addChargingService, chargingServiceAmount]);
 
   const warrantyEndDate = useMemo(() => {
     if (selectedBattery && selectedBattery.warrantyMonths > 0) {
@@ -133,11 +144,11 @@ export default function BatterySaleForm() {
       });
       return;
     }
-     if (!selectedBattery && !addChargingService) {
+     if (!selectedBattery && !addChargingService && acidSaleQuantity <= 0) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
-        description: 'You must either sell a battery or add a charging service.',
+        description: 'You must either sell a battery, sell acid, or add a charging service.',
       });
       return;
     }
@@ -189,6 +200,8 @@ export default function BatterySaleForm() {
       scrapBatteryWeight: scrapWeight,
       scrapBatteryRate: scrapRate,
       scrapBatteryValue: scrapBatteryValue,
+      acidSaleQuantityKg: acidSaleQuantity,
+      acidSaleRatePerKg: acidSaleRate,
       finalAmount,
       warrantyEndDate: warrantyEndDate ? warrantyEndDate.toISOString() : '',
       status,
@@ -213,8 +226,16 @@ export default function BatterySaleForm() {
         totalScrapValue: currentScrapValue + scrapBatteryValue,
       }, { merge: true });
     }
+    
+    // 4. Update Acid Stock on new sale
+    if (!editId && acidSaleQuantity > 0) {
+        const acidStockRef = doc(firestore, 'acid_stock', 'main');
+        const acidStockSnap = await getDoc(acidStockRef);
+        const currentAcidQty = acidStockSnap.exists() ? acidStockSnap.data().totalQuantityKg : 0;
+        batch.update(acidStockRef, { totalQuantityKg: currentAcidQty - acidSaleQuantity });
+    }
 
-    // 4. Update customer balance if registered and unpaid (handle with care for edits)
+    // 5. Update customer balance if registered and unpaid (handle with care for edits)
     if (customerType === 'registered' && selectedCustomer && status !== 'Paid') {
       if(!editId) {
         const customerRef = doc(firestore, 'customers', selectedCustomer.id);
@@ -247,7 +268,7 @@ export default function BatterySaleForm() {
       <Card>
         <CardHeader>
           <CardTitle>{editId ? 'Edit' : 'New'} Battery Transaction</CardTitle>
-          <CardDescription>Create a new sale for batteries, including scrap trade-in and services.</CardDescription>
+          <CardDescription>Create a new sale for batteries, including scrap trade-in, acid, and services.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
             {/* Customer & Date */}
@@ -334,7 +355,7 @@ export default function BatterySaleForm() {
                         <SelectValue placeholder="Choose a battery from stock..." />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="__none__">No Battery (Service Only)</SelectItem>
+                        <SelectItem value="__none__">No Battery (Service/Acid Only)</SelectItem>
                         {batteries?.filter(b => b.stock > 0 || b.id === selectedBattery?.id).map(battery => (
                             <SelectItem key={battery.id} value={battery.id}>
                                 {battery.brand} {battery.model} ({battery.ampere}Ah) - Stock: {battery.stock}
@@ -346,7 +367,7 @@ export default function BatterySaleForm() {
             
              {/* Additional Services */}
             <div className="space-y-4 pt-4 border-t">
-                <h3 className="font-semibold text-lg text-primary">Additional Services</h3>
+                <h3 className="font-semibold text-lg text-primary">Additional Services & Items</h3>
                 <div className="flex items-center space-x-2">
                     <Checkbox id="charging-service" checked={addChargingService} onCheckedChange={(checked) => setAddChargingService(checked as boolean)} />
                     <Label htmlFor="charging-service" className="cursor-pointer">Add Battery Charging Service</Label>
@@ -362,43 +383,58 @@ export default function BatterySaleForm() {
             </div>
 
             {/* Transaction Details */}
-            {(selectedBattery || scrapWeight > 0) && (
-                <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
-                    {/* New Battery Details */}
-                    {selectedBattery && (
-                        <div className="space-y-6">
-                            <h3 className="font-semibold text-lg text-primary">New Battery Details</h3>
-                            <div className="space-y-2">
-                                <Label htmlFor="manufacturing-code">Manufacturing Code</Label>
-                                <Input id="manufacturing-code" placeholder="Enter unique battery code" value={manufacturingCode} onChange={e => setManufacturingCode(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="sale-price">Sale Price (Rs.)</Label>
-                                <Input id="sale-price" type="number" value={salePrice} onChange={e => setSalePrice(Number(e.target.value))} />
-                            </div>
-                            <div className="p-3 bg-muted rounded-md text-sm">
-                                <p><strong>Warranty:</strong> {selectedBattery.warrantyMonths} months</p>
-                                {warrantyEndDate && <p><strong>Warranty Ends On:</strong> {format(warrantyEndDate, 'dd MMMM, yyyy')}</p>}
-                            </div>
-                        </div>
-                    )}
-                    {/* Scrap Battery Details */}
+            <div className="grid md:grid-cols-2 gap-x-6 gap-y-8 pt-4 border-t">
+                {/* New Battery Details */}
+                {selectedBattery && (
                     <div className="space-y-6">
-                        <h3 className="font-semibold text-lg text-destructive">Scrap Battery Trade-in (Optional)</h3>
+                        <h3 className="font-semibold text-lg text-primary">New Battery Details</h3>
                         <div className="space-y-2">
-                            <Label htmlFor="scrap-weight">Scrap Battery Weight (KG)</Label>
-                            <Input id="scrap-weight" type="number" placeholder="e.g., 15.5" value={scrapWeight} onChange={e => setScrapWeight(Number(e.target.value))}/>
+                            <Label htmlFor="manufacturing-code">Manufacturing Code</Label>
+                            <Input id="manufacturing-code" placeholder="Enter unique battery code" value={manufacturingCode} onChange={e => setManufacturingCode(e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="scrap-rate">Scrap Rate (Rs. per KG)</Label>
-                            <Input id="scrap-rate" type="number" placeholder="e.g., 250" value={scrapRate} onChange={e => setScrapRate(Number(e.target.value))}/>
+                            <Label htmlFor="sale-price">Sale Price (Rs.)</Label>
+                            <Input id="sale-price" type="number" value={salePrice} onChange={e => setSalePrice(Number(e.target.value))} />
                         </div>
                         <div className="p-3 bg-muted rounded-md text-sm">
-                            <p className="font-semibold">Calculated Scrap Value: <span className="font-mono">Rs. {scrapBatteryValue.toLocaleString()}</span></p>
+                            <p><strong>Warranty:</strong> {selectedBattery.warrantyMonths} months</p>
+                            {warrantyEndDate && <p><strong>Warranty Ends On:</strong> {format(warrantyEndDate, 'dd MMMM, yyyy')}</p>}
                         </div>
                     </div>
+                )}
+
+                {/* Acid Sale Details */}
+                <div className="space-y-6">
+                    <h3 className="font-semibold text-lg text-green-600">Acid Sale (Optional)</h3>
+                     <div className="space-y-2">
+                        <Label htmlFor="acid-qty">Acid Quantity (KG)</Label>
+                        <Input id="acid-qty" type="number" placeholder="e.g., 2.5" value={acidSaleQuantity} onChange={e => setAcidSaleQuantity(Number(e.target.value))}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="acid-rate">Acid Rate (Rs. per KG)</Label>
+                        <Input id="acid-rate" type="number" placeholder="e.g., 120" value={acidSaleRate} onChange={e => setAcidSaleRate(Number(e.target.value))}/>
+                    </div>
+                    <div className="p-3 bg-muted rounded-md text-sm">
+                        <p className="font-semibold">Calculated Acid Value: <span className="font-mono">Rs. {acidSaleValue.toLocaleString()}</span></p>
+                    </div>
                 </div>
-            )}
+
+                {/* Scrap Battery Details */}
+                <div className="space-y-6">
+                    <h3 className="font-semibold text-lg text-destructive">Scrap Battery Trade-in (Optional)</h3>
+                    <div className="space-y-2">
+                        <Label htmlFor="scrap-weight">Scrap Battery Weight (KG)</Label>
+                        <Input id="scrap-weight" type="number" placeholder="e.g., 15.5" value={scrapWeight} onChange={e => setScrapWeight(Number(e.target.value))}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="scrap-rate">Scrap Rate (Rs. per KG)</Label>
+                        <Input id="scrap-rate" type="number" placeholder="e.g., 250" value={scrapRate} onChange={e => setScrapRate(Number(e.target.value))}/>
+                    </div>
+                    <div className="p-3 bg-muted rounded-md text-sm">
+                        <p className="font-semibold">Calculated Scrap Value: <span className="font-mono">Rs. {scrapBatteryValue.toLocaleString()}</span></p>
+                    </div>
+                </div>
+            </div>
            
 
             {/* Final Calculation */}
@@ -417,15 +453,16 @@ export default function BatterySaleForm() {
                 </div>
                  <div className="flex flex-col items-end space-y-2">
                     {selectedBattery && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Sale Price:</span><span className="font-mono">Rs. {(salePrice || 0).toLocaleString()}</span></div>}
-                    {scrapWeight > 0 && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Scrap Deduction:</span><span className="font-mono">- Rs. {scrapBatteryValue.toLocaleString()}</span></div>}
+                    {acidSaleQuantity > 0 && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Acid Sale:</span><span className="font-mono">+ Rs. {acidSaleValue.toLocaleString()}</span></div>}
                     {addChargingService && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Charging Service:</span><span className="font-mono">+ Rs. {chargingServiceAmount.toLocaleString()}</span></div>}
+                    {scrapWeight > 0 && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Scrap Deduction:</span><span className="font-mono">- Rs. {scrapBatteryValue.toLocaleString()}</span></div>}
                     <div className="flex justify-between w-full max-w-xs text-xl font-bold border-t pt-2 mt-2"><span>Final Amount:</span><span className="font-mono">Rs. {finalAmount.toLocaleString()}</span></div>
                 </div>
             </div>
 
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button size="lg" onClick={handleSave} disabled={isSaving || (!selectedBattery && !addChargingService) || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName)}>
+          <Button size="lg" onClick={handleSave} disabled={isSaving || (!selectedBattery && !addChargingService && acidSaleQuantity <= 0) || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName)}>
             <Save className="mr-2 h-4 w-4" />
             {isSaving ? 'Saving...' : (editId ? 'Update Transaction' : 'Save Transaction')}
           </Button>
@@ -444,6 +481,7 @@ export default function BatterySaleForm() {
                     <div><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</div>
                     {selectedBattery && <div><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</div>}
                     {addChargingService && <div><strong>Charging Service:</strong> Rs. {chargingServiceAmount.toLocaleString()}</div>}
+                    {acidSaleQuantity > 0 && <div><strong>Acid Sale:</strong> {acidSaleQuantity} KG for Rs. {acidSaleValue.toLocaleString()}</div>}
                     <div><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</div>
                     <div><strong>Status:</strong> {status}</div>
                 </div>

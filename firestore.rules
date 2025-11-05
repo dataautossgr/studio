@@ -285,5 +285,15 @@ service cloud.firestore {
     match /acid_purchases/{purchaseId} {
       allow get, list, create, update, delete: if true;
     }
+    
+    /**
+     * @description Allows read and write access to acid consumption.
+     * @path /acid_consumption/{consumptionId}
+     * @allow (get, list, create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /acid_consumption/{consumptionId} {
+      allow get, list, create, update, delete: if true;
+    }
   }
 }

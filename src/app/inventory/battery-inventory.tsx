@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter
 } from '@/components/ui/card';
 import {
   Table,
@@ -27,6 +28,7 @@ import {
   Archive,
   BatteryCharging,
   Droplets,
+  MinusCircle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -54,6 +56,8 @@ import type { BatteryFormData } from './battery-dialog';
 import { ScrapPurchaseDialog, type ScrapPurchaseFormData } from './scrap-purchase-dialog';
 import { AcidPurchaseDialog, type AcidPurchaseFormData } from './acid-purchase-dialog';
 import { format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 
 export default function BatteryInventory() {
@@ -71,6 +75,9 @@ export default function BatteryInventory() {
   const [isBatteryDialogOpen, setIsBatteryDialogOpen] = useState(false);
   const [isScrapDialogOpen, setIsScrapDialogOpen] = useState(false);
   const [isAcidDialogOpen, setIsAcidDialogOpen] = useState(false);
+  
+  const [acidConsumption, setAcidConsumption] = useState(0);
+  const [consumptionNotes, setConsumptionNotes] = useState('');
 
   const [selectedBattery, setSelectedBattery] = useState<Battery | null>(null);
   const [batteryToDelete, setBatteryToDelete] = useState<Battery | null>(null);
@@ -213,6 +220,42 @@ export default function BatteryInventory() {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the purchase record.' });
     }
   };
+  
+  const handleRecordConsumption = async () => {
+    if (!firestore || !acidStockRef || acidConsumption <= 0) {
+        toast({ variant: 'destructive', title: 'Invalid Quantity', description: 'Please enter a valid quantity to consume.' });
+        return;
+    }
+    
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const stockDoc = await transaction.get(acidStockRef);
+            const currentQuantity = stockDoc.exists() ? stockDoc.data().totalQuantityKg : 0;
+            
+            if (acidConsumption > currentQuantity) {
+                throw new Error("Consumption quantity cannot be greater than available stock.");
+            }
+
+            const newConsumptionRef = doc(collection(firestore, 'acid_consumption'));
+            transaction.set(newConsumptionRef, {
+                date: new Date().toISOString(),
+                quantityKg: acidConsumption,
+                notes: consumptionNotes,
+            });
+
+            transaction.update(acidStockRef, {
+                totalQuantityKg: currentQuantity - acidConsumption
+            });
+        });
+        
+        toast({ title: 'Consumption Recorded', description: `${acidConsumption} KG of acid has been deducted from stock.` });
+        setAcidConsumption(0);
+        setConsumptionNotes('');
+    } catch (e: any) {
+        console.error("Acid consumption transaction failed: ", e);
+        toast({ variant: 'destructive', title: "Error", description: e.message || "Failed to record acid consumption." });
+    }
+  };
 
   const isLoading = isLoadingBatteries || isLoadingScrap || isLoadingAcidStock || isLoadingAcidPurchases;
 
@@ -323,69 +366,104 @@ export default function BatteryInventory() {
         </CardContent>
       </Card>
       
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Acid Purchase History</CardTitle>
-            <CardDescription>Manage your acid stock and purchase records.</CardDescription>
-          </div>
-          <Button onClick={() => setIsAcidDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Acid Purchase
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Quantity (KG)</TableHead>
-                <TableHead>Rate (per KG)</TableHead>
-                <TableHead className="text-right">Total Value</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoadingAcidPurchases && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center">Loading purchase history...</TableCell>
-                </TableRow>
-              )}
-              {acidPurchases?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((purchase) => (
-                <TableRow key={purchase.id}>
-                  <TableCell>{format(new Date(purchase.date), 'dd MMM, yyyy')}</TableCell>
-                  <TableCell className="font-medium">{purchase.supplier || 'N/A'}</TableCell>
-                  <TableCell>{purchase.quantityKg} KG</TableCell>
-                  <TableCell className="font-mono">Rs. {purchase.ratePerKg.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono">Rs. {purchase.totalValue.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                          onSelect={() => setAcidPurchaseToDelete(purchase)}
-                          className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        <div className="grid gap-8 md:grid-cols-2">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Acid Purchase History</CardTitle>
+                    <CardDescription>Manage your acid stock and purchase records.</CardDescription>
+                </div>
+                <Button onClick={() => setIsAcidDialogOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Acid Purchase
+                </Button>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>Qty (KG)</TableHead>
+                        <TableHead className="text-right">Total Value</TableHead>
+                        <TableHead>
+                        <span className="sr-only">Actions</span>
+                        </TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {isLoadingAcidPurchases && (
+                        <TableRow>
+                        <TableCell colSpan={5} className="text-center">Loading purchase history...</TableCell>
+                        </TableRow>
+                    )}
+                    {acidPurchases?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((purchase) => (
+                        <TableRow key={purchase.id}>
+                        <TableCell>{format(new Date(purchase.date), 'dd MMM, yyyy')}</TableCell>
+                        <TableCell className="font-medium">{purchase.supplier || 'N/A'}</TableCell>
+                        <TableCell>{purchase.quantityKg} KG</TableCell>
+                        <TableCell className="text-right font-mono">Rs. {purchase.totalValue.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                            <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem
+                                onSelect={() => setAcidPurchaseToDelete(purchase)}
+                                className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+                                >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Manage Acid Consumption</CardTitle>
+                    <CardDescription>Record acid used for charging or other purposes.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <div className="space-y-2">
+                        <Label htmlFor="consumption-qty">Consumed Quantity (KG)</Label>
+                        <Input 
+                            id="consumption-qty" 
+                            type="number" 
+                            value={acidConsumption} 
+                            onChange={(e) => setAcidConsumption(Number(e.target.value))}
+                            placeholder="e.g., 5.5"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="consumption-notes">Notes (Optional)</Label>
+                        <Input 
+                            id="consumption-notes" 
+                            value={consumptionNotes} 
+                            onChange={(e) => setConsumptionNotes(e.target.value)}
+                            placeholder="e.g., Used for 10 batteries charging"
+                        />
+                     </div>
+                </CardContent>
+                <CardFooter>
+                    <Button onClick={handleRecordConsumption} disabled={acidConsumption <= 0}>
+                        <MinusCircle className="mr-2 h-4 w-4" />
+                        Record Consumption
+                    </Button>
+                </CardFooter>
+            </Card>
+        </div>
+
 
       <BatteryDialog
         isOpen={isBatteryDialogOpen}

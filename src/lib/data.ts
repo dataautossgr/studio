@@ -141,6 +141,8 @@ export interface BatterySale {
   scrapBatteryWeight?: number;
   scrapBatteryRate?: number;
   scrapBatteryValue?: number;
+  acidSaleQuantityKg?: number;
+  acidSaleRatePerKg?: number;
   finalAmount: number;
   warrantyEndDate?: string;
   status: 'Paid' | 'Unpaid';
@@ -172,6 +174,14 @@ export interface AcidPurchase {
   totalValue: number;
   supplier?: string;
 }
+
+export interface AcidConsumption {
+  id: string;
+  date: string;
+  quantityKg: number;
+  notes?: string;
+}
+
 
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [

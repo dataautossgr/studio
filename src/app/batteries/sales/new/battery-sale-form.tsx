@@ -132,15 +132,19 @@ export default function BatterySaleForm() {
   }, [editId, firestore, batteries, customers, customersLoading, batteriesLoading]);
 
 
-  const subtotal = useMemo(() => cart.reduce((acc, item) => {
-    // Scrap price is negative and should be added to the total (reducing it)
-    if (item.type === 'scrap') {
-        return acc - (item.quantity * item.price);
-    }
-    return acc + (item.quantity * item.price);
-  }, 0), [cart]);
+  const { subtotal, scrapValue } = useMemo(() => {
+    const regularItemsTotal = cart
+      .filter(item => item.type !== 'scrap')
+      .reduce((acc, item) => acc + item.quantity * item.price, 0);
 
-  const finalAmount = subtotal - discount;
+    const scrapItemsValue = cart
+      .filter(item => item.type === 'scrap')
+      .reduce((acc, item) => acc + item.quantity * item.price, 0);
+
+    return { subtotal: regularItemsTotal, scrapValue: scrapItemsValue };
+  }, [cart]);
+
+  const finalAmount = subtotal - scrapValue - discount;
   const changeToReturn = paymentMethod === 'cash' && cashReceived > finalAmount ? cashReceived - finalAmount : 0;
   
   const handleBatterySelect = (battery: Battery | null) => {
@@ -174,8 +178,6 @@ export default function BatterySaleForm() {
     if (type === 'scrap') name = 'Scrap Battery Trade-in';
     if (type === 'acid') name = 'Acid Sale';
     if (type === 'service') name = 'Battery Charging Service';
-
-    // Scrap price should be entered by user, can be positive and will be subtracted
     if(type === 'scrap') price = 0;
 
     setCart(prev => [...prev, {
@@ -237,7 +239,6 @@ export default function BatterySaleForm() {
     const batch = writeBatch(firestore);
     let customerRef;
 
-    // Handle Customer
     if (customerType === 'registered' && selectedCustomer) {
         customerRef = doc(firestore, 'customers', selectedCustomer.id);
         if (status !== 'Paid') {
@@ -245,18 +246,17 @@ export default function BatterySaleForm() {
             const balanceChange = dueAmount - previousDue;
             batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + balanceChange });
         }
-    } else { // Walk-in or converting to registered
+    } else { 
         const isConverting = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
         customerRef = doc(collection(firestore, 'customers'));
         const customerPayload: Omit<Customer, 'id'> = {
             name: walkInCustomerName, phone: '', vehicleDetails: '',
-            type: 'battery', // Always battery type now
+            type: 'battery',
             balance: isConverting ? dueAmount : 0,
         };
         batch.set(customerRef, customerPayload);
     }
 
-    // Prepare Sale Data
     const saleData: Omit<BatterySale, 'id' | 'invoice'> = {
         customer: customerRef,
         date: finalSaleDate.toISOString(),
@@ -270,7 +270,6 @@ export default function BatterySaleForm() {
         ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
     };
 
-    // Update Stock
     for (const item of cart) {
         if (item.type === 'battery' && !item.isOneTime) {
             batch.update(doc(firestore, 'batteries', item.id), { stock: item.stock - item.quantity });
@@ -288,7 +287,6 @@ export default function BatterySaleForm() {
         }
     }
 
-    // Set/Update Sale Document
     let saleIdToPrint = editId;
     if (isNew) {
         const salesSnapshot = await getCountFromServer(collection(firestore, 'battery_sales'));
@@ -300,7 +298,6 @@ export default function BatterySaleForm() {
         batch.update(doc(firestore, 'battery_sales', editId), saleData as any);
     }
 
-    // Commit
     try {
         await batch.commit();
         toast({ title: "Sale Saved", description: "The transaction has been successfully recorded." });
@@ -326,7 +323,6 @@ export default function BatterySaleForm() {
             <CardDescription>Create a new sale for batteries and related services.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                {/* Customer Section */}
                 <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                 <Label>Customer Type</Label>
@@ -386,7 +382,6 @@ export default function BatterySaleForm() {
                 <div className="space-y-2"><Label>Sale Time</Label><Input type="time" value={saleTime} onChange={e => setSaleTime(e.target.value)} /></div>
                 </div>
             </div>
-                {/* Product Section */}
                 <div className="space-y-2">
                     <Label>Add Items to Bill</Label>
                     <div className="flex flex-wrap gap-2">
@@ -409,11 +404,10 @@ export default function BatterySaleForm() {
                         <Button variant="secondary" onClick={() => addSpecialItem('one-time')}>One-Time Product</Button>
                     </div>
                 </div>
-                {/* Cart Table */}
                 <div className="border rounded-md"><Table><TableHeader><TableRow>
                     <TableHead className="w-2/5">Product / Service</TableHead>
                     <TableHead>Details</TableHead>
-                    <TableHead>Quantity</TableHead>
+                    <TableHead>Qty / Wt</TableHead>
                     <TableHead>Rate</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -438,7 +432,6 @@ export default function BatterySaleForm() {
                         </TableRow>
                     ))}
                 </TableBody></Table></div>
-                {/* Calculation Section */}
                 <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-4">
                         <div className="flex items-center gap-4">
@@ -467,8 +460,9 @@ export default function BatterySaleForm() {
                             {paymentMethod === 'cash' && (<div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label htmlFor="cashReceived">Cash Received</Label><Input id="cashReceived" type="number" value={cashReceived} onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}/></div><div className="space-y-2"><Label>Change</Label><p className="font-bold text-lg h-10 flex items-center">Rs. {changeToReturn.toLocaleString()}</p></div></div>)}
                         </div>)}
                     </div>
-                    <div className="space-y-2 text-right">
+                    <div className="space-y-4 text-right">
                         <div className="flex justify-end items-center gap-4"><Label>Subtotal</Label><p className="font-semibold w-32">Rs. {subtotal.toLocaleString()}</p></div>
+                        <div className="flex justify-end items-center gap-4 text-blue-600"><Label>Scrap Value</Label><p className="font-semibold w-32">- Rs. {scrapValue.toLocaleString()}</p></div>
                         <div className="flex justify-end items-center gap-4"><Label htmlFor="discount">Discount</Label><Input id="discount" type="number" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} className="w-32"/></div>
                         <div className="flex justify-end items-center gap-4 text-lg font-bold"><Label>Final Amount</Label><p className="w-32">Rs. {finalAmount.toLocaleString()}</p></div>
                         {status === 'Partial' && finalAmount > partialAmount && (<div className="flex justify-end items-center gap-4 text-destructive"><Label>Remaining Balance</Label><p className="font-semibold w-32">Rs. {(finalAmount - partialAmount).toLocaleString()}</p></div>)}

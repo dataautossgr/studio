@@ -49,7 +49,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, doc, getDoc, type DocumentReference } from 'firebase/firestore';
+import { collection, doc, getDoc, type DocumentReference, runTransaction, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -81,6 +81,7 @@ export default function AutomotivePurchaseForm() {
     const automotiveDealers = useMemo(() => dealers?.filter(d => d.type === 'automotive') || [], [dealers]);
 
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
+    const [originalPurchaseItems, setOriginalPurchaseItems] = useState<PurchaseItem[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
     const [invoiceNumber, setInvoiceNumber] = useState('');
     const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
@@ -105,7 +106,9 @@ export default function AutomotivePurchaseForm() {
                 setPurchaseTime(format(transactionDate, 'HH:mm'));
                 setStatus(purchase.status);
                 if (purchase.dueDate) setDueDate(new Date(purchase.dueDate));
-                setPurchaseItems(purchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)})));
+                const items = purchase.items.map(item => ({...item, isNew: !products.some(p => p.id === item.productId)}));
+                setPurchaseItems(items);
+                setOriginalPurchaseItems(items); // Store original state for stock calculation
                 setReceiptImageUrl(purchase.receiptImageUrl);
             };
             fetchPurchaseData();
@@ -155,22 +158,22 @@ export default function AutomotivePurchaseForm() {
         }
         
         try {
-            const newDocRef = await addDocumentNonBlocking(collection(firestore, 'products'), productData);
+            const newDocRef = doc(collection(firestore, 'products'));
+            await setDoc(newDocRef, productData);
+
             toast({
                 title: "Success",
                 description: "Product has been added to inventory.",
             });
             
-            if (newDocRef) {
-                const newProduct: PurchaseItem = {
-                    productId: newDocRef.id,
-                    name: productData.name,
-                    quantity: 1,
-                    costPrice: productData.costPrice,
-                    isNew: false
-                };
-                setPurchaseItems(prev => [...prev, newProduct]);
-            }
+            const newProduct: PurchaseItem = {
+                productId: newDocRef.id,
+                name: productData.name,
+                quantity: 1,
+                costPrice: productData.costPrice,
+                isNew: false
+            };
+            setPurchaseItems(prev => [...prev, newProduct]);
             setIsProductDialogOpen(false);
         } catch(error) {
             console.error("Error adding new product:", error);
@@ -208,7 +211,85 @@ export default function AutomotivePurchaseForm() {
           };
           reader.readAsDataURL(file);
         }
-      };
+    };
+
+    const handleSavePurchase = async () => {
+      if (!firestore || !selectedDealer || purchaseItems.length === 0 || !purchaseDate) {
+        toast({ variant: 'destructive', title: 'Validation Error', description: 'Please select a dealer, a date, and add at least one item.' });
+        return;
+      }
+  
+      try {
+        await runTransaction(firestore, async (transaction) => {
+          const dealerRef = doc(firestore, 'dealers', selectedDealer.id);
+          const dealerDoc = await transaction.get(dealerRef);
+          if (!dealerDoc.exists()) throw new Error("Dealer not found!");
+  
+          // Step 1: Update product stocks
+          for (const item of purchaseItems) {
+            if (!item.isNew) {
+              const productRef = doc(firestore, 'products', item.productId);
+              const productDoc = await transaction.get(productRef);
+              const currentStock = productDoc.exists() ? (productDoc.data() as Product).stock : 0;
+  
+              const originalItem = originalPurchaseItems.find(p => p.productId === item.productId);
+              const stockChange = item.quantity - (originalItem?.quantity || 0);
+              
+              const newStock = isNew ? currentStock + item.quantity : currentStock + stockChange;
+              transaction.update(productRef, { stock: newStock });
+            }
+          }
+  
+          // Step 2: Prepare purchase data
+          const finalPurchaseDate = new Date(purchaseDate);
+          const [hours, minutes] = purchaseTime.split(':').map(Number);
+          finalPurchaseDate.setHours(hours, minutes);
+  
+          const purchaseData: Omit<Purchase, 'id'> = {
+            dealer: dealerRef,
+            invoiceNumber: invoiceNumber,
+            date: finalPurchaseDate.toISOString(),
+            total: totalAmount,
+            status: status,
+            receiptImageUrl: receiptImageUrl || '',
+            items: purchaseItems.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, costPrice: i.costPrice })),
+            dueDate: status !== 'Paid' ? dueDate?.toISOString() : undefined,
+          };
+  
+          // Step 3: Create or update purchase document
+          const purchaseDocRef = isNew ? doc(collection(firestore, 'purchases')) : doc(firestore, 'purchases', purchaseId!);
+          transaction.set(purchaseDocRef, purchaseData);
+          
+          // Step 4: Update dealer balance
+          let balanceChange = 0;
+          if (status !== 'Paid') {
+            const originalTotal = purchase?.total || 0;
+            const originalStatus = purchase?.status || 'Paid';
+            const originalDue = (originalStatus === 'Unpaid' || originalStatus === 'Partial') ? originalTotal : 0;
+            balanceChange = totalAmount - originalDue;
+          } else { // if status is Paid
+            const originalTotal = purchase?.total || 0;
+            const originalStatus = purchase?.status || 'Paid';
+            const originalDue = (originalStatus === 'Unpaid' || originalStatus === 'Partial') ? originalTotal : 0;
+            balanceChange = 0 - originalDue;
+          }
+          
+          if(balanceChange !== 0){
+             const newBalance = (dealerDoc.data()?.balance || 0) + balanceChange;
+             transaction.update(dealerRef, { balance: newBalance });
+          }
+
+        });
+  
+        toast({ title: isNew ? "Purchase Created" : "Purchase Updated", description: "Stock and dealer balances have been updated." });
+        router.push('/purchase');
+  
+      } catch (error) {
+        console.error("Failed to save purchase:", error);
+        toast({ variant: 'destructive', title: 'Error', description: (error as Error).message || 'Could not save the purchase.' });
+      }
+    };
+
 
     const pageTitle = isNew ? 'Create New Purchase' : `Edit Purchase - ${purchase?.invoiceNumber}`;
 
@@ -452,7 +533,7 @@ export default function AutomotivePurchaseForm() {
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => router.push('/purchase')}>Cancel</Button>
-          <Button>Save Purchase</Button>
+          <Button onClick={handleSavePurchase}>Save Purchase</Button>
         </CardFooter>
       </Card>
       <ProductDialog 

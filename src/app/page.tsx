@@ -67,47 +67,42 @@ export default function DashboardPage() {
   }, []);
 
   const { lowStockCount, automotivePendingPayments, batteryPendingPayments, todaysRevenue, todaysCashIn, isAcidLow, recentSales, automotiveDuesCount, batteryDuesCount } = useMemo(() => {
-    if (!sales || !batterySales || !products || !customers || !batteries || !acidStock || !todayPayments || !todayExpenses) {
-      return { lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0, todaysRevenue: 0, todaysCashIn: 0, isAcidLow: false, recentSales: [], automotiveDuesCount: 0, batteryDuesCount: 0 };
-    }
-  
     const todayStart = startOfToday();
   
-    const lowStockProducts = products.filter(p => p.stock <= p.lowStockThreshold).length;
-    const lowStockBatteries = batteries.filter(b => b.stock <= b.lowStockThreshold).length;
+    // Calculate low stock items
+    const lowStockProducts = products?.filter(p => p.stock <= p.lowStockThreshold).length || 0;
+    const lowStockBatteries = batteries?.filter(b => b.stock <= b.lowStockThreshold).length || 0;
     const lowStockCount = lowStockProducts + lowStockBatteries;
+    const isAcidLow = acidStock ? acidStock.totalQuantityKg <= acidStock.lowStockThreshold : false;
   
-    const automotiveCustomersWithDues = customers.filter(c => c.type === 'automotive' && c.balance > 0);
-    const batteryCustomersWithDues = customers.filter(c => c.type === 'battery' && c.balance > 0);
-    
+    // Calculate pending payments from customers
+    const automotiveCustomersWithDues = customers?.filter(c => c.type === 'automotive' && c.balance > 0) || [];
+    const batteryCustomersWithDues = customers?.filter(c => c.type === 'battery' && c.balance > 0) || [];
     const automotivePendingPayments = automotiveCustomersWithDues.reduce((acc, c) => acc + c.balance, 0);
     const batteryPendingPayments = batteryCustomersWithDues.reduce((acc, c) => acc + c.balance, 0);
-  
-    const todaysAutomotiveSales = sales.filter(s => new Date(s.date) >= todayStart);
-    const todaysBatterySales = batterySales.filter(s => new Date(s.date) >= todayStart);
-    
-    // Revenue is the total value of sales made today, regardless of payment status
+
+    // Calculate today's revenue
+    const todaysAutomotiveSales = sales?.filter(s => new Date(s.date) >= todayStart) || [];
+    const todaysBatterySales = batterySales?.filter(s => new Date(s.date) >= todayStart) || [];
     const automotiveRevenue = todaysAutomotiveSales.reduce((acc, sale) => acc + sale.total, 0);
     const batteryRevenue = todaysBatterySales.reduce((acc, sale) => acc + sale.total, 0);
     const todaysRevenue = automotiveRevenue + batteryRevenue;
   
+    // Calculate today's net cash
     const getCashFromSale = (sale: Sale | BatterySale) => {
         if (sale.paymentMethod !== 'cash') return 0;
         if (sale.status === 'Paid') return sale.total;
         if (sale.status === 'Partial') return sale.partialAmountPaid || 0;
         return 0;
     };
-    
     const cashFromAutomotiveSales = todaysAutomotiveSales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
     const cashFromBatterySales = todaysBatterySales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
-    const cashFromDues = todayPayments.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0);
-    const cashFromExpenses = todayExpenses.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0);
-
+    const cashFromDues = todayPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0;
+    const cashFromExpenses = todayExpenses?.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0) || 0;
     const todaysCashIn = cashFromAutomotiveSales + cashFromBatterySales + cashFromDues - cashFromExpenses;
   
-    const isAcidLow = acidStock.totalQuantityKg <= acidStock.lowStockThreshold;
-
-    const allRecentSales = [...sales, ...batterySales]
+    // Get recent sales
+    const allRecentSales = [...(sales || []), ...(batterySales || [])]
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
   
@@ -288,5 +283,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

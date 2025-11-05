@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle, Droplets, ShoppingBag } from 'lucide-react';
+import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle, Droplets, ShoppingBag, Car, Battery as BatteryIcon } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
 import {
   Table,
@@ -57,9 +57,9 @@ export default function DashboardPage() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow, recentSales } = useMemo(() => {
+  const { lowStockCount, automotivePendingPayments, batteryPendingPayments, todaysRevenue, todaysProfit, isAcidLow, recentSales, automotiveDuesCount, batteryDuesCount } = useMemo(() => {
     if (!sales || !batterySales || !products || !customers || !batteries || !acidStock) {
-      return { lowStockCount: 0, pendingPayments: 0, todaysRevenue: 0, todaysProfit: 0, isAcidLow: false, recentSales: [] };
+      return { lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0, todaysRevenue: 0, todaysProfit: 0, isAcidLow: false, recentSales: [], automotiveDuesCount: 0, batteryDuesCount: 0 };
     }
   
     const todayStart = startOfToday();
@@ -68,7 +68,11 @@ export default function DashboardPage() {
     const lowStockBatteries = batteries.filter(b => b.stock <= b.lowStockThreshold).length;
     const lowStockCount = lowStockProducts + lowStockBatteries;
   
-    const pendingPayments = customers.filter(c => c.balance > 0).reduce((acc, c) => acc + c.balance, 0);
+    const automotiveCustomersWithDues = customers.filter(c => c.type === 'automotive' && c.balance > 0);
+    const batteryCustomersWithDues = customers.filter(c => c.type === 'battery' && c.balance > 0);
+    
+    const automotivePendingPayments = automotiveCustomersWithDues.reduce((acc, c) => acc + c.balance, 0);
+    const batteryPendingPayments = batteryCustomersWithDues.reduce((acc, c) => acc + c.balance, 0);
   
     const todaysAutomotiveSales = sales.filter(s => new Date(s.date) >= todayStart);
     const todaysBatterySales = batterySales.filter(s => new Date(s.date) >= todayStart);
@@ -105,7 +109,17 @@ export default function DashboardPage() {
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
   
-    return { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow, recentSales: allRecentSales };
+    return { 
+      lowStockCount, 
+      automotivePendingPayments,
+      batteryPendingPayments,
+      todaysRevenue, 
+      todaysProfit, 
+      isAcidLow, 
+      recentSales: allRecentSales,
+      automotiveDuesCount: automotiveCustomersWithDues.length,
+      batteryDuesCount: batteryCustomersWithDues.length
+    };
   }, [sales, batterySales, products, customers, batteries, acidStock]);
   
   const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading;
@@ -124,22 +138,22 @@ export default function DashboardPage() {
       change: todaysProfit > 0 ? 'Profitability is positive' : 'No profit yet today',
     },
     {
-      title: "Today's Expenses",
-      value: 'Rs. 0',
-      icon: CreditCard,
-      change: 'No expenses recorded',
-    },
-    {
       title: 'Low Stock Items',
       value: lowStockCount.toString(),
       icon: Package,
       change: isAcidLow ? <span className="text-destructive font-semibold flex items-center gap-1"><Droplets size={12}/> Acid is low!</span> : `${lowStockCount} items need attention`,
     },
     {
-      title: 'Pending Customer Payments',
-      value: `Rs. ${pendingPayments.toLocaleString()}`,
-      icon: Users,
-      change: `${customers?.filter(c => c.balance > 0).length || 0} customers have dues`,
+      title: 'Automotive Dues',
+      value: `Rs. ${automotivePendingPayments.toLocaleString()}`,
+      icon: Car,
+      change: `${automotiveDuesCount} customers have dues`,
+    },
+    {
+      title: 'Battery Dues',
+      value: `Rs. ${batteryPendingPayments.toLocaleString()}`,
+      icon: BatteryIcon,
+      change: `${batteryDuesCount} customers have dues`,
     },
   ];
 

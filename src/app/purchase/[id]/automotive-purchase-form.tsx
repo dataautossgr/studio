@@ -269,10 +269,13 @@ export default function AutomotivePurchaseForm() {
             status: status,
             receiptImageUrl: receiptImageUrl || '',
             items: purchaseItems.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, costPrice: i.costPrice })),
-            dueDate: status !== 'Paid' ? dueDate?.toISOString() : undefined,
             ...( (status === 'Paid' || status === 'Partial') && { paymentMethod }),
             ...( paymentMethod === 'Online' && { paymentSourceAccount, paymentDestinationDetails }),
           };
+          
+          if (status !== 'Paid' && dueDate) {
+            purchaseData.dueDate = dueDate.toISOString();
+          }
   
           // Step 3: Create or update purchase document
           const purchaseDocRef = isNew ? doc(collection(firestore, 'purchases')) : doc(firestore, 'purchases', purchaseId!);
@@ -584,7 +587,7 @@ export default function AutomotivePurchaseForm() {
                                       <Input id="dest-bank" value={paymentDestinationDetails.bankName} onChange={e => setPaymentDestinationDetails(p => ({...p, bankName: e.target.value}))} placeholder="e.g. HBL"/>
                                   </div>
                                    <div className="space-y-2">
-                                      <Label htmlFor="dest-acc" className="text-xs">Account Number</Label>
+                                      <Label htmlFor="dest-acc" className="text-xs">Account Number (Optional)</Label>
                                       <Input id="dest-acc" value={paymentDestinationDetails.accountNumber} onChange={e => setPaymentDestinationDetails(p => ({...p, accountNumber: e.target.value}))} placeholder="e.g. PK..."/>
                                   </div>
                                 </div>

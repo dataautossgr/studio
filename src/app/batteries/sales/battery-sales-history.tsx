@@ -32,9 +32,8 @@ import type { Battery } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
 
 
-interface EnrichedBatterySale extends Omit<BatterySale, 'customerId' | 'batteryId'> {
+interface EnrichedBatterySale extends Omit<BatterySale, 'customer'> {
     customerName: string;
-    batteryInfo: string;
 }
 
 interface BatterySalesHistoryProps {
@@ -55,37 +54,20 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
 
     const enrichSalesData = async () => {
         const enriched = await Promise.all(allSales.map(async (sale) => {
-            let customerName = sale.customerName || 'N/A';
-            let batteryInfo = 'N/A';
+            let customerName = 'Walk-in Customer';
 
-            // If customerName is not on the sale, try to fetch it
-            if (!sale.customerName && sale.customerId !== 'walk-in-customer') {
+            if (sale.customer && sale.customer instanceof DocumentReference) {
                 try {
-                    const customerRef = doc(firestore, 'customers', sale.customerId);
-                    const customerSnap = await getDoc(customerRef);
+                    const customerSnap = await getDoc(sale.customer);
                     if (customerSnap.exists()) {
                         customerName = (customerSnap.data() as Customer).name;
                     }
                 } catch(e) { console.error("Error fetching customer", e); }
             }
 
-            try {
-                 if (sale.batteryId) {
-                    const batteryRef = doc(firestore, 'batteries', sale.batteryId);
-                    const batterySnap = await getDoc(batteryRef);
-                    if (batterySnap.exists()) {
-                        const battery = batterySnap.data() as Battery;
-                        batteryInfo = `${battery.brand} ${battery.model} (${battery.ampere}Ah)`;
-                    }
-                }
-            } catch(e) {
-                console.error("Error enriching battery sale data", e);
-            }
-
             return {
                 ...sale,
                 customerName: customerName,
-                batteryInfo: batteryInfo,
             };
         }));
         setEnrichedSales(enriched.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -114,6 +96,8 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
             return 'default';
         case 'Unpaid':
             return 'destructive';
+        case 'Partial':
+            return 'secondary';
         default:
             return 'default';
     }
@@ -125,10 +109,9 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead>Invoice</TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead>Battery Sold</TableHead>
-              <TableHead>Scrap Value</TableHead>
+              <TableHead>Date</TableHead>
               <TableHead className="text-right">Final Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>
@@ -139,18 +122,17 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
           <TableBody>
             {isLoading && (
               <TableRow>
-                  <TableCell colSpan={7} className="text-center">Loading battery sales...</TableCell>
+                  <TableCell colSpan={6} className="text-center">Loading battery sales...</TableCell>
               </TableRow>
             )}
             {filteredSales.map((sale) => (
               <TableRow key={sale.id}>
+                <TableCell className="font-medium">{sale.invoice}</TableCell>
+                <TableCell className="font-medium">{sale.customerName}</TableCell>
                 <TableCell>
                   {format(new Date(sale.date), 'dd MMM, yyyy')}
                 </TableCell>
-                <TableCell className="font-medium">{sale.customerName}</TableCell>
-                <TableCell>{sale.batteryInfo}</TableCell>
-                <TableCell>Rs. {sale.scrapBatteryValue?.toLocaleString() || 0}</TableCell>
-                <TableCell className="text-right">Rs. {sale.finalAmount.toLocaleString()}</TableCell>
+                <TableCell className="text-right">Rs. {sale.total.toLocaleString()}</TableCell>
                 <TableCell>
                   <Badge variant={getStatusVariant(sale.status)}>{sale.status}</Badge>
                 </TableCell>

@@ -132,22 +132,30 @@ export interface ScrapStock {
 
 export interface BatterySale {
   id: string;
-  customerId: string;
-  customerName: string;
-  batteryId?: string;
+  invoice: string;
+  customer: DocumentReference;
   date: string;
-  manufacturingCode?: string;
-  salePrice?: number;
-  scrapBatteryWeight?: number;
-  scrapBatteryRate?: number;
-  scrapBatteryValue?: number;
-  acidSaleQuantityKg?: number;
-  acidSaleRatePerKg?: number;
-  finalAmount: number;
-  warrantyEndDate?: string;
-  status: 'Paid' | 'Unpaid';
-  chargingServiceAmount?: number;
+  total: number;
+  status: 'Paid' | 'Unpaid' | 'Partial';
+  items: {
+      productId: string;
+      name: string;
+      quantity: number;
+      price: number;
+      costPrice: number;
+      stock: number;
+      isOneTime: boolean;
+      type: 'battery' | 'service' | 'scrap' | 'acid' | 'one-time';
+      warrantyMonths?: number;
+      manufacturingCode?: string;
+  }[];
+  discount?: number;
+  paymentMethod?: 'cash' | 'online';
+  onlinePaymentSource?: string;
+  partialAmountPaid?: number;
+  dueDate?: string;
 }
+
 
 export interface ScrapPurchase {
     id: string;

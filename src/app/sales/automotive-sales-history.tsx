@@ -24,7 +24,7 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
+import { collection, getDoc, DocumentReference } from 'firebase/firestore';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 
@@ -60,10 +60,9 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
           let customerName = 'Walk-in Customer';
           let customerId = 'walk-in';
 
-          if (sale.customer && typeof sale.customer === 'object' && 'id' in sale.customer) {
-            const customerRef = sale.customer as DocumentReference;
+          if (sale.customer && sale.customer instanceof DocumentReference) {
             try {
-              const customerSnap = await getDoc(customerRef);
+              const customerSnap = await getDoc(sale.customer);
               if (customerSnap.exists()) {
                 customerName = customerSnap.data().name;
                 customerId = customerSnap.id;

@@ -30,7 +30,7 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, doc, type DocumentReference } from 'firebase/firestore';
+import { collection, getDoc, doc, DocumentReference } from 'firebase/firestore';
 import type { Battery } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';

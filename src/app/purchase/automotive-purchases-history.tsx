@@ -29,7 +29,7 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
+import { collection, getDoc, DocumentReference } from 'firebase/firestore';
 import type { Purchase, Dealer } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -63,10 +63,9 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
             let dealerName = 'N/A';
             let dealerId = '';
 
-            if (purchase.dealer && typeof purchase.dealer === 'object' && 'id' in purchase.dealer) {
-                const dealerRef = purchase.dealer as DocumentReference;
+            if (purchase.dealer && purchase.dealer instanceof DocumentReference) {
                 try {
-                    const dealerSnap = await getDoc(dealerRef);
+                    const dealerSnap = await getDoc(purchase.dealer);
                     if (dealerSnap.exists()) {
                         dealerName = (dealerSnap.data() as Dealer).company;
                         dealerId = dealerSnap.id;

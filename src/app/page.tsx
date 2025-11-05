@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle, Droplets } from 'lucide-react';
+import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle, Droplets, ShoppingBag } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
 import {
   Table,
@@ -164,6 +164,12 @@ export default function DashboardPage() {
                 <Link href="/sales/new">
                     <PlusCircle />
                     New Sale
+                </Link>
+            </Button>
+            <Button asChild>
+                <Link href="/purchase/new">
+                    <ShoppingBag />
+                    New Purchase
                 </Link>
             </Button>
              <Button asChild variant="outline">

@@ -439,17 +439,17 @@ export default function BatterySaleForm() {
                 <AlertDialogDescription>
                     Please review the details before saving. This action will update stock and cannot be easily undone.
                      <div className="my-4 space-y-1 text-sm text-foreground">
-                        <p><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</p>
-                        {selectedBattery && <p><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</p>}
-                        {addChargingService && <p><strong>Charging Service:</strong> Rs. {chargingServiceAmount.toLocaleString()}</p>}
-                        <p><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</p>
-                        <p><strong>Status:</strong> {status}</p>
+                        <div><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</div>
+                        {selectedBattery && <div><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</div>}
+                        {addChargingService && <div><strong>Charging Service:</strong> Rs. {chargingServiceAmount.toLocaleString()}</div>}
+                        <div><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</div>
+                        <div><strong>Status:</strong> {status}</div>
                      </div>
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmSave}>Confirm & Save</AlertDialogAction>
+                <AlertDialogAction onClick={confirmSave}>Confirm &amp; Save</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

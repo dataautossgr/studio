@@ -182,6 +182,7 @@ export interface ScrapPurchase {
     weightKg: number;
     ratePerKg: number;
     totalValue: number;
+    paymentMethod?: 'Cash' | 'Bank';
 }
 
 export interface ScrapSale {
@@ -364,3 +365,5 @@ export const seedInitialData = async (db: any) => {
     
     console.log("Data seeding complete.");
 };
+
+    

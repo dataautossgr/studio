@@ -34,7 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, Timestamp } from 'firebase/firestore';
-import type { Sale, Payment, BatterySale } from '@/lib/data';
+import type { Sale, Payment, BatterySale, Purchase, ScrapPurchase } from '@/lib/data';
 import type { Expense } from '@/app/expenses/page';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -62,47 +62,26 @@ export default function CashSessionPage() {
   const todayStart = startOfDay(new Date());
   const todayEnd = endOfDay(new Date());
 
-  // --- Firestore Data Hooks ---
-  const salesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-      collection(firestore, 'sales'), 
-      where('date', '>=', todayStart.toISOString()), 
-      where('date', '<=', todayEnd.toISOString())
-    );
-  }, [firestore, todayStart, todayEnd]);
+  // --- Firestore Data Hooks for Cash In ---
+  const salesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'sales'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
   const { data: todaySales } = useCollection<Sale>(salesQuery);
   
-  const batterySalesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-      collection(firestore, 'battery_sales'), 
-      where('date', '>=', todayStart.toISOString()), 
-      where('date', '<=', todayEnd.toISOString())
-    );
-  }, [firestore, todayStart, todayEnd]);
+  const batterySalesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'battery_sales'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
   const { data: todayBatterySales } = useCollection<BatterySale>(batterySalesQuery);
-
-
-  const expensesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-        collection(firestore, 'expenses'), 
-        where('date', '>=', todayStart.toISOString()), 
-        where('date', '<=', todayEnd.toISOString())
-    );
-   }, [firestore, todayStart, todayEnd]);
-   const { data: todayExpenses } = useCollection<Expense>(expensesQuery);
    
-   const paymentsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(
-        collection(firestore, 'payments'),
-        where('date', '>=', todayStart.toISOString()),
-        where('date', '<=', todayEnd.toISOString())
-    );
-   }, [firestore, todayStart, todayEnd]);
-   const { data: todayPayments } = useCollection<Payment>(paymentsQuery);
+   const paymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'payments'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
+   const { data: todayCustomerPayments } = useCollection<Payment>(paymentsQuery);
+   
+  // --- Firestore Data Hooks for Cash Out ---
+  const expensesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'expenses'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
+  const { data: todayExpenses } = useCollection<Expense>(expensesQuery);
+
+  const dealerPaymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'dealer_payments'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
+  const { data: todayDealerPayments } = useCollection<Payment>(dealerPaymentsQuery); // Re-using Payment type
+
+  const scrapPurchasesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scrap_purchases'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
+  const { data: todayScrapPurchases } = useCollection<ScrapPurchase>(scrapPurchasesQuery);
+   
    // -------------------------
 
    // --- Live Data Calculations ---
@@ -113,18 +92,28 @@ export default function CashSessionPage() {
         return 0;
     };
 
+    // Cash In Calculations
     const totalCashFromSales = useMemo(() => 
         (todaySales?.reduce((acc, s) => acc + getCashFromSale(s), 0) || 0) +
         (todayBatterySales?.reduce((acc, s) => acc + getCashFromSale(s), 0) || 0)
     , [todaySales, todayBatterySales]);
 
     const totalCashReceivedFromDues = useMemo(() =>
-        todayPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0
-    , [todayPayments]);
+        todayCustomerPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0
+    , [todayCustomerPayments]);
     
+    // Cash Out Calculations
     const totalCashExpenses = useMemo(() => 
         todayExpenses?.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0) || 0
     , [todayExpenses]);
+
+    const totalCashToDealers = useMemo(() =>
+        todayDealerPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0
+    , [todayDealerPayments]);
+    
+    const totalCashForScrap = useMemo(() =>
+        todayScrapPurchases?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.totalValue, 0) || 0
+    , [todayScrapPurchases]);
 
     const totalBankDeposits = 0; // This needs a separate feature to track bank transactions.
    // ----------------------------
@@ -137,7 +126,7 @@ export default function CashSessionPage() {
   const startingCash = useMemo(() => calculateTotal(denominationsStart), [denominationsStart]);
   const closingCash = useMemo(() => calculateTotal(denominationsEnd), [denominationsEnd]);
   
-  const expectedClosingCash = startingCash + totalCashFromSales + totalCashReceivedFromDues - totalCashExpenses - totalBankDeposits;
+  const expectedClosingCash = startingCash + totalCashFromSales + totalCashReceivedFromDues - totalCashExpenses - totalCashToDealers - totalCashForScrap - totalBankDeposits;
   const difference = closingCash - expectedClosingCash;
 
   const handleDenominationChange = (
@@ -258,6 +247,14 @@ export default function CashSessionPage() {
                         <Label>Total Cash Expenses</Label>
                         <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashExpenses.toLocaleString()}</span>
                     </div>
+                     <div className="flex justify-between items-center text-destructive">
+                        <Label>Cash Paid to Dealers</Label>
+                        <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashToDealers.toLocaleString()}</span>
+                    </div>
+                     <div className="flex justify-between items-center text-destructive">
+                        <Label>Cash for Scrap Purchases</Label>
+                        <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashForScrap.toLocaleString()}</span>
+                    </div>
                     <div className="flex justify-between items-center text-destructive">
                         <Label>Bank Deposits</Label>
                         <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalBankDeposits.toLocaleString()}</span>
@@ -356,5 +353,7 @@ export default function CashSessionPage() {
 
   return null;
 }
+
+    
 
     

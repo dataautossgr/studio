@@ -1,5 +1,5 @@
 
-import PurchaseFormDetail from './purchase-detail';
+import AutomotivePurchaseForm from "./automotive-purchase-form";
 
 export async function generateStaticParams() {
   // Returning an empty array tells Next.js not to generate any pages at build time.
@@ -8,5 +8,5 @@ export async function generateStaticParams() {
 }
 
 export default function PurchaseFormPage() {
-    return <PurchaseFormDetail />;
+    return <AutomotivePurchaseForm />;
 }

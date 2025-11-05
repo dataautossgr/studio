@@ -1,7 +1,7 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import AutomotivePurchaseForm from '../[id]/purchase-detail';
+import AutomotivePurchaseForm from '../[id]/automotive-purchase-form';
 import BatteryPurchaseForm from '@/app/batteries/purchases/page';
 import { useSearchParams } from 'next/navigation';
 

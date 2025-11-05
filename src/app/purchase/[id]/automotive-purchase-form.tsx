@@ -59,17 +59,17 @@ interface PurchaseItem {
   isNew?: boolean;
 }
 
-export default function PurchaseFormDetail() {
+export default function AutomotivePurchaseForm() {
     const params = useParams();
     const router = useRouter();
     const firestore = useFirestore();
 
-    const purchaseId = params.id as string;
-    const isNew = purchaseId === 'new';
+    const purchaseId = params.id as string | undefined;
+    const isNew = !purchaseId || purchaseId === 'new';
     
     const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
     const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
-    const purchaseRef = useMemoFirebase(() => isNew || !firestore ? null : doc(firestore, 'purchases', purchaseId), [isNew, purchaseId, firestore]);
+    const purchaseRef = useMemoFirebase(() => !isNew && firestore && purchaseId ? doc(firestore, 'purchases', purchaseId) : null, [isNew, purchaseId, firestore]);
     
     const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
     const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);

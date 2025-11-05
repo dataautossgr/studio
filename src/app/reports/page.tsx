@@ -57,7 +57,9 @@ const ReportView = ({
             if ('type' in item && item.type === 'scrap') {
                 return itemSum;
             }
-            const productId = 'productId' in item ? item.productId : item.id;
+            const productId = 'productId' in item ? item.productId : ('id' in item ? item.id : null);
+            if (!productId) return itemSum;
+
             const product = products.find(p => p.id === productId);
             // @ts-ignore
             const itemCost = product ? (product.costPrice || 0) * item.quantity : 0;
@@ -86,7 +88,9 @@ const ReportView = ({
     sales.forEach(sale => {
         if(Array.isArray(sale.items)) {
             sale.items.forEach(item => {
-                const productId = 'productId' in item ? item.productId : item.id;
+                const productId = 'productId' in item ? item.productId : ('id' in item ? item.id : null);
+                if (!productId) return;
+                
                 const currentQty = productSales.get(productId) || 0;
                 productSales.set(productId, currentQty + item.quantity);
             });

@@ -34,7 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, Timestamp } from 'firebase/firestore';
-import type { Sale, Payment } from '@/lib/data';
+import type { Sale, Payment, BatterySale } from '@/lib/data';
 import type { Expense } from '@/app/expenses/page';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -72,6 +72,17 @@ export default function CashSessionPage() {
     );
   }, [firestore, todayStart, todayEnd]);
   const { data: todaySales } = useCollection<Sale>(salesQuery);
+  
+  const batterySalesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+      collection(firestore, 'battery_sales'), 
+      where('date', '>=', todayStart.toISOString()), 
+      where('date', '<=', todayEnd.toISOString())
+    );
+  }, [firestore, todayStart, todayEnd]);
+  const { data: todayBatterySales } = useCollection<BatterySale>(batterySalesQuery);
+
 
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -95,9 +106,17 @@ export default function CashSessionPage() {
    // -------------------------
 
    // --- Live Data Calculations ---
-    const totalCashSales = useMemo(() => 
-        todaySales?.filter(s => s.paymentMethod === 'cash').reduce((acc, s) => acc + (s.status === 'Partial' ? s.partialAmountPaid || 0 : s.total), 0) || 0
-    , [todaySales]);
+    const getCashFromSale = (sale: Sale | BatterySale) => {
+        if (sale.paymentMethod !== 'cash') return 0;
+        if (sale.status === 'Paid') return sale.total;
+        if (sale.status === 'Partial') return sale.partialAmountPaid || 0;
+        return 0;
+    };
+
+    const totalCashFromSales = useMemo(() => 
+        (todaySales?.reduce((acc, s) => acc + getCashFromSale(s), 0) || 0) +
+        (todayBatterySales?.reduce((acc, s) => acc + getCashFromSale(s), 0) || 0)
+    , [todaySales, todayBatterySales]);
 
     const totalCashReceivedFromDues = useMemo(() =>
         todayPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0
@@ -118,7 +137,7 @@ export default function CashSessionPage() {
   const startingCash = useMemo(() => calculateTotal(denominationsStart), [denominationsStart]);
   const closingCash = useMemo(() => calculateTotal(denominationsEnd), [denominationsEnd]);
   
-  const expectedClosingCash = startingCash + totalCashSales + totalCashReceivedFromDues - totalCashExpenses - totalBankDeposits;
+  const expectedClosingCash = startingCash + totalCashFromSales + totalCashReceivedFromDues - totalCashExpenses - totalBankDeposits;
   const difference = closingCash - expectedClosingCash;
 
   const handleDenominationChange = (
@@ -228,8 +247,8 @@ export default function CashSessionPage() {
                         <span className="font-bold text-lg">Rs. {startingCash.toLocaleString()}</span>
                     </div>
                      <div className="flex justify-between items-center text-green-600">
-                        <Label>Total Cash Sales</Label>
-                        <span className="font-mono flex items-center gap-2"><PlusCircle size={16}/> Rs. {totalCashSales.toLocaleString()}</span>
+                        <Label>Total Cash From Sales</Label>
+                        <span className="font-mono flex items-center gap-2"><PlusCircle size={16}/> Rs. {totalCashFromSales.toLocaleString()}</span>
                     </div>
                      <div className="flex justify-between items-center text-green-600">
                         <Label>Other Cash Received (Dues)</Label>

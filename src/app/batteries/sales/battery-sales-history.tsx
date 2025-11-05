@@ -69,6 +69,7 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
                     }
                 } catch(e) { console.error("Error fetching customer", e); }
             } else if (typeof sale.customer === 'string') {
+                // This is for backward compatibility or if customer is just a name
                 customerName = sale.customer;
             }
 
@@ -233,3 +234,5 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
     </Card>
   );
 }
+
+    

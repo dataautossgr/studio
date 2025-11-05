@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle, Droplets, ShoppingBag, Car, Battery as BatteryIcon } from 'lucide-react';
+import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle, Droplets, ShoppingBag, Car, Battery as BatteryIcon, Wallet } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
 import {
   Table,
@@ -19,12 +19,14 @@ import {
 } from '@/components/ui/table';
 import { format, startOfToday } from 'date-fns';
 import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, DocumentReference, doc } from 'firebase/firestore';
-import type { Sale, Product, Customer, Battery, AcidStock, BatterySale } from '@/lib/data';
+import { collection, DocumentReference, doc, query, where } from 'firebase/firestore';
+import type { Sale, Product, Customer, Battery, AcidStock, BatterySale, Payment } from '@/lib/data';
 import { MasterSearchDialog } from '@/components/master-search-dialog';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import type { Expense } from '@/app/expenses/page';
+
 
 export default function DashboardPage() {
   const firestore = useFirestore();
@@ -36,6 +38,10 @@ export default function DashboardPage() {
   const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
   const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
   const acidStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'acid_stock', 'main') : null, [firestore]);
+  
+  const todayStart = startOfToday();
+  const paymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'payments'), where('date', '>=', todayStart.toISOString())) : null, [firestore, todayStart]);
+  const expensesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'expenses'), where('date', '>=', todayStart.toISOString())) : null, [firestore, todayStart]);
 
 
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
@@ -44,6 +50,9 @@ export default function DashboardPage() {
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
   const { data: acidStock, isLoading: acidLoading } = useDoc<AcidStock>(acidStockRef);
+  const { data: todayPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+  const { data: todayExpenses, isLoading: expensesLoading } = useCollection<Expense>(expensesQuery);
+
 
    useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -57,9 +66,9 @@ export default function DashboardPage() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const { lowStockCount, automotivePendingPayments, batteryPendingPayments, todaysRevenue, todaysProfit, isAcidLow, recentSales, automotiveDuesCount, batteryDuesCount } = useMemo(() => {
-    if (!sales || !batterySales || !products || !customers || !batteries || !acidStock) {
-      return { lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0, todaysRevenue: 0, todaysProfit: 0, isAcidLow: false, recentSales: [], automotiveDuesCount: 0, batteryDuesCount: 0 };
+  const { lowStockCount, automotivePendingPayments, batteryPendingPayments, todaysRevenue, todaysCashIn, isAcidLow, recentSales, automotiveDuesCount, batteryDuesCount } = useMemo(() => {
+    if (!sales || !batterySales || !products || !customers || !batteries || !acidStock || !todayPayments || !todayExpenses) {
+      return { lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0, todaysRevenue: 0, todaysCashIn: 0, isAcidLow: false, recentSales: [], automotiveDuesCount: 0, batteryDuesCount: 0 };
     }
   
     const todayStart = startOfToday();
@@ -76,36 +85,25 @@ export default function DashboardPage() {
   
     const todaysAutomotiveSales = sales.filter(s => new Date(s.date) >= todayStart);
     const todaysBatterySales = batterySales.filter(s => new Date(s.date) >= todayStart);
-  
-    const calculateRevenue = (sale: Sale | BatterySale) => {
-      if (sale.status === 'Paid') return sale.total;
-      if (sale.status === 'Partial') return sale.partialAmountPaid || 0;
-      return 0;
-    };
-  
-    const automotiveRevenue = todaysAutomotiveSales.reduce((acc, sale) => acc + calculateRevenue(sale), 0);
-    const batteryRevenue = todaysBatterySales.reduce((acc, sale) => acc + calculateRevenue(sale), 0);
+    
+    // Revenue is the total value of sales made today, regardless of payment status
+    const automotiveRevenue = todaysAutomotiveSales.reduce((acc, sale) => acc + sale.total, 0);
+    const batteryRevenue = todaysBatterySales.reduce((acc, sale) => acc + sale.total, 0);
     const todaysRevenue = automotiveRevenue + batteryRevenue;
   
-    const calculateProfit = (sale: Sale | BatterySale, productsList: (Product | Battery)[]) => {
-      const saleCost = sale.items.reduce((itemSum, item) => {
-        // For battery sales, ignore scrap items in profit calculation
-        if ('type' in item && item.type === 'scrap') {
-            return itemSum;
-        }
-        const productId = 'productId' in item ? item.productId : item.id;
-        const product = productsList.find(p => p.id === productId);
-        return itemSum + ((product?.costPrice || 0) * item.quantity);
-      }, 0);
-  
-      if (sale.status === 'Paid') return sale.total - saleCost;
-      if (sale.status === 'Partial') return (sale.partialAmountPaid || 0) - saleCost;
-      return 0 - saleCost; // If unpaid, the cost is still incurred
+    const getCashFromSale = (sale: Sale | BatterySale) => {
+        if (sale.paymentMethod !== 'cash') return 0;
+        if (sale.status === 'Paid') return sale.total;
+        if (sale.status === 'Partial') return sale.partialAmountPaid || 0;
+        return 0;
     };
-  
-    const automotiveProfit = todaysAutomotiveSales.reduce((acc, sale) => acc + calculateProfit(sale, products), 0);
-    const batteryProfit = todaysBatterySales.reduce((acc, sale) => acc + calculateProfit(sale, batteries), 0);
-    const todaysProfit = automotiveProfit + batteryProfit;
+    
+    const cashFromAutomotiveSales = todaysAutomotiveSales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
+    const cashFromBatterySales = todaysBatterySales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
+    const cashFromDues = todayPayments.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0);
+    const cashFromExpenses = todayExpenses.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0);
+
+    const todaysCashIn = cashFromAutomotiveSales + cashFromBatterySales + cashFromDues - cashFromExpenses;
   
     const isAcidLow = acidStock.totalQuantityKg <= acidStock.lowStockThreshold;
 
@@ -118,28 +116,28 @@ export default function DashboardPage() {
       automotivePendingPayments,
       batteryPendingPayments,
       todaysRevenue, 
-      todaysProfit, 
+      todaysCashIn, 
       isAcidLow, 
       recentSales: allRecentSales,
       automotiveDuesCount: automotiveCustomersWithDues.length,
       batteryDuesCount: batteryCustomersWithDues.length
     };
-  }, [sales, batterySales, products, customers, batteries, acidStock]);
+  }, [sales, batterySales, products, customers, batteries, acidStock, todayPayments, todayExpenses]);
   
-  const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading;
+  const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading || paymentsLoading || expensesLoading;
 
   const reportCards = [
     {
       title: "Today's Revenue",
       value: `Rs. ${todaysRevenue.toLocaleString()}`,
       icon: DollarSign,
-      change: todaysRevenue > 0 ? 'Received today' : 'No payments yet today',
+      change: 'Total value of goods sold today',
     },
     {
-      title: "Today's Profit",
-      value: `Rs. ${todaysProfit.toLocaleString()}`,
-      icon: TrendingUp,
-      change: todaysProfit > 0 ? 'Profitability is positive' : 'No profit yet today',
+      title: "Today's Net Cash In",
+      value: `Rs. ${todaysCashIn.toLocaleString()}`,
+      icon: Wallet,
+      change: 'Cash sales + dues received - cash expenses',
     },
     {
       title: 'Low Stock Items',
@@ -270,7 +268,7 @@ export default function DashboardPage() {
                             <div className="font-medium">{
                                 sale.customer instanceof DocumentReference
                                   ? customers?.find(c => c.id === (sale.customer as DocumentReference).id)?.name || 'Walk-in Customer'
-                                  : sale.customer || 'Walk-in Customer'
+                                  : (sale as any).customerName || 'Walk-in Customer'
                               }</div>
                             <div className="text-sm text-muted-foreground hidden sm:inline">
                                 {format(new Date(sale.date), 'dd MMM, yyyy')}
@@ -290,3 +288,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

@@ -182,10 +182,10 @@ export default function BatterySaleForm() {
     const saleData: Partial<BatterySale> = {
       customerId: customerIdToSave,
       customerName: customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name || 'N/A',
-      batteryId: selectedBattery?.id || '',
+      batteryId: selectedBattery?.id, // Can be undefined
       date: saleDate.toISOString(),
       manufacturingCode,
-      salePrice,
+      salePrice: salePrice || 0,
       scrapBatteryWeight: scrapWeight,
       scrapBatteryRate: scrapRate,
       scrapBatteryValue: scrapBatteryValue,
@@ -194,7 +194,7 @@ export default function BatterySaleForm() {
       status,
       chargingServiceAmount: addChargingService ? chargingServiceAmount : 0,
     };
-    batch.set(saleRef, saleData);
+    batch.set(saleRef, saleData, { merge: true });
 
     // 2. Update battery stock (only on new sales and if a battery was sold)
     if(!editId && selectedBattery) {
@@ -320,12 +320,21 @@ export default function BatterySaleForm() {
             {/* Battery Selection */}
             <div className="space-y-2">
                 <Label>Select Battery (Optional)</Label>
-                 <Select onValueChange={(id) => setSelectedBattery(batteries?.find(b => b.id === id) || null)} value={selectedBattery?.id || ''}>
+                 <Select 
+                    onValueChange={(id) => {
+                        if (id === '__none__') {
+                            setSelectedBattery(null);
+                        } else {
+                            setSelectedBattery(batteries?.find(b => b.id === id) || null)
+                        }
+                    }} 
+                    value={selectedBattery?.id || '__none__'}
+                >
                     <SelectTrigger>
                         <SelectValue placeholder="Choose a battery from stock..." />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">No Battery (Service Only)</SelectItem>
+                        <SelectItem value="__none__">No Battery (Service Only)</SelectItem>
                         {batteries?.filter(b => b.stock > 0 || b.id === selectedBattery?.id).map(battery => (
                             <SelectItem key={battery.id} value={battery.id}>
                                 {battery.brand} {battery.model} ({battery.ampere}Ah) - Stock: {battery.stock}

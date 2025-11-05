@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useState, useMemo } from 'react';
-import type { Sale, Product, BatterySale, Battery as BatteryType } from '@/lib/data';
+import type { Sale, Product, BatterySale, Battery as BatteryType, SaleItem } from '@/lib/data';
 import {
   startOfDay,
   endOfDay,
@@ -52,13 +52,12 @@ const ReportView = ({
     const revenue = sales.reduce((sum, sale) => sum + sale.total, 0);
 
     const profit = sales.reduce((sum, sale) => {
-        const cost = sale.items.reduce((itemSum, item) => {
-            // In battery sales, scrap items are not a cost of goods sold.
+        const saleItems = (Array.isArray(sale.items) ? sale.items : []) as (Sale['items'][0] | SaleItem)[];
+        const cost = saleItems.reduce((itemSum, item) => {
             if ('type' in item && item.type === 'scrap') {
                 return itemSum;
             }
             const productId = 'productId' in item ? item.productId : item.id;
-            // @ts-ignore
             const product = products.find(p => p.id === productId);
             // @ts-ignore
             const itemCost = product ? (product.costPrice || 0) * item.quantity : 0;
@@ -67,7 +66,9 @@ const ReportView = ({
         return sum + (sale.total - cost);
     }, 0);
 
-    const productsSoldCount = sales.flatMap(s => s.items).reduce((sum, i) => sum + i.quantity, 0);
+    const productsSoldCount = sales
+        .flatMap(s => Array.isArray(s.items) ? s.items : [])
+        .reduce((sum, i) => sum + (i.quantity ?? 0), 0);
 
     return {
         totalRevenue: revenue,
@@ -83,16 +84,17 @@ const ReportView = ({
     const productSales = new Map<string, number>();
 
     sales.forEach(sale => {
-        sale.items.forEach(item => {
-            const productId = 'productId' in item ? item.productId : item.id;
-            const currentQty = productSales.get(productId) || 0;
-            productSales.set(productId, currentQty + item.quantity);
-        });
+        if(Array.isArray(sale.items)) {
+            sale.items.forEach(item => {
+                const productId = 'productId' in item ? item.productId : item.id;
+                const currentQty = productSales.get(productId) || 0;
+                productSales.set(productId, currentQty + item.quantity);
+            });
+        }
     });
 
     return Array.from(productSales.entries())
         .map(([productId, sold]) => {
-            // @ts-ignore
             const product = products.find(p => p.id === productId);
             return { 
                 id: productId,

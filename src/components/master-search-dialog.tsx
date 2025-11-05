@@ -81,6 +81,11 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                 >
                   <User className="mr-2 h-4 w-4" />
                   <span>{customer.name} ({customer.type})</span>
+                   {customer.balance > 0 && (
+                      <span className="ml-auto text-xs text-destructive">
+                        Dues: Rs. {customer.balance.toLocaleString()}
+                      </span>
+                   )}
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -96,6 +101,11 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                     >
                     <Building className="mr-2 h-4 w-4" />
                     <span>{dealer.company} ({dealer.type})</span>
+                    {dealer.balance > 0 && (
+                      <span className="ml-auto text-xs text-destructive">
+                        Dues: Rs. {dealer.balance.toLocaleString()}
+                      </span>
+                    )}
                     </CommandItem>
                 ))}
             </CommandGroup>

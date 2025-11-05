@@ -65,6 +65,17 @@ export interface Payment {
   reference?: string;
 }
 
+export interface DealerPayment {
+  id: string;
+  dealer: DocumentReference;
+  amount: number;
+  date: string;
+  paymentMethod: 'Cash' | 'Bank Transfer' | 'Cheque';
+  notes?: string;
+  receiptImageUrl?: string;
+  reference?: string;
+}
+
 
 export interface Dealer {
     id: string;
@@ -112,6 +123,15 @@ export interface RepairJobItem {
   name: string;
   quantity: number;
   price: number;
+}
+
+export interface BankTransaction {
+  id: string;
+  fromAccount: string;
+  toAccount: string;
+  amount: number;
+  note?: string;
+  createdAt: string;
 }
 
 export interface Battery {

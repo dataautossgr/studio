@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { type Dealer, type Purchase, type Payment } from '@/lib/data';
+import { type Dealer, type Purchase, type DealerPayment } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -57,7 +57,7 @@ export interface Transaction {
 
 interface DealerLedgerDetailProps {
     dealerPurchases: Purchase[] | null;
-    dealerPayments: Payment[] | null;
+    dealerPayments: DealerPayment[] | null;
     isLoading: boolean;
 }
 
@@ -78,7 +78,6 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     const { data: dealer, isLoading: isDealerLoading } = useDoc<Dealer>(dealerRef);
 
     useEffect(() => {
-      // Ensure dealerPayments is treated as an empty array if null or undefined
       const validDealerPayments = dealerPayments || [];
 
       if (dealerPurchases && dealer) {
@@ -149,10 +148,14 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                     transaction.update(dealerRef, { balance: currentBalance - difference });
                 } else {
                     const newPaymentRef = doc(collection(firestore, 'dealer_payments'));
-                    const newPayment = {
+                    const newPayment: Omit<DealerPayment, 'id'> = {
                         dealer: dealerRef,
-                        ...paymentData,
+                        amount: paymentData.amount,
                         date: paymentData.paymentDate.toISOString(),
+                        paymentMethod: paymentData.paymentMethod,
+                        notes: paymentData.notes || '',
+                        receiptImageUrl: paymentData.receiptImageUrl || '',
+                        reference: `RECV-${Date.now().toString().slice(-6)}`,
                     };
                     transaction.set(newPaymentRef, newPayment);
                     transaction.update(dealerRef, { balance: currentBalance - paymentData.amount });
@@ -195,7 +198,6 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 const currentBalance = dealerDoc.data().balance || 0;
                 let amount = transactionToDelete.type === 'Purchase' ? transactionToDelete.debit : transactionToDelete.credit;
                 
-                // Deleting a purchase decreases balance (we owe less), deleting a payment increases balance (we owe more)
                 const newBalance = transactionToDelete.type === 'Purchase' ? currentBalance - amount : currentBalance + amount;
 
                 transaction.update(dealerRef, { balance: newBalance });

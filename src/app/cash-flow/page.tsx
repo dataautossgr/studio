@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MinusCircle, PlusCircle, Repeat, Cloud, ShieldCheck } from 'lucide-react';
+import { MinusCircle, PlusCircle, Repeat, Cloud, ShieldCheck, Banknote } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,11 +32,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, Timestamp } from 'firebase/firestore';
-import type { Sale, Payment, BatterySale, Purchase, ScrapPurchase } from '@/lib/data';
+import type { Sale, Payment, BatterySale, Purchase, ScrapPurchase, DealerPayment } from '@/lib/data';
 import type { Expense } from '@/app/expenses/page';
 import { startOfDay, endOfDay } from 'date-fns';
+import { BankTransactionDialog, BankTransactionFormData } from './bank-transaction-dialog';
 
 
 type SessionState = 'none' | 'started' | 'ended';
@@ -56,6 +57,7 @@ export default function CashSessionPage() {
   const [denominationsStart, setDenominationsStart] = useState<Denominations>({ 1000: 0, 500: 0, 100: 0, 50: 0, 20: 0, 10: 0 });
   const [denominationsEnd, setDenominationsEnd] = useState<Denominations>({ 1000: 0, 500: 0, 100: 0, 50: 0, 20: 0, 10: 0 });
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false);
+  const [isBankTxDialogOpen, setIsBankTxDialogOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -75,12 +77,16 @@ export default function CashSessionPage() {
   // --- Firestore Data Hooks for Cash Out ---
   const expensesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'expenses'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
   const { data: todayExpenses } = useCollection<Expense>(expensesQuery);
+  
+  const dealerPaymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'dealer_payments'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
+  const { data: todayDealerPayments } = useCollection<DealerPayment>(dealerPaymentsQuery);
 
   const scrapPurchasesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scrap_purchases'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
   const { data: todayScrapPurchases } = useCollection<ScrapPurchase>(scrapPurchasesQuery);
+  
+  const bankTransactionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bank_transactions'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString())) : null, [firestore]);
+  const { data: todayBankTransactions } = useCollection(bankTransactionsQuery);
    
-   // -------------------------
-
    // --- Live Data Calculations ---
     const getCashFromSale = (sale: Sale | BatterySale) => {
         if (sale.paymentMethod !== 'cash') return 0;
@@ -104,13 +110,19 @@ export default function CashSessionPage() {
         todayExpenses?.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0) || 0
     , [todayExpenses]);
 
-    const totalCashToDealers = 0; // Temporarily disabled
+    const totalCashToDealers = useMemo(() => 
+        todayDealerPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0
+    , [todayDealerPayments]);
     
     const totalCashForScrap = useMemo(() =>
         todayScrapPurchases?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.totalValue, 0) || 0
     , [todayScrapPurchases]);
 
-    const totalBankDeposits = 0; // This needs a separate feature to track bank transactions.
+    const totalBankDeposits = useMemo(() =>
+      todayBankTransactions
+        ?.filter((t: any) => t.fromAccount === 'Cash Drawer')
+        .reduce((acc: number, t: any) => acc + t.amount, 0) || 0
+    , [todayBankTransactions]);
    // ----------------------------
 
 
@@ -143,13 +155,11 @@ export default function CashSessionPage() {
   }
 
   const handleFinalizeReport = () => {
-    // This is where you would save the session data to Firestore.
     console.log("Finalizing and saving report...");
     toast({
         title: "Session Saved",
         description: "The end-of-day report has been saved successfully.",
     });
-    // For now, we just go to the new session screen.
     handleNewSession();
     setIsFinalizeDialogOpen(false);
   }
@@ -159,6 +169,17 @@ export default function CashSessionPage() {
     setDenominationsStart({ 1000: 0, 500: 0, 100: 0, 50: 0, 20: 0, 10: 0 });
     setDenominationsEnd({ 1000: 0, 500: 0, 100: 0, 50: 0, 20: 0, 10: 0 });
   }
+
+  const handleSaveBankTransaction = (data: BankTransactionFormData) => {
+    if (!firestore) return;
+    const newTransaction = {
+        ...data,
+        createdAt: new Date().toISOString(),
+    };
+    addDocumentNonBlocking(collection(firestore, 'bank_transactions'), newTransaction);
+    toast({ title: 'Bank Transaction Saved', description: 'The transaction has been recorded.' });
+    setIsBankTxDialogOpen(false);
+  };
 
   const renderDenominationTable = (
     title: string,
@@ -218,52 +239,64 @@ export default function CashSessionPage() {
 
   if (sessionState === 'started') {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 grid gap-8 md:grid-cols-2">
-         <div className="space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Live Cash Session</CardTitle>
-                    <CardDescription>A real-time overview of your cash counter.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex justify-between items-center border-b pb-2">
-                        <Label className="text-muted-foreground">Starting Cash</Label>
-                        <span className="font-bold text-lg">Rs. {startingCash.toLocaleString()}</span>
+        <>
+            <div className="p-4 sm:p-6 lg:p-8 grid gap-8 md:grid-cols-2">
+                <div className="space-y-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Live Cash Session</CardTitle>
+                            <CardDescription>A real-time overview of your cash counter.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex justify-between items-center border-b pb-2">
+                                <Label className="text-muted-foreground">Starting Cash</Label>
+                                <span className="font-bold text-lg">Rs. {startingCash.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-green-600">
+                                <Label>Total Cash From Sales</Label>
+                                <span className="font-mono flex items-center gap-2"><PlusCircle size={16}/> Rs. {totalCashFromSales.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-green-600">
+                                <Label>Other Cash Received (Dues)</Label>
+                                <span className="font-mono flex items-center gap-2"><PlusCircle size={16}/> Rs. {totalCashReceivedFromDues.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-destructive">
+                                <Label>Total Cash Expenses</Label>
+                                <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashExpenses.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-destructive">
+                                <Label>Cash Paid to Dealers</Label>
+                                <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashToDealers.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-destructive">
+                                <Label>Cash for Scrap Purchases</Label>
+                                <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashForScrap.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-destructive">
+                                <Label>Bank Deposits</Label>
+                                <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalBankDeposits.toLocaleString()}</span>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="flex-col items-end space-y-2 bg-muted/50 py-4">
+                            <Label className="text-sm text-muted-foreground">Expected Balance in Drawer</Label>
+                            <div className="text-2xl font-bold text-primary">Rs. {expectedClosingCash.toLocaleString()}</div>
+                        </CardFooter>
+                    </Card>
+                     <div className="flex gap-4">
+                        <Button onClick={() => setIsBankTxDialogOpen(true)} variant="outline" className="w-full">
+                            <Banknote className="mr-2 h-4 w-4"/> Add Bank Transaction
+                        </Button>
+                        <Button onClick={handleEndSession} size="lg" className="w-full">End Session & Count Cash</Button>
                     </div>
-                     <div className="flex justify-between items-center text-green-600">
-                        <Label>Total Cash From Sales</Label>
-                        <span className="font-mono flex items-center gap-2"><PlusCircle size={16}/> Rs. {totalCashFromSales.toLocaleString()}</span>
-                    </div>
-                     <div className="flex justify-between items-center text-green-600">
-                        <Label>Other Cash Received (Dues)</Label>
-                        <span className="font-mono flex items-center gap-2"><PlusCircle size={16}/> Rs. {totalCashReceivedFromDues.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-destructive">
-                        <Label>Total Cash Expenses</Label>
-                        <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashExpenses.toLocaleString()}</span>
-                    </div>
-                     <div className="flex justify-between items-center text-destructive">
-                        <Label>Cash Paid to Dealers</Label>
-                        <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashToDealers.toLocaleString()}</span>
-                    </div>
-                     <div className="flex justify-between items-center text-destructive">
-                        <Label>Cash for Scrap Purchases</Label>
-                        <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalCashForScrap.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-destructive">
-                        <Label>Bank Deposits</Label>
-                        <span className="font-mono flex items-center gap-2"><MinusCircle size={16}/> Rs. {totalBankDeposits.toLocaleString()}</span>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex-col items-end space-y-2 bg-muted/50 py-4">
-                    <Label className="text-sm text-muted-foreground">Expected Balance in Drawer</Label>
-                    <div className="text-2xl font-bold text-primary">Rs. {expectedClosingCash.toLocaleString()}</div>
-                </CardFooter>
-            </Card>
-            <Button onClick={handleEndSession} size="lg" className="w-full">End Session & Count Cash</Button>
-        </div>
-        {renderDenominationTable("Starting Cash Details", denominationsStart, setDenominationsStart, true)}
-      </div>
+                </div>
+                {renderDenominationTable("Starting Cash Details", denominationsStart, setDenominationsStart, true)}
+            </div>
+             <BankTransactionDialog 
+                isOpen={isBankTxDialogOpen}
+                onClose={() => setIsBankTxDialogOpen(false)}
+                onSave={handleSaveBankTransaction}
+             />
+        </>
     );
   }
   

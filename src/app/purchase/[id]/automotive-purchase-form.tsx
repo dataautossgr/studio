@@ -69,7 +69,7 @@ export default function AutomotivePurchaseForm() {
     
     const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
     const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
-    const purchaseRef = useMemoFirebase(() => !isNew && firestore && purchaseId ? doc(firestore, 'purchases', purchaseId) : null, [isNew, purchaseId, firestore]);
+    const purchaseRef = useMemoFirebase(() => isNew || !firestore || !purchaseId ? null : doc(firestore, 'purchases', purchaseId), [isNew, purchaseId, firestore]);
     
     const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
     const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
@@ -242,7 +242,7 @@ export default function AutomotivePurchaseForm() {
                 <div className="flex gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground" onClick={(e) => e.preventDefault()}>
+                            <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
                                 <Search className="mr-2 h-4 w-4" /> Search inventory to add products...
                             </Button>
                         </PopoverTrigger>
@@ -256,9 +256,8 @@ export default function AutomotivePurchaseForm() {
                                         <CommandItem
                                         key={product.id}
                                         onSelect={() => {
-                                          setTimeout(() => {
-                                            handleProductSelect(product)
-                                          }, 1);
+                                          handleProductSelect(product)
+                                          // A bit of a hack to close popover
                                           document.body.click();
                                         }}
                                         className="cursor-pointer"

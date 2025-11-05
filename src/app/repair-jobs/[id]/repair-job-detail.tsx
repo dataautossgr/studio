@@ -430,10 +430,8 @@ export default function RepairJobFormDetail() {
                                         <CommandGroup>
                                         {products?.map((product) => (
                                             <CommandItem key={product.id} onSelect={() => {
-                                              setTimeout(() => {
                                                 handleProductSelect(product)
-                                              }, 1);
-                                              document.body.click();
+                                                document.body.click()
                                             }} >
                                                 <div className="flex w-full justify-between items-center">
                                                     <span>{product.name} ({product.brand})</span>

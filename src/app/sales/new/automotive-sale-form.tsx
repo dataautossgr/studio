@@ -469,9 +469,7 @@ export default function AutomotiveSaleForm() {
                                                 <CommandItem
                                                     key={customer.id}
                                                     onSelect={() => {
-                                                        setTimeout(() => {
-                                                          setSelectedCustomer(customer)
-                                                        }, 1);
+                                                        setSelectedCustomer(customer);
                                                         document.body.click();
                                                     }}
                                                 >
@@ -529,7 +527,7 @@ export default function AutomotiveSaleForm() {
             <div className="flex gap-2">
               <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground" onClick={(e) => e.preventDefault()}>
+                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
                         <Search className="mr-2 h-4 w-4" />
                         Search inventory to add products...
                     </Button>
@@ -544,9 +542,7 @@ export default function AutomotiveSaleForm() {
                             <CommandItem
                               key={product.id}
                               onSelect={() => {
-                                setTimeout(() => {
-                                  handleProductSelect(product);
-                                }, 1)
+                                handleProductSelect(product);
                                 document.body.click();
                               }}
                               className="cursor-pointer"

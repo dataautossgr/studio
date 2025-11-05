@@ -1,6 +1,6 @@
 'use client';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, CalendarDays } from 'lucide-react';
+import { PlusCircle, CalendarDays, Download } from 'lucide-react';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
@@ -11,12 +11,26 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import AutomotivePurchasesHistory from './automotive-purchases-history';
 import BatteryPurchasesHistory from '../batteries/purchases/battery-purchases-history';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PurchasesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: undefined,
     to: undefined,
   });
+
+  const { toast } = useToast();
+
+  // This function is a placeholder and will be passed to child components
+  const handleExport = (type: 'automotive' | 'battery') => {
+      // The actual export logic lives within the child components
+      // This is just a conceptual placeholder
+      toast({
+          title: `Export Triggered`,
+          description: `The ${type} history component will handle the export.`,
+      });
+  };
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -66,38 +80,10 @@ export default function PurchasesPage() {
         </div>
 
         <TabsContent value="automotive">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Automotive Purchases</CardTitle>
-                  <CardDescription>History of all parts and supplies purchases.</CardDescription>
-                </div>
-                <Button asChild>
-                  <Link href="/purchase/new?tab=automotive">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Automotive Purchase
-                  </Link>
-                </Button>
-            </CardHeader>
             <AutomotivePurchasesHistory dateRange={dateRange}/>
-          </Card>
         </TabsContent>
         <TabsContent value="battery">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Battery Purchases</CardTitle>
-                  <CardDescription>History of all battery stock purchases.</CardDescription>
-                </div>
-                <Button asChild>
-                  <Link href="/purchase/new?tab=battery">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Battery Purchase
-                  </Link>
-                </Button>
-            </CardHeader>
             <BatteryPurchasesHistory dateRange={dateRange} />
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

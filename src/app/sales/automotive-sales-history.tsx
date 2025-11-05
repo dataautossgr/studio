@@ -1,6 +1,6 @@
 'use client';
-import { type Sale } from '@/lib/data';
-import { Card, CardContent } from '@/components/ui/card';
+import { type Sale, type Customer } from '@/lib/data';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, Pencil, Trash2, Undo2 } from 'lucide-react';
+import { MoreHorizontal, FileText, Pencil, Trash2, Undo2, PlusCircle, Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
 import type { DateRange } from 'react-day-picker';
+import { useToast } from '@/hooks/use-toast';
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
   customer: {
@@ -48,6 +49,7 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
 
   const [enrichedSales, setEnrichedSales] = useState<EnrichedSale[]>([]);
   const [filteredSales, setFilteredSales] = useState<EnrichedSale[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!allSales) return;
@@ -95,6 +97,37 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
       setFilteredSales(enrichedSales);
     }
   }, [dateRange, enrichedSales]);
+  
+  const handleExport = () => {
+    if (filteredSales.length === 0) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No sales data in the selected range to export.' });
+        return;
+    }
+    const headers = ['Invoice', 'Date', 'Customer', 'Status', 'Payment Method', 'Total', 'Discount', 'Partial Paid'];
+    const csvContent = [
+        headers.join(','),
+        ...filteredSales.map(s => [
+            s.invoice,
+            format(new Date(s.date), 'yyyy-MM-dd HH:mm'),
+            `"${s.customer.name.replace(/"/g, '""')}"`,
+            s.status,
+            s.paymentMethod || 'N/A',
+            s.total,
+            s.discount || 0,
+            s.partialAmountPaid || 0
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `automotive-sales-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: 'Export Successful', description: 'Your automotive sales history has been downloaded.' });
+  };
 
   const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' => {
     switch (status) {
@@ -111,7 +144,24 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Automotive Sales</CardTitle>
+          <CardDescription>History of all parts and service sales.</CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
+           <Button variant="outline" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
+            <Button asChild>
+              <Link href="/sales/new?tab=automotive">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Automotive Sale
+              </Link>
+            </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
         <Table>
           <TableHeader>
             <TableRow>

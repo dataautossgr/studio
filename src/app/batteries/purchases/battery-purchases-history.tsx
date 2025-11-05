@@ -2,6 +2,9 @@
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
 } from '@/components/ui/card';
 import {
   Table,
@@ -12,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Download, PlusCircle } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -28,6 +31,7 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, getDoc } from 'firebase/firestore';
 import type { BatteryPurchase, Dealer } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
+import { useToast } from '@/hooks/use-toast';
 
 interface EnrichedPurchase extends Omit<BatteryPurchase, 'dealerId'> {
   dealerName: string;
@@ -44,6 +48,7 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
 
   const [enrichedPurchases, setEnrichedPurchases] = useState<EnrichedPurchase[]>([]);
   const [filteredPurchases, setFilteredPurchases] = useState<EnrichedPurchase[]>([]);
+  const { toast } = useToast();
   
    useEffect(() => {
     if (!allPurchases || !firestore) return;
@@ -84,11 +89,55 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
         setFilteredPurchases(enrichedPurchases);
     }
   }, [dateRange, enrichedPurchases]);
+  
+  const handleExport = () => {
+    if (filteredPurchases.length === 0) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No purchase data in the selected range to export.' });
+        return;
+    }
+    const headers = ['ID', 'Date', 'Dealer', 'Total'];
+    const csvContent = [
+        headers.join(','),
+        ...filteredPurchases.map(p => [
+            p.id,
+            format(new Date(p.date), 'yyyy-MM-dd HH:mm'),
+            `"${p.dealerName.replace(/"/g, '""')}"`,
+            p.totalAmount,
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `battery-purchases-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: 'Export Successful', description: 'Your battery purchases history has been downloaded.' });
+  };
 
 
   return (
     <Card>
-      <CardContent className="pt-6">
+      <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Battery Purchases</CardTitle>
+              <CardDescription>History of all battery stock purchases.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handleExport}>
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+                <Button asChild>
+                    <Link href="/purchase/new?tab=battery">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Battery Purchase
+                    </Link>
+                </Button>
+            </div>
+        </CardHeader>
+      <CardContent className="pt-0">
         <Table>
           <TableHeader>
             <TableRow>

@@ -1,6 +1,6 @@
 'use client';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, CalendarDays } from 'lucide-react';
+import { PlusCircle, CalendarDays, Download } from 'lucide-react';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AutomotiveSalesHistory from './automotive-sales-history';
@@ -11,12 +11,24 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SalesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date()),
   });
+
+  const { toast } = useToast();
+
+  const handleExport = (type: 'automotive' | 'battery') => {
+      // The actual export logic lives within the child components now
+      // This is a placeholder to show the concept
+      toast({
+          title: `Export Triggered`,
+          description: `The ${type} history component will handle the export.`,
+      });
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -66,38 +78,10 @@ export default function SalesPage() {
         </div>
 
         <TabsContent value="automotive">
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Automotive Sales</CardTitle>
-                <CardDescription>History of all parts and service sales.</CardDescription>
-              </div>
-               <Button asChild>
-                <Link href="/sales/new?tab=automotive">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  New Automotive Sale
-                </Link>
-              </Button>
-            </CardHeader>
             <AutomotiveSalesHistory dateRange={dateRange} />
-          </Card>
         </TabsContent>
         <TabsContent value="battery">
-          <Card>
-             <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Battery Sales</CardTitle>
-                  <CardDescription>History of all battery and related sales.</CardDescription>
-                </div>
-                <Button asChild>
-                  <Link href="/sales/new?tab=battery">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Battery Sale
-                  </Link>
-                </Button>
-            </CardHeader>
             <BatterySalesHistory dateRange={dateRange} />
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

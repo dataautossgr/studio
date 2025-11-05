@@ -29,6 +29,7 @@ import {
   BatteryCharging,
   Droplets,
   MinusCircle,
+  Download
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -257,6 +258,39 @@ export default function BatteryInventory() {
     }
   };
 
+  const handleExport = () => {
+    if (!batteries) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No battery data to export.' });
+        return;
+    }
+    const headers = ['ID', 'Brand', 'Model', 'Ampere', 'Type', 'Cost Price', 'Sale Price', 'Stock', 'Warranty Months', 'Low Stock Threshold'];
+    const csvContent = [
+        headers.join(','),
+        ...batteries.map(b => [
+            b.id,
+            `"${b.brand.replace(/"/g, '""')}"`,
+            `"${b.model.replace(/"/g, '""')}"`,
+            b.ampere,
+            b.type,
+            b.costPrice,
+            b.salePrice,
+            b.stock,
+            b.warrantyMonths,
+            b.lowStockThreshold
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `batteries-inventory-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: 'Export Successful', description: 'Your batteries list has been downloaded as a CSV file.' });
+  };
+
   const isLoading = isLoadingBatteries || isLoadingScrap || isLoadingAcidStock || isLoadingAcidPurchases;
   const isAcidLow = acidStock && acidStock.totalQuantityKg <= acidStock.lowStockThreshold;
 
@@ -300,6 +334,10 @@ export default function BatteryInventory() {
             <CardDescription>Manage your new battery stock.</CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" />
+                Export Batteries
+            </Button>
             <Button variant="secondary" onClick={() => setIsScrapDialogOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Scrap Purchase

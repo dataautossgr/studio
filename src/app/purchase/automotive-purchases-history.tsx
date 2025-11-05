@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, Trash2, Undo2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Undo2, PlusCircle, Download } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -32,6 +32,8 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
 import type { Purchase, Dealer } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
+import { useToast } from '@/hooks/use-toast';
+
 
 interface EnrichedPurchase extends Omit<Purchase, 'dealer'> {
   dealer: {
@@ -51,6 +53,7 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
 
   const [enrichedPurchases, setEnrichedPurchases] = useState<EnrichedPurchase[]>([]);
   const [filteredPurchases, setFilteredPurchases] = useState<EnrichedPurchase[]>([]);
+  const { toast } = useToast();
 
    useEffect(() => {
     if (!allPurchases) return;
@@ -65,7 +68,7 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
                 try {
                     const dealerSnap = await getDoc(dealerRef);
                     if (dealerSnap.exists()) {
-                        dealerName = (dealerSnap.data() as Dealer).name;
+                        dealerName = (dealerSnap.data() as Dealer).company;
                         dealerId = dealerSnap.id;
                     }
                 } catch(e) {
@@ -97,6 +100,35 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
         setFilteredPurchases(enrichedPurchases);
     }
   }, [dateRange, enrichedPurchases]);
+  
+  const handleExport = () => {
+    if (filteredPurchases.length === 0) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: 'No purchase data in the selected range to export.' });
+        return;
+    }
+    const headers = ['ID', 'Date', 'Dealer', 'Invoice Number', 'Status', 'Total'];
+    const csvContent = [
+        headers.join(','),
+        ...filteredPurchases.map(p => [
+            p.id,
+            format(new Date(p.date), 'yyyy-MM-dd HH:mm'),
+            `"${p.dealer.name.replace(/"/g, '""')}"`,
+            p.invoiceNumber,
+            p.status,
+            p.total,
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `automotive-purchases-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: 'Export Successful', description: 'Your automotive purchases history has been downloaded.' });
+  };
 
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
@@ -114,7 +146,24 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
 
   return (
     <Card>
-      <CardContent className="pt-6">
+       <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Automotive Purchases</CardTitle>
+              <CardDescription>History of all parts and supplies purchases.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handleExport}>
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+                <Button asChild>
+                    <Link href="/purchase/new?tab=automotive">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Automotive Purchase
+                    </Link>
+                </Button>
+            </div>
+        </CardHeader>
+      <CardContent className="pt-0">
         <Table>
           <TableHeader>
             <TableRow>

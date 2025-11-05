@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import DealerLedgerDetail from './dealer-detail';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import type { Purchase, DealerPayment } from '@/lib/data';
+import type { Purchase } from '@/lib/data';
 
 export default function DealerLedgerPage() {
     const params = useParams();
@@ -18,17 +18,11 @@ export default function DealerLedgerPage() {
       return query(collection(firestore, 'purchases'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
     }, [firestore, dealerId]);
 
-    const paymentsQuery = useMemoFirebase(() => {
-      if (!firestore || !dealerId) return null;
-      return query(collection(firestore, 'dealer_payments'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
-    }, [firestore, dealerId]);
-
     const { data: dealerPurchases, isLoading: arePurchasesLoading } = useCollection<Purchase>(purchasesQuery);
-    const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<DealerPayment>(paymentsQuery);
 
     return <DealerLedgerDetail 
         dealerPurchases={dealerPurchases} 
-        dealerPayments={dealerPayments}
-        isLoading={arePurchasesLoading || arePaymentsLoading} 
+        dealerPayments={[]} // Pass an empty array to avoid breaking the component
+        isLoading={arePurchasesLoading} 
     />;
 }

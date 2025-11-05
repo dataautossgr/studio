@@ -83,6 +83,9 @@ export default function CashSessionPage() {
   
   const bankTransactionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bank_transactions'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString())) : null, [firestore]);
   const { data: todayBankTransactions } = useCollection(bankTransactionsQuery);
+
+  const dealerPaymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'dealer_payments'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
+  const { data: todayDealerPayments } = useCollection<DealerPayment>(dealerPaymentsQuery);
    
    // --- Live Data Calculations ---
     const getCashFromSale = (sale: Sale | BatterySale) => {
@@ -107,7 +110,9 @@ export default function CashSessionPage() {
         todayExpenses?.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0) || 0
     , [todayExpenses]);
 
-    const totalCashToDealers = 0; // Temporarily set to 0 to avoid permission error
+    const totalCashToDealers = useMemo(() =>
+        todayDealerPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0
+    , [todayDealerPayments]);
     
     const totalCashForScrap = useMemo(() =>
         todayScrapPurchases?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.totalValue, 0) || 0

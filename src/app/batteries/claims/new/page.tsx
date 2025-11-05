@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch, getDoc, DocumentReference } from 'firebase/firestore';
-import type { Customer, Battery, BatterySale, BatteryClaim } from '@/lib/data';
+import { collection, doc, writeBatch, getDoc, DocumentReference, getCountFromServer } from 'firebase/firestore';
+import type { Customer, Battery, BatterySale, BatteryClaim, SaleItem } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,10 @@ import { Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { format } from 'date-fns';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
 
 export default function NewClaimPage() {
   const router = useRouter();
@@ -29,6 +33,11 @@ export default function NewClaimPage() {
   const [serviceCharges, setServiceCharges] = useState(0);
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [isPaid, setIsPaid] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online'>('cash');
+  const [onlinePaymentSource, setOnlinePaymentSource] = useState('');
+
 
   const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
   const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
@@ -59,6 +68,16 @@ export default function NewClaimPage() {
     return originalSale?.items.find(item => item.type === 'battery');
   }, [originalSale]);
 
+  const priceDifference = useMemo(() => {
+    if (!originalBatteryItem || !selectedReplacementBattery) return 0;
+    return selectedReplacementBattery.salePrice - originalBatteryItem.price;
+  }, [originalBatteryItem, selectedReplacementBattery]);
+
+  const totalPayable = useMemo(() => {
+      const difference = priceDifference > 0 ? priceDifference : 0;
+      return difference + serviceCharges;
+  }, [priceDifference, serviceCharges]);
+
   const handleSaveClaim = async () => {
     if (!firestore || !originalSale || !customer || !selectedReplacementBattery) {
       toast({
@@ -82,12 +101,49 @@ export default function NewClaimPage() {
     const claimData: Omit<BatteryClaim, 'id'> = {
         originalSaleId: originalSale.id,
         customerId: customer.id,
-        claimedBatteryId: selectedReplacementBattery.id,
+        claimedBatteryId: originalBatteryItem?.id || 'N/A',
+        replacementBatteryId: selectedReplacementBattery.id,
         claimDate: new Date().toISOString(),
+        originalBatteryPrice: originalBatteryItem?.price || 0,
+        replacementBatteryPrice: selectedReplacementBattery.salePrice,
+        priceDifference: priceDifference,
         serviceCharges,
+        totalPayable: totalPayable,
+        isPaid: totalPayable > 0 ? isPaid : true,
         notes,
     };
     batch.set(newClaimRef, claimData);
+
+    // 3. If there is a payable amount, create a mini-sale for it
+    if(totalPayable > 0 && isPaid) {
+        const salesSnapshot = await getCountFromServer(collection(firestore, 'battery_sales'));
+        const newInvoice = `W-SALE-${new Date().getFullYear()}-${(salesSnapshot.data().count + 1).toString().padStart(4, '0')}`;
+        const newSaleRef = doc(collection(firestore, 'battery_sales'));
+        
+        const saleItem: SaleItem = {
+            id: `claim-${newClaimRef.id}`,
+            name: `Warranty Claim Charges (Inv: ${originalSale.invoice})`,
+            quantity: 1,
+            price: totalPayable,
+            costPrice: 0, // No cost of goods for claim charges
+            stock: 0,
+            isOneTime: true,
+            type: 'service',
+        };
+
+        const newSaleData: Omit<BatterySale, 'id'> = {
+            invoice: newInvoice,
+            customer: doc(firestore, 'customers', customer.id),
+            date: new Date().toISOString(),
+            total: totalPayable,
+            status: 'Paid',
+            items: [saleItem],
+            paymentMethod: paymentMethod,
+            ...(paymentMethod === 'online' && { onlinePaymentSource }),
+        };
+        batch.set(newSaleRef, newSaleData);
+    }
+
 
     try {
       await batch.commit();
@@ -146,7 +202,7 @@ export default function NewClaimPage() {
             </div>
             <div>
                 <Label>Original Battery</Label>
-                <p className="font-semibold">{originalBatteryItem?.name || 'N/A'}</p>
+                <p className="font-semibold">{originalBatteryItem?.name || 'N/A'} (Sold for Rs. {originalBatteryItem?.price.toLocaleString()})</p>
             </div>
             <div>
                 <Label>Manufacturing Code</Label>
@@ -175,6 +231,50 @@ export default function NewClaimPage() {
                     <Input id="service-charges" type="number" value={serviceCharges} onChange={e => setServiceCharges(Number(e.target.value))} placeholder="e.g., for acid or charging"/>
                 </div>
            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 border rounded-md">
+                 <div>
+                    <Label className="text-sm text-muted-foreground">Original Price</Label>
+                    <p className="font-bold text-lg">Rs. {originalBatteryItem?.price.toLocaleString() || '0'}</p>
+                 </div>
+                 <div>
+                    <Label className="text-sm text-muted-foreground">New Battery Price</Label>
+                    <p className="font-bold text-lg">Rs. {selectedReplacementBattery?.salePrice.toLocaleString() || '0'}</p>
+                 </div>
+                 <div>
+                    <Label className="text-sm text-muted-foreground">Price Difference</Label>
+                    <p className={`font-bold text-lg ${priceDifference < 0 ? 'text-green-600' : 'text-destructive'}`}>
+                        Rs. {priceDifference.toLocaleString()}
+                    </p>
+                 </div>
+                 <div className="bg-primary/10 p-2 rounded-md">
+                    <Label className="text-sm text-primary">Total Payable</Label>
+                    <p className="font-bold text-xl text-primary">Rs. {totalPayable.toLocaleString()}</p>
+                 </div>
+            </div>
+
+             {totalPayable > 0 && (
+                 <div className="space-y-4 rounded-md border p-4">
+                    <div className="flex items-center gap-4">
+                        <Label>Payment Status</Label>
+                        <RadioGroup value={isPaid ? 'paid' : 'unpaid'} onValueChange={(val) => setIsPaid(val === 'paid')} className="flex gap-4">
+                             <div className="flex items-center space-x-2"><RadioGroupItem value="paid" id="paid" /><Label htmlFor="paid">Paid</Label></div>
+                             <div className="flex items-center space-x-2"><RadioGroupItem value="unpaid" id="unpaid" /><Label htmlFor="unpaid">Unpaid</Label></div>
+                        </RadioGroup>
+                    </div>
+
+                    {isPaid && (
+                        <div className="space-y-4">
+                            <Label>Payment Method</Label>
+                            <RadioGroup value={paymentMethod} onValueChange={(val: 'cash' | 'online') => setPaymentMethod(val)} className="flex gap-4">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="cash" id="cash" /><Label htmlFor="cash">Cash</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="online" id="online" /><Label htmlFor="online">Online</Label></div>
+                            </RadioGroup>
+                            {paymentMethod === 'online' && (<div className="grid gap-2"><Label htmlFor="online-source">Bank/Service</Label><Select value={onlinePaymentSource} onValueChange={setOnlinePaymentSource}><SelectTrigger id="online-source"><SelectValue placeholder="Select a payment source" /></SelectTrigger><SelectContent>{onlinePaymentProviders.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>)}
+                        </div>
+                    )}
+                 </div>
+             )}
 
             <div className="space-y-2">
                 <Label htmlFor="notes">Claim Notes (Optional)</Label>

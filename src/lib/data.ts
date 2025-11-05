@@ -133,6 +133,19 @@ export interface ScrapStock {
   totalScrapValue: number;
 }
 
+export interface SaleItem {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    costPrice: number;
+    stock: number;
+    isOneTime: boolean;
+    type: 'battery' | 'service' | 'scrap' | 'acid' | 'one-time';
+    warrantyMonths?: number;
+    manufacturingCode?: string;
+}
+
 export interface BatterySale {
   id: string;
   invoice: string;
@@ -140,18 +153,7 @@ export interface BatterySale {
   date: string;
   total: number;
   status: 'Paid' | 'Unpaid' | 'Partial';
-  items: {
-      id: string;
-      name: string;
-      quantity: number;
-      price: number;
-      costPrice: number;
-      stock: number;
-      isOneTime: boolean;
-      type: 'battery' | 'service' | 'scrap' | 'acid' | 'one-time';
-      warrantyMonths?: number;
-      manufacturingCode?: string;
-  }[];
+  items: SaleItem[];
   discount?: number;
   paymentMethod?: 'cash' | 'online';
   onlinePaymentSource?: string;
@@ -222,9 +224,15 @@ export interface BatteryClaim {
     id: string;
     originalSaleId: string;
     customerId: string;
-    claimedBatteryId: string;
+    claimedBatteryId: string; // Original battery ID
+    replacementBatteryId: string; // New battery ID
     claimDate: string;
-    serviceCharges?: number;
+    originalBatteryPrice: number;
+    replacementBatteryPrice: number;
+    priceDifference: number;
+    serviceCharges: number;
+    totalPayable: number;
+    isPaid: boolean;
     notes?: string;
 }
 

@@ -617,11 +617,17 @@
             "originalSaleId": { "type": "string" },
             "customerId": { "type": "string" },
             "claimedBatteryId": { "type": "string" },
+            "replacementBatteryId": { "type": "string" },
             "claimDate": { "type": "string", "format": "date-time" },
+            "originalBatteryPrice": { "type": "number" },
+            "replacementBatteryPrice": { "type": "number" },
+            "priceDifference": { "type": "number" },
             "serviceCharges": { "type": "number" },
+            "totalPayable": { "type": "number" },
+            "isPaid": { "type": "boolean" },
             "notes": { "type": "string" }
         },
-        "required": ["id", "originalSaleId", "customerId", "claimedBatteryId", "claimDate"]
+        "required": ["id", "originalSaleId", "customerId", "claimedBatteryId", "replacementBatteryId", "claimDate", "originalBatteryPrice", "replacementBatteryPrice", "totalPayable", "isPaid"]
     }
   },
   "auth": {

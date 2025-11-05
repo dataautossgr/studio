@@ -20,7 +20,7 @@ import {
 import { format, startOfToday } from 'date-fns';
 import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, DocumentReference, doc } from 'firebase/firestore';
-import type { Sale, Product, Customer, Battery, AcidStock } from '@/lib/data';
+import type { Sale, Product, Customer, Battery, AcidStock, BatterySale } from '@/lib/data';
 import { MasterSearchDialog } from '@/components/master-search-dialog';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const salesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'sales'): null, [firestore]);
+  const batterySalesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'battery_sales'): null, [firestore]);
   const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
   const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
   const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
@@ -38,6 +39,7 @@ export default function DashboardPage() {
 
 
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
+  const { data: batterySales, isLoading: batterySalesLoading } = useCollection<BatterySale>(batterySalesCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
@@ -55,55 +57,58 @@ export default function DashboardPage() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow } = useMemo(() => {
-    if (!sales || !products || !customers || !batteries || !acidStock) {
-      return { lowStockCount: 0, pendingPayments: 0, todaysRevenue: 0, todaysProfit: 0, isAcidLow: false };
+  const { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow, recentSales } = useMemo(() => {
+    if (!sales || !batterySales || !products || !customers || !batteries || !acidStock) {
+      return { lowStockCount: 0, pendingPayments: 0, todaysRevenue: 0, todaysProfit: 0, isAcidLow: false, recentSales: [] };
     }
-
+  
     const todayStart = startOfToday();
-
+  
     const lowStockProducts = products.filter(p => p.stock <= p.lowStockThreshold).length;
     const lowStockBatteries = batteries.filter(b => b.stock <= b.lowStockThreshold).length;
     const lowStockCount = lowStockProducts + lowStockBatteries;
-
+  
     const pendingPayments = customers.filter(c => c.balance > 0).reduce((acc, c) => acc + c.balance, 0);
-
-    const todaysSales = sales.filter(s => new Date(s.date) >= todayStart);
-    
-    const todaysRevenue = todaysSales.reduce((acc, sale) => {
-      if (sale.status === 'Paid') {
-        return acc + sale.total;
-      }
-      if (sale.status === 'Partial') {
-        return acc + (sale.partialAmountPaid || 0);
-      }
-      return acc;
-    }, 0);
-    
-    const todaysProfit = todaysSales.reduce((acc, sale) => {
-        const saleCost = sale.items.reduce((itemSum, item) => {
-            const productDoc = products.find(p => p.id === item.productId);
-            // Assume cost is 0 if product not found for profit calculation
-            return itemSum + ((productDoc?.costPrice || 0) * item.quantity);
-        }, 0);
-
-        if (sale.status === 'Paid') {
-            return acc + (sale.total - saleCost);
-        }
-        if (sale.status === 'Partial') {
-            const amountReceived = sale.partialAmountPaid || 0;
-            // Profit is the portion of money received minus the total cost of items.
-            // This can be negative if the partial payment doesn't cover the cost.
-            return acc + (amountReceived - saleCost);
-        }
-        return acc;
-    }, 0);
-
+  
+    const todaysAutomotiveSales = sales.filter(s => new Date(s.date) >= todayStart);
+    const todaysBatterySales = batterySales.filter(s => new Date(s.date) >= todayStart);
+  
+    const calculateRevenue = (sale: Sale | BatterySale) => {
+      if (sale.status === 'Paid') return sale.total;
+      if (sale.status === 'Partial') return sale.partialAmountPaid || 0;
+      return 0;
+    };
+  
+    const automotiveRevenue = todaysAutomotiveSales.reduce((acc, sale) => acc + calculateRevenue(sale), 0);
+    const batteryRevenue = todaysBatterySales.reduce((acc, sale) => acc + calculateRevenue(sale), 0);
+    const todaysRevenue = automotiveRevenue + batteryRevenue;
+  
+    const calculateProfit = (sale: Sale | BatterySale, productsList: (Product | Battery)[]) => {
+      const saleCost = sale.items.reduce((itemSum, item) => {
+        const productId = 'productId' in item ? item.productId : item.id;
+        const product = productsList.find(p => p.id === productId);
+        return itemSum + ((product?.costPrice || 0) * item.quantity);
+      }, 0);
+  
+      if (sale.status === 'Paid') return sale.total - saleCost;
+      if (sale.status === 'Partial') return (sale.partialAmountPaid || 0) - saleCost;
+      return 0;
+    };
+  
+    const automotiveProfit = todaysAutomotiveSales.reduce((acc, sale) => acc + calculateProfit(sale, products), 0);
+    const batteryProfit = todaysBatterySales.reduce((acc, sale) => acc + calculateProfit(sale, batteries), 0);
+    const todaysProfit = automotiveProfit + batteryProfit;
+  
     const isAcidLow = acidStock.totalQuantityKg <= acidStock.lowStockThreshold;
 
-    return { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow };
-  }, [sales, products, customers, batteries, acidStock]);
-
+    const allRecentSales = [...sales, ...batterySales]
+      .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  
+    return { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow, recentSales: allRecentSales };
+  }, [sales, batterySales, products, customers, batteries, acidStock]);
+  
+  const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading;
 
   const reportCards = [
     {
@@ -138,7 +143,6 @@ export default function DashboardPage() {
     },
   ];
 
-  const isLoading = salesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -242,10 +246,14 @@ export default function DashboardPage() {
                         <TableCell colSpan={2} className="text-center">Loading...</TableCell>
                     </TableRow>
                 ) : (
-                    sales?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5).map((sale) => (
+                    recentSales?.map((sale) => (
                         <TableRow key={sale.id}>
                             <TableCell>
-                            <div className="font-medium">{customers?.find(c => c.id === (sale.customer as unknown as {id: string})?.id)?.name || 'Walk-in Customer'}</div>
+                            <div className="font-medium">{
+                                sale.customer instanceof DocumentReference
+                                  ? customers?.find(c => c.id === (sale.customer as DocumentReference).id)?.name || 'Walk-in Customer'
+                                  : sale.customer || 'Walk-in Customer'
+                              }</div>
                             <div className="text-sm text-muted-foreground hidden sm:inline">
                                 {format(new Date(sale.date), 'dd MMM, yyyy')}
                             </div>

@@ -68,9 +68,9 @@ export default function DashboardPage() {
   }, []);
 
   const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading || paymentsLoading || expensesLoading;
-
+  
   const dashboardStats = useMemo(() => {
-    if (isLoading || !salesData || !batterySalesData || !products || !customers || !batteries) {
+    if (!salesData || !batterySalesData || !products || !customers || !batteries || !todayPayments || !todayExpenses) {
         return {
             lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0,
             todaysRevenue: 0, todaysCashIn: 0, isAcidLow: false, recentSales: [],
@@ -104,8 +104,8 @@ export default function DashboardPage() {
     };
     const cashFromAutomotiveSales = todaysAutomotiveSales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
     const cashFromBatterySales = todaysBatterySales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
-    const cashFromDues = todayPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0;
-    const cashFromExpenses = todayExpenses?.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0) || 0;
+    const cashFromDues = todayPayments.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0);
+    const cashFromExpenses = todayExpenses.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0);
     const todaysCashIn = cashFromAutomotiveSales + cashFromBatterySales + cashFromDues - cashFromExpenses;
   
     const allRecentSales = [...salesData, ...batterySalesData]
@@ -123,7 +123,8 @@ export default function DashboardPage() {
       automotiveDuesCount: automotiveCustomersWithDues.length,
       batteryDuesCount: batteryCustomersWithDues.length
     };
-  }, [isLoading, salesData, batterySalesData, products, customers, batteries, acidStock, todayPayments, todayExpenses]);
+  }, [salesData, batterySalesData, products, customers, batteries, acidStock, todayPayments, todayExpenses]);
+
 
   const { todaysRevenue, todaysCashIn, lowStockCount, isAcidLow, automotivePendingPayments, batteryPendingPayments, automotiveDuesCount, batteryDuesCount, recentSales } = dashboardStats;
 
@@ -269,7 +270,7 @@ export default function DashboardPage() {
                             <div className="font-medium">{
                                 sale.customer instanceof DocumentReference
                                   ? customers?.find(c => c.id === (sale.customer as DocumentReference).id)?.name || 'Walk-in Customer'
-                                  : (sale as any).customerName || 'Walk-in Customer'
+                                  : 'Walk-in Customer' // Fallback for old string-based customer names in battery sales
                               }</div>
                             <div className="text-sm text-muted-foreground hidden sm:inline">
                                 {format(new Date(sale.date), 'dd MMM, yyyy')}
@@ -289,3 +290,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

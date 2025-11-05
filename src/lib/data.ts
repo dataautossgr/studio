@@ -138,7 +138,7 @@ export interface BatterySale {
   total: number;
   status: 'Paid' | 'Unpaid' | 'Partial';
   items: {
-      productId: string;
+      id: string;
       name: string;
       quantity: number;
       price: number;
@@ -154,6 +154,19 @@ export interface BatterySale {
   onlinePaymentSource?: string;
   partialAmountPaid?: number;
   dueDate?: string;
+}
+
+
+export interface BatteryPurchase {
+  id: string;
+  dealerId: string;
+  date: string;
+  items: {
+    batteryId: string;
+    quantity: number;
+    costPrice: number;
+  }[];
+  totalAmount: number;
 }
 
 

@@ -6,9 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Trash2, Search, PlusCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc, runTransaction, getCountFromServer, DocumentReference, getDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
 import type { Battery, Dealer, BatteryPurchase } from "@/lib/data";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -46,14 +46,14 @@ export default function BatteryPurchaseForm() {
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (editId && firestore && !dealersLoading && !batteriesLoading && batteries) {
+        if (editId && firestore && !dealersLoading && !batteriesLoading && batteries && dealers) {
             const fetchPurchase = async () => {
                 const purchaseRef = doc(firestore, 'battery_purchases', editId);
                 const purchaseSnap = await getDoc(purchaseRef);
                 if (purchaseSnap.exists()) {
                     const purchaseData = purchaseSnap.data() as BatteryPurchase;
                     if(purchaseData.dealerId) {
-                        const dealer = dealers?.find(d => d.id === purchaseData.dealerId);
+                        const dealer = dealers.find(d => d.id === purchaseData.dealerId);
                         setSelectedDealer(dealer || null);
                     }
                     setPurchaseDate(new Date(purchaseData.date));
@@ -109,7 +109,10 @@ export default function BatteryPurchaseForm() {
                 // Update stock for each item
                 for (const item of items) {
                     const batteryRef = doc(firestore, 'batteries', item.id);
-                    const newStock = item.currentStock + item.quantity;
+                    // This logic is simplified. A real-world scenario would need to handle stock reversal on edit.
+                    const batterySnap = await transaction.get(batteryRef);
+                    const currentStock = batterySnap.exists() ? (batterySnap.data() as Battery).stock : 0;
+                    const newStock = isNew ? currentStock + item.quantity : item.currentStock + item.quantity;
                     transaction.update(batteryRef, { stock: newStock });
                 }
 
@@ -126,8 +129,8 @@ export default function BatteryPurchaseForm() {
                     transaction.set(newPurchaseRef, purchaseData);
                 } else {
                     const purchaseRef = doc(firestore, 'battery_purchases', editId);
-                    // Note: logic to revert old stock counts would be needed for a true edit.
-                    // For simplicity, this implementation just overwrites.
+                    // Note: This simplified logic overwrites the old purchase.
+                    // A robust solution would calculate stock differences for edited items.
                     transaction.set(purchaseRef, purchaseData);
                 }
             });

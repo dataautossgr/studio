@@ -458,22 +458,37 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "customerId": { "type": "string" },
-        "batteryId": { "type": "string" },
+        "invoice": { "type": "string" },
+        "customer": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
-        "manufacturingCode": { "type": "string" },
-        "salePrice": { "type": "number" },
-        "scrapBatteryWeight": { "type": "number" },
-        "scrapBatteryRate": { "type": "number" },
-        "scrapBatteryValue": { "type": "number" },
-        "acidSaleQuantityKg": { "type": "number" },
-        "acidSaleRatePerKg": { "type": "number" },
-        "finalAmount": { "type": "number" },
-        "warrantyEndDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["Paid", "Unpaid"] },
-        "chargingServiceAmount": { "type": "number" }
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["Paid", "Unpaid", "Partial"] },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" },
+              "costPrice": { "type": "number" },
+              "stock": { "type": "number" },
+              "isOneTime": { "type": "boolean" },
+              "type": { "type": "string", "enum": ["battery", "service", "scrap", "acid", "one-time"] },
+              "warrantyMonths": { "type": "number" },
+              "manufacturingCode": { "type": "string" }
+            },
+            "required": ["id", "name", "quantity", "price", "costPrice", "stock", "isOneTime", "type"]
+          }
+        },
+        "discount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["cash", "online"] },
+        "onlinePaymentSource": { "type": "string" },
+        "partialAmountPaid": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "customerId", "date", "finalAmount", "status"]
+      "required": ["id", "invoice", "customer", "date", "total", "status", "items"]
     },
     "BatteryPurchase": {
       "$schema": "http://json-schema.org/draft-07/schema#",

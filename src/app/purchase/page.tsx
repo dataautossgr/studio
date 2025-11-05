@@ -14,8 +14,8 @@ import BatteryPurchasesHistory from '../batteries/purchases/battery-purchases-hi
 
 export default function PurchasesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfDay(new Date()),
-    to: endOfDay(new Date()),
+    from: undefined,
+    to: undefined,
   });
 
   return (

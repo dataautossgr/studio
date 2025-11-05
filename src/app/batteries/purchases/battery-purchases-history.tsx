@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import {
@@ -26,7 +25,7 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, type DocumentReference } from 'firebase/firestore';
+import { collection, doc, getDoc } from 'firebase/firestore';
 import type { BatteryPurchase, Dealer } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
 
@@ -40,14 +39,14 @@ interface BatteryPurchasesHistoryProps {
 
 export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesHistoryProps) {
   const firestore = useFirestore();
-  const purchasesCollection = useMemoFirebase(() => collection(firestore, 'battery_purchases'), [firestore]);
+  const purchasesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'battery_purchases') : null, [firestore]);
   const { data: allPurchases, isLoading } = useCollection<BatteryPurchase>(purchasesCollection);
 
   const [enrichedPurchases, setEnrichedPurchases] = useState<EnrichedPurchase[]>([]);
   const [filteredPurchases, setFilteredPurchases] = useState<EnrichedPurchase[]>([]);
   
    useEffect(() => {
-    if (!allPurchases) return;
+    if (!allPurchases || !firestore) return;
 
     const enrichPurchasesData = async () => {
         const enriched = await Promise.all(allPurchases.map(async (purchase) => {
@@ -57,7 +56,7 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
                 try {
                     const dealerSnap = await getDoc(dealerRef);
                     if (dealerSnap.exists()) {
-                        dealerName = (dealerSnap.data() as Dealer).name;
+                        dealerName = (dealerSnap.data() as Dealer).company;
                     }
                 } catch(e) {
                     console.error("Error fetching dealer", e);

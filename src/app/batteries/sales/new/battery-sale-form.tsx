@@ -112,7 +112,7 @@ export default function BatterySaleForm() {
   
   const scrapBatteryValue = useMemo(() => scrapWeight * scrapRate, [scrapWeight, scrapRate]);
   const finalAmount = useMemo(() => {
-      const baseAmount = salePrice - scrapBatteryValue;
+      const baseAmount = (salePrice || 0) - scrapBatteryValue;
       return addChargingService ? baseAmount + chargingServiceAmount : baseAmount;
   }, [salePrice, scrapBatteryValue, addChargingService, chargingServiceAmount]);
 
@@ -416,7 +416,7 @@ export default function BatterySaleForm() {
                     </Select>
                 </div>
                  <div className="flex flex-col items-end space-y-2">
-                    {selectedBattery && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Sale Price:</span><span className="font-mono">Rs. {salePrice.toLocaleString()}</span></div>}
+                    {selectedBattery && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Sale Price:</span><span className="font-mono">Rs. {(salePrice || 0).toLocaleString()}</span></div>}
                     {scrapWeight > 0 && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Scrap Deduction:</span><span className="font-mono">- Rs. {scrapBatteryValue.toLocaleString()}</span></div>}
                     {addChargingService && <div className="flex justify-between w-full max-w-xs text-muted-foreground"><span>Charging Service:</span><span className="font-mono">+ Rs. {chargingServiceAmount.toLocaleString()}</span></div>}
                     <div className="flex justify-between w-full max-w-xs text-xl font-bold border-t pt-2 mt-2"><span>Final Amount:</span><span className="font-mono">Rs. {finalAmount.toLocaleString()}</span></div>
@@ -435,21 +435,21 @@ export default function BatterySaleForm() {
        <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Please review the details before saving. This action will update stock and cannot be easily undone.
-                     <div className="my-4 space-y-1 text-sm text-foreground">
-                        <div><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</div>
-                        {selectedBattery && <div><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</div>}
-                        {addChargingService && <div><strong>Charging Service:</strong> Rs. {chargingServiceAmount.toLocaleString()}</div>}
-                        <div><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</div>
-                        <div><strong>Status:</strong> {status}</div>
-                     </div>
-                </AlertDialogDescription>
+                    <AlertDialogTitle>Confirm Transaction</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Please review the details before saving. This action will update stock and cannot be easily undone.
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="my-4 space-y-1 text-sm text-foreground">
+                    <div><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</div>
+                    {selectedBattery && <div><strong>Battery:</strong> {selectedBattery?.brand} {selectedBattery?.model}</div>}
+                    {addChargingService && <div><strong>Charging Service:</strong> Rs. {chargingServiceAmount.toLocaleString()}</div>}
+                    <div><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</div>
+                    <div><strong>Status:</strong> {status}</div>
+                </div>
                 <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmSave}>Confirm &amp; Save</AlertDialogAction>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmSave}>Confirm &amp; Save</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

@@ -33,15 +33,14 @@ export function Header() {
   };
   
   const getPageTitle = () => {
-    if (pathname === '/') return ''; // Return empty string for the dashboard
+    if (pathname === '/') return '';
     const segment = pathname.split('/')[1];
-    if (!segment) return ''; // Default to empty
-    // Capitalize first letter and handle hyphenated names
+    if (!segment) return '';
     return segment.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
+    <header className="flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
         <h1 className="text-lg font-semibold md:text-xl">{getPageTitle()}</h1>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -8,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle } from 'lucide-react';
+import { CreditCard, DollarSign, Package, TrendingUp, Users, Search, Wrench, PlusCircle, Droplets } from 'lucide-react';
 import { SalesChart } from '@/app/reports/sales-chart';
 import {
   Table,
@@ -19,9 +18,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { format, startOfToday } from 'date-fns';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, DocumentReference } from 'firebase/firestore';
-import type { Sale, Product, Customer } from '@/lib/data';
+import { useCollection, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, DocumentReference, doc } from 'firebase/firestore';
+import type { Sale, Product, Customer, Battery, AcidStock } from '@/lib/data';
 import { MasterSearchDialog } from '@/components/master-search-dialog';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -34,10 +33,15 @@ export default function DashboardPage() {
   const salesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'sales'): null, [firestore]);
   const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
   const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
+  const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
+  const acidStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'acid_stock', 'main') : null, [firestore]);
+
 
   const { data: sales, isLoading: salesLoading } = useCollection<Sale>(salesCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
+  const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
+  const { data: acidStock, isLoading: acidLoading } = useDoc<AcidStock>(acidStockRef);
 
    useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -51,14 +55,17 @@ export default function DashboardPage() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const { lowStockCount, pendingPayments, todaysRevenue, todaysProfit } = useMemo(() => {
-    if (!sales || !products || !customers) {
-      return { lowStockCount: 0, pendingPayments: 0, todaysRevenue: 0, todaysProfit: 0 };
+  const { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow } = useMemo(() => {
+    if (!sales || !products || !customers || !batteries || !acidStock) {
+      return { lowStockCount: 0, pendingPayments: 0, todaysRevenue: 0, todaysProfit: 0, isAcidLow: false };
     }
 
     const todayStart = startOfToday();
 
-    const lowStockCount = products.filter(p => p.stock <= p.lowStockThreshold).length;
+    const lowStockProducts = products.filter(p => p.stock <= p.lowStockThreshold).length;
+    const lowStockBatteries = batteries.filter(b => b.stock <= b.lowStockThreshold).length;
+    const lowStockCount = lowStockProducts + lowStockBatteries;
+
     const pendingPayments = customers.filter(c => c.balance > 0).reduce((acc, c) => acc + c.balance, 0);
 
     const todaysSales = sales.filter(s => new Date(s.date) >= todayStart);
@@ -92,8 +99,10 @@ export default function DashboardPage() {
         return acc;
     }, 0);
 
-    return { lowStockCount, pendingPayments, todaysRevenue, todaysProfit };
-  }, [sales, products, customers]);
+    const isAcidLow = acidStock.totalQuantityKg <= acidStock.lowStockThreshold;
+
+    return { lowStockCount, pendingPayments, todaysRevenue, todaysProfit, isAcidLow };
+  }, [sales, products, customers, batteries, acidStock]);
 
 
   const reportCards = [
@@ -119,7 +128,7 @@ export default function DashboardPage() {
       title: 'Low Stock Items',
       value: lowStockCount.toString(),
       icon: Package,
-      change: lowStockCount > 0 ? `${lowStockCount} items need attention` : 'All items are in stock',
+      change: isAcidLow ? <span className="text-destructive font-semibold flex items-center gap-1"><Droplets size={12}/> Acid is low!</span> : `${lowStockCount} items need attention`,
     },
     {
       title: 'Pending Customer Payments',
@@ -129,7 +138,7 @@ export default function DashboardPage() {
     },
   ];
 
-  const isLoading = salesLoading || productsLoading || customersLoading;
+  const isLoading = salesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">

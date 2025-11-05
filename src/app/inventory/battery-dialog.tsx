@@ -34,6 +34,7 @@ const batterySchema = z.object({
   salePrice: z.coerce.number().min(0, 'Sale price must be positive'),
   stock: z.coerce.number().int('Stock must be a whole number').min(0, 'Stock must be positive'),
   warrantyMonths: z.coerce.number().int().min(0, 'Warranty must be positive'),
+  lowStockThreshold: z.coerce.number().int().min(0, 'Low stock threshold must be positive'),
 });
 
 export type BatteryFormData = z.infer<typeof batterySchema>;
@@ -66,6 +67,7 @@ export function BatteryDialog({ isOpen, onClose, onSave, battery }: BatteryDialo
           salePrice: 0,
           stock: 0,
           warrantyMonths: 12,
+          lowStockThreshold: 5,
         });
       }
     }
@@ -148,6 +150,11 @@ export function BatteryDialog({ isOpen, onClose, onSave, battery }: BatteryDialo
                     <Input id="warrantyMonths" type="number" {...register('warrantyMonths')} className={errors.warrantyMonths ? 'border-destructive' : ''} />
                     {errors.warrantyMonths && <p className="text-xs text-destructive mt-1">{errors.warrantyMonths.message}</p>}
                 </div>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="lowStockThreshold">Low Stock Warning Threshold</Label>
+                <Input id="lowStockThreshold" type="number" {...register('lowStockThreshold')} className={errors.lowStockThreshold ? 'border-destructive' : ''} />
+                {errors.lowStockThreshold && <p className="text-xs text-destructive mt-1">{errors.lowStockThreshold.message}</p>}
             </div>
 
           </div>

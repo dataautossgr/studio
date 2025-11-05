@@ -258,12 +258,13 @@ export default function BatteryInventory() {
   };
 
   const isLoading = isLoadingBatteries || isLoadingScrap || isLoadingAcidStock || isLoadingAcidPurchases;
+  const isAcidLow = acidStock && acidStock.totalQuantityKg <= acidStock.lowStockThreshold;
 
   const summaryCards = [
     { title: "Battery Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
     { title: "Battery Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
     { title: "Scrap Stock (Weight)", value: `${(scrapStock?.totalWeightKg || 0).toLocaleString()} KG`, icon: BatteryCharging },
-    { title: "Acid Stock (KG)", value: `${(acidStock?.totalQuantityKg || 0).toLocaleString()} KG`, icon: Droplets },
+    { title: "Acid Stock (KG)", value: `${(acidStock?.totalQuantityKg || 0).toLocaleString()} KG`, icon: Droplets, isLow: isAcidLow },
   ];
 
   return (
@@ -279,13 +280,14 @@ export default function BatteryInventory() {
                     </CardContent>
                 </Card>
             )) : summaryCards.map((stat, i) => (
-                <Card key={i}>
+                <Card key={i} className={stat.isLow ? 'border-destructive' : ''}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                    <stat.icon className="h-4 w-4 text-muted-foreground" />
+                    <stat.icon className={`h-4 w-4 ${stat.isLow ? 'text-destructive' : 'text-muted-foreground'}`} />
                     </CardHeader>
                     <CardContent>
                     <div className="text-2xl font-bold">{stat.value}</div>
+                     {stat.isLow && <p className="text-xs text-destructive">Stock is below threshold!</p>}
                     </CardContent>
                 </Card>
             ))}
@@ -331,7 +333,12 @@ export default function BatteryInventory() {
               )}
               {batteries?.map((battery) => (
                 <TableRow key={battery.id}>
-                  <TableCell className="font-medium">{battery.brand} {battery.model}</TableCell>
+                  <TableCell className="font-medium">
+                    {battery.brand} {battery.model}
+                    {battery.stock <= battery.lowStockThreshold && (
+                        <Badge variant="destructive" className="ml-2">Low Stock</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>{battery.ampere} Ah</TableCell>
                   <TableCell><Badge variant="outline">{battery.type}</Badge></TableCell>
                   <TableCell className="text-right font-mono">Rs. {battery.costPrice.toLocaleString()}</TableCell>

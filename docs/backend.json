@@ -435,9 +435,10 @@
         "costPrice": { "type": "number" },
         "salePrice": { "type": "number" },
         "stock": { "type": "number" },
-        "warrantyMonths": { "type": "number" }
+        "warrantyMonths": { "type": "number" },
+        "lowStockThreshold": { "type": "number" }
       },
-      "required": ["id", "brand", "model", "ampere", "costPrice", "salePrice", "stock", "warrantyMonths"]
+      "required": ["id", "brand", "model", "ampere", "costPrice", "salePrice", "stock", "warrantyMonths", "lowStockThreshold"]
     },
     "ScrapStock": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -540,9 +541,10 @@
       "properties": {
         "id": { "type": "string", "description": "Singleton document ID, e.g., 'main'" },
         "totalQuantityKg": { "type": "number" },
-        "totalValue": { "type": "number" }
+        "totalValue": { "type": "number" },
+        "lowStockThreshold": { "type": "number" }
       },
-      "required": ["id", "totalQuantityKg", "totalValue"]
+      "required": ["id", "totalQuantityKg", "totalValue", "lowStockThreshold"]
     },
     "AcidPurchase": {
       "$schema": "http://json-schema.org/draft-07/schema#",

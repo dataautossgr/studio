@@ -122,6 +122,7 @@ export interface Battery {
   salePrice: number;
   stock: number;
   warrantyMonths: number;
+  lowStockThreshold: number;
 }
 
 export interface ScrapStock {
@@ -185,6 +186,7 @@ export interface AcidStock {
   id: string; // Singleton document ID, e.g., 'main'
   totalQuantityKg: number;
   totalValue: number;
+  lowStockThreshold: number;
 }
 
 export interface AcidPurchase {

@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { DuePaymentsDialog } from './due-payments-dialog';
 
 export function Header() {
@@ -25,17 +25,26 @@ export function Header() {
   const ownerInitials = settings.ownerName.split(' ').map(n => n[0]).join('').toUpperCase();
   const auth = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/login');
+  };
+  
+  const getPageTitle = () => {
+    if (pathname === '/') return 'Dashboard';
+    const segment = pathname.split('/')[1];
+    if (!segment) return 'Dashboard';
+    // Capitalize first letter and handle hyphenated names
+    return segment.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
-        <h1 className="text-lg font-semibold md:text-xl">Dashboard</h1>
+        <h1 className="text-lg font-semibold md:text-xl">{getPageTitle()}</h1>
       </div>
       <div className="ml-auto flex items-center gap-2">
         <DuePaymentsDialog />

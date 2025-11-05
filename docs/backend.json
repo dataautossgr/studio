@@ -177,6 +177,24 @@
           "type": "string",
           "description": "Timestamp when the purchase was created.",
           "format": "date-time"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["Cash", "Online"],
+          "description": "Method of payment."
+        },
+        "paymentSourceAccount": {
+            "type": "string",
+            "description": "The user's account from which the payment was made."
+        },
+        "paymentDestinationDetails": {
+            "type": "object",
+            "description": "Details of the dealer's account where payment was sent.",
+            "properties": {
+                "accountTitle": {"type": "string"},
+                "bankName": {"type": "string"},
+                "accountNumber": {"type": "string"}
+            }
         }
       },
       "required": [

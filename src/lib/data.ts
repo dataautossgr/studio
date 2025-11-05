@@ -102,7 +102,14 @@ export interface Purchase {
         quantity: number;
         costPrice: number;
     }[];
-    dueDate?: string; // Optional due date for this specific purchase
+    dueDate?: string;
+    paymentMethod?: 'Cash' | 'Online';
+    paymentSourceAccount?: string;
+    paymentDestinationDetails?: {
+      accountTitle: string;
+      bankName: string;
+      accountNumber: string;
+    };
 }
 
 export interface RepairJob {

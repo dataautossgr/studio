@@ -353,7 +353,3 @@ export default function CashSessionPage() {
 
   return null;
 }
-
-    
-
-    

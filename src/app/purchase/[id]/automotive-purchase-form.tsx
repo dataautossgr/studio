@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar as CalendarIcon, Trash2, Search, PlusCircle, Upload } from 'lucide-react';
 import { type Product, type Dealer, type Purchase } from '@/lib/data';
+import { ProductDialog } from '../../inventory/product-dialog';
 import {
   Popover,
   PopoverContent,
@@ -47,8 +48,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import Image from 'next/image';
-import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, doc, getDoc, type DocumentReference } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface PurchaseItem {
@@ -63,6 +65,7 @@ export default function AutomotivePurchaseForm() {
     const params = useParams();
     const router = useRouter();
     const firestore = useFirestore();
+    const { toast } = useToast();
 
     const purchaseId = params.id as string | undefined;
     const isNew = !purchaseId || purchaseId === 'new';
@@ -85,6 +88,7 @@ export default function AutomotivePurchaseForm() {
     const [status, setStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
     const [dueDate, setDueDate] = useState<Date | undefined>();
     const [receiptImageUrl, setReceiptImageUrl] = useState<string | undefined>(undefined);
+    const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
     
     useEffect(() => {
         if (!isNew && purchase && products && dealers) {
@@ -132,18 +136,50 @@ export default function AutomotivePurchaseForm() {
         }
     };
     
-    const addNewProduct = () => {
-        const newId = `new-${Date.now()}`;
-        setPurchaseItems([
-            ...purchaseItems,
-            {
-                productId: newId,
-                name: 'New Product',
-                quantity: 1,
-                costPrice: 0,
-                isNew: true,
+    const handleSaveNewProduct = async (productData: Omit<Product, 'id'>) => {
+        if (!firestore) return;
+    
+        const isDuplicate = products?.some(
+          p => p.name.toLowerCase() === productData.name.toLowerCase() &&
+               p.brand.toLowerCase() === productData.brand.toLowerCase() &&
+               p.model.toLowerCase() === productData.model.toLowerCase()
+        );
+    
+        if (isDuplicate) {
+          toast({
+            variant: "destructive",
+            title: "Failed to Add Product",
+            description: "A product with the same name, brand, and model already exists.",
+          });
+          return;
+        }
+        
+        try {
+            const newDocRef = await addDocumentNonBlocking(collection(firestore, 'products'), productData);
+            toast({
+                title: "Success",
+                description: "Product has been added to inventory.",
+            });
+            
+            if (newDocRef) {
+                const newProduct: PurchaseItem = {
+                    productId: newDocRef.id,
+                    name: productData.name,
+                    quantity: 1,
+                    costPrice: productData.costPrice,
+                    isNew: false
+                };
+                setPurchaseItems(prev => [...prev, newProduct]);
             }
-        ]);
+            setIsProductDialogOpen(false);
+        } catch(error) {
+            console.error("Error adding new product:", error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Could not add the new product.",
+            });
+        }
     };
 
     const updatePurchaseItem = (productId: string, field: 'name' | 'quantity' | 'costPrice', value: string | number) => {
@@ -257,7 +293,6 @@ export default function AutomotivePurchaseForm() {
                                         key={product.id}
                                         onSelect={() => {
                                           handleProductSelect(product)
-                                          // A bit of a hack to close popover
                                           document.body.click();
                                         }}
                                         className="cursor-pointer"
@@ -270,7 +305,7 @@ export default function AutomotivePurchaseForm() {
                             </Command>
                         </PopoverContent>
                     </Popover>
-                    <Button variant="secondary" onClick={addNewProduct}>
+                    <Button variant="secondary" onClick={() => setIsProductDialogOpen(true)}>
                         <PlusCircle className="mr-2 h-4 w-4" /> New Product
                     </Button>
                 </div>
@@ -420,6 +455,12 @@ export default function AutomotivePurchaseForm() {
           <Button>Save Purchase</Button>
         </CardFooter>
       </Card>
+      <ProductDialog 
+        isOpen={isProductDialogOpen}
+        onClose={() => setIsProductDialogOpen(false)}
+        onSave={handleSaveNewProduct}
+        product={null}
+      />
     </div>
   );
 }

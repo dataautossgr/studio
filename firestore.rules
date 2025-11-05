@@ -167,6 +167,20 @@ service cloud.firestore {
     }
 
     /**
+     * @description Allows read and write access to dealer payments.
+     * @path /dealer_payments/{paymentId}
+     * @allow (get, list, create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /dealer_payments/{paymentId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+    }
+
+    /**
      * @description Allows read and write access to repair jobs.
      * @path /repair_jobs/{jobId}
      * @allow (get, list) if true;
@@ -308,3 +322,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

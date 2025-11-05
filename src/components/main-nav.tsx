@@ -12,7 +12,7 @@ import {
   Building,
   Wallet,
   Wrench,
-  Battery,
+  ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -26,6 +26,7 @@ const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/inventory', label: 'Inventory', icon: Boxes },
   { href: '/sales', label: 'Sales', icon: Receipt },
+  { href: '/batteries/claims', label: 'Claims', icon: ShieldCheck },
   { href: '/repair-jobs', label: 'Temporary Bill', icon: Wrench },
   { href: '/purchase', label: 'Purchase', icon: ShoppingBag },
   { href: '/dealers', label: 'Dealers', icon: Building },

@@ -28,7 +28,7 @@ import {
   } from '@/components/ui/dropdown-menu';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, getDoc, doc, DocumentReference } from 'firebase/firestore';
 import type { Battery } from '@/lib/data';
@@ -51,7 +51,6 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
   const { data: allSales, isLoading } = useCollection<BatterySale>(salesCollection);
   
   const [enrichedSales, setEnrichedSales] = useState<EnrichedBatterySale[]>([]);
-  const [filteredSales, setFilteredSales] = useState<EnrichedBatterySale[]>([]);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -82,20 +81,18 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
     };
 
     enrichSalesData();
-}, [allSales, firestore]);
+  }, [allSales, firestore]);
 
-  useEffect(() => {
+  const filteredSales = useMemo(() => {
     if (dateRange?.from) {
       const from = startOfDay(dateRange.from);
       const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-      const filtered = enrichedSales.filter((sale) => {
+      return enrichedSales.filter((sale) => {
         const saleDate = new Date(sale.date);
         return saleDate >= from && saleDate <= to;
       });
-      setFilteredSales(filtered);
-    } else {
-      setFilteredSales(enrichedSales);
     }
+    return enrichedSales;
   }, [dateRange, enrichedSales]);
   
   const handleExport = () => {
@@ -234,5 +231,3 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
     </Card>
   );
 }
-
-    

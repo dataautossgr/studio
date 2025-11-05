@@ -68,6 +68,8 @@ export default function DashboardPage() {
 
   const { lowStockCount, automotivePendingPayments, batteryPendingPayments, todaysRevenue, todaysCashIn, isAcidLow, recentSales, automotiveDuesCount, batteryDuesCount } = useMemo(() => {
     const todayStart = startOfToday();
+    const todaysAutomotiveSales = sales?.filter(s => new Date(s.date) >= todayStart) || [];
+    const todaysBatterySales = batterySales?.filter(s => new Date(s.date) >= todayStart) || [];
   
     // Calculate low stock items
     const lowStockProducts = products?.filter(p => p.stock <= p.lowStockThreshold).length || 0;
@@ -82,8 +84,6 @@ export default function DashboardPage() {
     const batteryPendingPayments = batteryCustomersWithDues.reduce((acc, c) => acc + c.balance, 0);
 
     // Calculate today's revenue
-    const todaysAutomotiveSales = sales?.filter(s => new Date(s.date) >= todayStart) || [];
-    const todaysBatterySales = batterySales?.filter(s => new Date(s.date) >= todayStart) || [];
     const automotiveRevenue = todaysAutomotiveSales.reduce((acc, sale) => acc + sale.total, 0);
     const batteryRevenue = todaysBatterySales.reduce((acc, sale) => acc + sale.total, 0);
     const todaysRevenue = automotiveRevenue + batteryRevenue;

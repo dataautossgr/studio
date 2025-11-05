@@ -26,6 +26,7 @@ import {
   DollarSign,
   Archive,
   BatteryCharging,
+  Droplets,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -46,25 +47,34 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, runTransaction } from 'firebase/firestore';
-import type { Battery, ScrapStock, ScrapPurchase } from '@/lib/data';
+import type { Battery, ScrapStock, ScrapPurchase, AcidPurchase, AcidStock } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { BatteryDialog } from './battery-dialog';
 import type { BatteryFormData } from './battery-dialog';
 import { ScrapPurchaseDialog, type ScrapPurchaseFormData } from './scrap-purchase-dialog';
+import { AcidPurchaseDialog, type AcidPurchaseFormData } from './acid-purchase-dialog';
+import { format } from 'date-fns';
 
 
 export default function BatteryInventory() {
   const firestore = useFirestore();
   const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
   const scrapStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'scrap_stock', 'main') : null, [firestore]);
+  const acidPurchasesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'acid_purchases') : null, [firestore]);
+  const acidStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'acid_stock', 'main') : null, [firestore]);
   
   const { data: batteries, isLoading: isLoadingBatteries } = useCollection<Battery>(batteriesCollection);
   const { data: scrapStock, isLoading: isLoadingScrap } = useDoc<ScrapStock>(scrapStockRef);
+  const { data: acidPurchases, isLoading: isLoadingAcidPurchases } = useCollection<AcidPurchase>(acidPurchasesCollection);
+  const { data: acidStock, isLoading: isLoadingAcidStock } = useDoc<AcidStock>(acidStockRef);
   
   const [isBatteryDialogOpen, setIsBatteryDialogOpen] = useState(false);
   const [isScrapDialogOpen, setIsScrapDialogOpen] = useState(false);
+  const [isAcidDialogOpen, setIsAcidDialogOpen] = useState(false);
+
   const [selectedBattery, setSelectedBattery] = useState<Battery | null>(null);
   const [batteryToDelete, setBatteryToDelete] = useState<Battery | null>(null);
+  const [acidPurchaseToDelete, setAcidPurchaseToDelete] = useState<AcidPurchase | null>(null);
   const { toast } = useToast();
 
   const { totalSaleValue, totalCostValue } = useMemo(() => {
@@ -106,18 +116,16 @@ export default function BatteryInventory() {
   };
   
   const handleSaveScrapPurchase = async (data: ScrapPurchaseFormData) => {
-    if (!firestore) return;
+    if (!firestore || !scrapStockRef) return;
 
     const totalValue = data.weightKg * data.ratePerKg;
 
     try {
         await runTransaction(firestore, async (transaction) => {
-            // 1. Get current scrap stock
             const scrapStockDoc = await transaction.get(scrapStockRef);
             const currentWeight = scrapStockDoc.exists() ? scrapStockDoc.data().totalWeightKg : 0;
             const currentValue = scrapStockDoc.exists() ? scrapStockDoc.data().totalScrapValue : 0;
 
-            // 2. Create new scrap purchase record
             const newScrapPurchaseRef = doc(collection(firestore, 'scrap_purchases'));
             const purchaseRecord: Omit<ScrapPurchase, 'id'> = {
                 date: new Date().toISOString(),
@@ -130,7 +138,6 @@ export default function BatteryInventory() {
             };
             transaction.set(newScrapPurchaseRef, purchaseRecord);
 
-            // 3. Update the main scrap stock document
             transaction.set(scrapStockRef, {
                 totalWeightKg: currentWeight + data.weightKg,
                 totalScrapValue: currentValue + totalValue,
@@ -146,13 +153,74 @@ export default function BatteryInventory() {
     }
   };
 
-  const isLoading = isLoadingBatteries || isLoadingScrap;
+  const handleSaveAcidPurchase = async (data: AcidPurchaseFormData) => {
+    if (!firestore || !acidStockRef) return;
+
+    const totalValue = data.quantityKg * data.ratePerKg;
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const stockDoc = await transaction.get(acidStockRef);
+            const currentQuantity = stockDoc.exists() ? stockDoc.data().totalQuantityKg : 0;
+            const currentValue = stockDoc.exists() ? stockDoc.data().totalValue : 0;
+
+            const newPurchaseRef = doc(collection(firestore, 'acid_purchases'));
+            const newPurchase: Omit<AcidPurchase, 'id'> = {
+                date: new Date().toISOString(),
+                quantityKg: data.quantityKg,
+                ratePerKg: data.ratePerKg,
+                totalValue,
+                supplier: data.supplier || '',
+            };
+            transaction.set(newPurchaseRef, newPurchase);
+            
+            transaction.set(acidStockRef, {
+                totalQuantityKg: currentQuantity + data.quantityKg,
+                totalValue: currentValue + totalValue
+            }, { merge: true });
+        });
+        
+        toast({ title: "Acid Purchase Saved", description: "Acid stock has been updated." });
+        setIsAcidDialogOpen(false);
+
+    } catch (e) {
+        console.error("Acid purchase transaction failed: ", e);
+        toast({ variant: 'destructive', title: "Error", description: "Failed to save acid purchase." });
+    }
+  };
+
+  const handleDeleteAcidPurchase = async () => {
+    if (!acidPurchaseToDelete || !firestore || !acidStockRef) return;
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const stockDoc = await transaction.get(acidStockRef);
+            const currentQuantity = stockDoc.exists() ? stockDoc.data().totalQuantityKg : 0;
+            const currentValue = stockDoc.exists() ? stockDoc.data().totalValue : 0;
+
+            const purchaseRef = doc(firestore, 'acid_purchases', acidPurchaseToDelete.id);
+            transaction.delete(purchaseRef);
+
+            transaction.set(acidStockRef, {
+                totalQuantityKg: currentQuantity - acidPurchaseToDelete.quantityKg,
+                totalValue: currentValue - acidPurchaseToDelete.totalValue,
+            }, { merge: true });
+        });
+        toast({ title: 'Purchase Deleted', description: 'The acid purchase record has been removed and stock updated.' });
+        setAcidPurchaseToDelete(null);
+    } catch(e) {
+        console.error("Error deleting acid purchase: ", e);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the purchase record.' });
+    }
+  };
+
+  const isLoading = isLoadingBatteries || isLoadingScrap || isLoadingAcidStock || isLoadingAcidPurchases;
 
   const summaryCards = [
-    { title: "Total Battery Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
-    { title: "Total Battery Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
-    { title: "Scrap Stock Value", value: `Rs. ${(scrapStock?.totalScrapValue || 0).toLocaleString()}`, icon: Trash2 },
-    { title: "Scrap Stock Weight", value: `${(scrapStock?.totalWeightKg || 0).toLocaleString()} KG`, icon: BatteryCharging },
+    { title: "Battery Value (Sale)", value: `Rs. ${totalSaleValue.toLocaleString()}`, icon: DollarSign },
+    { title: "Battery Value (Cost)", value: `Rs. ${totalCostValue.toLocaleString()}`, icon: Archive },
+    { title: "Scrap Stock (Weight)", value: `${(scrapStock?.totalWeightKg || 0).toLocaleString()} KG`, icon: BatteryCharging },
+    { title: "Acid Stock (KG)", value: `${(acidStock?.totalQuantityKg || 0).toLocaleString()} KG`, icon: Droplets },
   ];
 
   return (
@@ -255,6 +323,70 @@ export default function BatteryInventory() {
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Acid Purchase History</CardTitle>
+            <CardDescription>Manage your acid stock and purchase records.</CardDescription>
+          </div>
+          <Button onClick={() => setIsAcidDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Acid Purchase
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Quantity (KG)</TableHead>
+                <TableHead>Rate (per KG)</TableHead>
+                <TableHead className="text-right">Total Value</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoadingAcidPurchases && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">Loading purchase history...</TableCell>
+                </TableRow>
+              )}
+              {acidPurchases?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((purchase) => (
+                <TableRow key={purchase.id}>
+                  <TableCell>{format(new Date(purchase.date), 'dd MMM, yyyy')}</TableCell>
+                  <TableCell className="font-medium">{purchase.supplier || 'N/A'}</TableCell>
+                  <TableCell>{purchase.quantityKg} KG</TableCell>
+                  <TableCell className="font-mono">Rs. {purchase.ratePerKg.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-mono">Rs. {purchase.totalValue.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onSelect={() => setAcidPurchaseToDelete(purchase)}
+                          className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <BatteryDialog
         isOpen={isBatteryDialogOpen}
         onClose={() => setIsBatteryDialogOpen(false)}
@@ -266,6 +398,12 @@ export default function BatteryInventory() {
         isOpen={isScrapDialogOpen}
         onClose={() => setIsScrapDialogOpen(false)}
         onSave={handleSaveScrapPurchase}
+      />
+
+      <AcidPurchaseDialog
+        isOpen={isAcidDialogOpen}
+        onClose={() => setIsAcidDialogOpen(false)}
+        onSave={handleSaveAcidPurchase}
       />
       
       <AlertDialog open={!!batteryToDelete} onOpenChange={() => setBatteryToDelete(null)}>
@@ -279,6 +417,21 @@ export default function BatteryInventory() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteBattery}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!acidPurchaseToDelete} onOpenChange={() => setAcidPurchaseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this purchase record and deduct the quantity/value from the stock. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAcidPurchase}>Continue</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

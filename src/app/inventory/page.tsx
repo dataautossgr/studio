@@ -3,7 +3,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AutomotiveInventory from './automotive-inventory';
 import BatteryInventory from './battery-inventory';
-import AcidInventory from './acid-inventory';
 
 export default function InventoryPage() {
 
@@ -20,8 +19,7 @@ export default function InventoryPage() {
              <div className="flex items-center gap-4">
                 <TabsList>
                     <TabsTrigger value="automotive">Automotive</TabsTrigger>
-                    <TabsTrigger value="batteries">Batteries</TabsTrigger>
-                    <TabsTrigger value="acid">Acid</TabsTrigger>
+                    <TabsTrigger value="batteries">Batteries & Acid</TabsTrigger>
                 </TabsList>
             </div>
         </div>
@@ -30,9 +28,6 @@ export default function InventoryPage() {
         </TabsContent>
         <TabsContent value="batteries">
           <BatteryInventory />
-        </TabsContent>
-        <TabsContent value="acid">
-            <AcidInventory />
         </TabsContent>
       </Tabs>
     </div>

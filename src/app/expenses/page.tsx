@@ -112,6 +112,7 @@ export default function ExpensesPage() {
   };
 
   const handleSaveExpense = (expenseData: ExpenseFormData) => {
+    if (!firestore) return;
     const expenseToSave = {
         ...expenseData,
         date: expenseData.date.toISOString(),

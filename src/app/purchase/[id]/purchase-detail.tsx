@@ -67,13 +67,15 @@ export default function PurchaseFormDetail() {
     const purchaseId = params.id as string;
     const isNew = purchaseId === 'new';
     
-    const productsCollection = useMemoFirebase(() => collection(firestore, 'products'), [firestore]);
-    const dealersCollection = useMemoFirebase(() => collection(firestore, 'dealers'), [firestore]);
-    const purchaseRef = useMemoFirebase(() => isNew ? null : doc(firestore, 'purchases', purchaseId), [isNew, purchaseId, firestore]);
+    const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
+    const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
+    const purchaseRef = useMemoFirebase(() => isNew || !firestore ? null : doc(firestore, 'purchases', purchaseId), [isNew, purchaseId, firestore]);
     
     const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
     const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
     const { data: purchase, isLoading: isLoadingPurchase } = useDoc<Purchase>(purchaseRef);
+    
+    const automotiveDealers = useMemo(() => dealers?.filter(d => d.type === 'automotive') || [], [dealers]);
 
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
@@ -187,13 +189,13 @@ export default function PurchaseFormDetail() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2">
                     <Label>Dealer</Label>
-                    <Select onValueChange={(dealerId) => setSelectedDealer(dealers?.find(d => d.id === dealerId) || null)} value={selectedDealer?.id}>
+                    <Select onValueChange={(dealerId) => setSelectedDealer(automotiveDealers?.find(d => d.id === dealerId) || null)} value={selectedDealer?.id}>
                         <SelectTrigger>
                             <SelectValue placeholder="Select a dealer" />
                         </SelectTrigger>
                         <SelectContent>
-                            {dealers?.map(dealer => (
-                                <SelectItem key={dealer.id} value={dealer.id}>{dealer.name} ({dealer.company})</SelectItem>
+                            {automotiveDealers?.map(dealer => (
+                                <SelectItem key={dealer.id} value={dealer.id}>{dealer.company}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

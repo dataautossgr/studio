@@ -100,6 +100,9 @@ export default function RepairJobFormDetail() {
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: jobData, isLoading: jobLoading } = useDoc<RepairJob>(jobRef);
+  
+  const automotiveCustomers = useMemo(() => customers?.filter(c => c.type === 'automotive') || [], [customers]);
+
 
   // Form State
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -351,7 +354,7 @@ export default function RepairJobFormDetail() {
                         <Select
                             value={selectedCustomer?.id || ''}
                             onValueChange={(customerId) => {
-                            const customer = customers?.find(c => c.id === customerId);
+                            const customer = automotiveCustomers?.find(c => c.id === customerId);
                             setSelectedCustomer(customer || null);
                             if (customer) setVehicleInfo(customer.vehicleDetails);
                             }}
@@ -360,7 +363,7 @@ export default function RepairJobFormDetail() {
                             <SelectValue placeholder="Select a registered customer" />
                             </SelectTrigger>
                             <SelectContent>
-                            {customers?.filter(c=>c.type==='registered').map((customer) => (
+                            {automotiveCustomers?.map((customer) => (
                                 <SelectItem key={customer.id} value={customer.id}>
                                 {customer.name} ({customer.phone})
                                 </SelectItem>
@@ -538,6 +541,7 @@ export default function RepairJobFormDetail() {
         onClose={() => setIsCustomerDialogOpen(false)}
         onSave={() => { /* Implement save logic here if needed */ }}
         customer={null}
+        type="automotive"
       />
     </div>
   );

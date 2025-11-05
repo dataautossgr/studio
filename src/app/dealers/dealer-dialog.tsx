@@ -11,11 +11,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const dealerSchema = z.object({
   company: z.string().min(1, 'Company name is required'),
@@ -29,18 +30,23 @@ type DealerFormData = z.infer<typeof dealerSchema>;
 interface DealerDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (dealer: Omit<Dealer, 'id' | 'balance'>) => void;
+  onSave: (dealer: Omit<Dealer, 'id' | 'balance' | 'type'>, type: 'automotive' | 'battery') => void;
   dealer: Dealer | null;
+  type: 'automotive' | 'battery';
 }
 
-export function DealerDialog({ isOpen, onClose, onSave, dealer }: DealerDialogProps) {
+export function DealerDialog({ isOpen, onClose, onSave, dealer, type: initialType }: DealerDialogProps) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<DealerFormData>({
     resolver: zodResolver(dealerSchema),
   });
 
+  const [dealerType, setDealerType] = useState(initialType);
+
   useEffect(() => {
+    setDealerType(initialType);
     if (dealer) {
       reset(dealer);
+      setDealerType(dealer.type);
     } else {
       reset({
         company: '',
@@ -49,10 +55,10 @@ export function DealerDialog({ isOpen, onClose, onSave, dealer }: DealerDialogPr
         address: '',
       });
     }
-  }, [dealer, reset, isOpen]);
+  }, [dealer, reset, isOpen, initialType]);
 
   const onSubmit = (data: DealerFormData) => {
-    onSave(data);
+    onSave(data, dealerType);
   };
 
   return (
@@ -66,6 +72,25 @@ export function DealerDialog({ isOpen, onClose, onSave, dealer }: DealerDialogPr
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Type</Label>
+              <div className="col-span-3">
+                 <RadioGroup 
+                    value={dealerType}
+                    onValueChange={(val: 'automotive' | 'battery') => setDealerType(val)}
+                    className="flex gap-4 pt-2"
+                >
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="automotive" id="automotive" />
+                        <Label htmlFor="automotive">Automotive</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="battery" id="battery" />
+                        <Label htmlFor="battery">Battery</Label>
+                    </div>
+                </RadioGroup>
+              </div>
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="company" className="text-right">Company</Label>
               <div className="col-span-3">

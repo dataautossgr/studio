@@ -79,6 +79,8 @@ export default function BatterySaleForm() {
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
   
+  const batteryCustomers = useMemo(() => customers?.filter(c => c.type === 'battery') || [], [customers]);
+
   const editId = searchParams.get('edit');
   const isNew = !editId;
 
@@ -96,13 +98,13 @@ export default function BatterySaleForm() {
                     const customerSnap = await getDoc(saleData.customer);
                     if (customerSnap.exists()) {
                         const customerData = { id: customerSnap.id, ...customerSnap.data() } as Customer;
-                         setCustomerType(customerData.type);
-                        if (customerData.type === 'registered') {
-                            setSelectedCustomer(customerData);
-                        } else {
-                            setWalkInCustomerName(customerData.name);
-                        }
+                         setCustomerType('registered');
+                         setSelectedCustomer(customerData);
                     }
+                } else if (typeof saleData.customer === 'string') {
+                    // This is a fallback for the old walk-in customer string
+                    setCustomerType('walk-in');
+                    setWalkInCustomerName(saleData.customer);
                 }
                 
                 setCart(saleData.items);
@@ -195,7 +197,7 @@ export default function BatterySaleForm() {
     const newCustomerWithDefaults = { 
       ...customerData, 
       balance: 0,
-      type: 'registered' as const
+      type: 'battery' as const
     };
     
     const newCustomerRef = doc(collection(firestore, 'customers'));
@@ -215,7 +217,7 @@ export default function BatterySaleForm() {
     if (customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial')) {
         setIsWalkInUnpaidDialogOpen(true);
     } else {
-        setIsPrintDialogOpen(print);
+        handleSaveSale(print)
     }
   };
 
@@ -248,15 +250,14 @@ export default function BatterySaleForm() {
         customerRef = doc(collection(firestore, 'customers'));
         const customerPayload: Omit<Customer, 'id'> = {
             name: walkInCustomerName, phone: '', vehicleDetails: '',
-            type: isConverting ? 'registered' : 'walk-in',
+            type: 'battery', // Always battery type now
             balance: isConverting ? dueAmount : 0,
         };
         batch.set(customerRef, customerPayload);
     }
 
     // Prepare Sale Data
-    const saleData: Omit<BatterySale, 'id'> = {
-        invoice: '',
+    const saleData: Omit<BatterySale, 'id' | 'invoice'> = {
         customer: customerRef,
         date: finalSaleDate.toISOString(),
         total: finalAmount,
@@ -288,11 +289,13 @@ export default function BatterySaleForm() {
     }
 
     // Set/Update Sale Document
+    let saleIdToPrint = editId;
     if (isNew) {
         const salesSnapshot = await getCountFromServer(collection(firestore, 'battery_sales'));
-        saleData.invoice = `B-INV-${new Date().getFullYear()}-${(salesSnapshot.data().count + 1).toString().padStart(4, '0')}`;
+        const newInvoice = `B-INV-${new Date().getFullYear()}-${(salesSnapshot.data().count + 1).toString().padStart(4, '0')}`;
         const newSaleRef = doc(collection(firestore, 'battery_sales'));
-        batch.set(newSaleRef, saleData);
+        batch.set(newSaleRef, { ...saleData, invoice: newInvoice });
+        saleIdToPrint = newSaleRef.id;
     } else {
         batch.update(doc(firestore, 'battery_sales', editId), saleData as any);
     }
@@ -301,12 +304,10 @@ export default function BatterySaleForm() {
     try {
         await batch.commit();
         toast({ title: "Sale Saved", description: "The transaction has been successfully recorded." });
-        if (print) {
-            const saleIdToPrint = isNew ? 'new-id' : editId; // This part is tricky without getting the new ID back
-            // router.push(`/batteries/sales/invoice/${saleIdToPrint}`);
-             router.push(`/sales?tab=battery`);
+        if (print && saleIdToPrint) {
+            router.push(`/batteries/sales/invoice/${saleIdToPrint}`);
         } else {
-            router.push('/sales?tab=battery');
+            router.push(`/sales?tab=battery`);
         }
     } catch (error) {
         console.error("Error saving sale:", error);
@@ -354,7 +355,7 @@ export default function BatterySaleForm() {
                                         <CommandList>
                                             <CommandEmpty>No customers found.</CommandEmpty>
                                             <CommandGroup>
-                                                {customers?.filter(c => c.type === 'registered').map((customer) => (
+                                                {batteryCustomers.map((customer) => (
                                                     <CommandItem key={customer.id} onSelect={() => { setSelectedCustomer(customer); (document.activeElement as HTMLElement)?.blur();}}>
                                                         {customer.name} ({customer.phone})
                                                     </CommandItem>
@@ -476,12 +477,12 @@ export default function BatterySaleForm() {
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => router.push('/sales?tab=battery')}>Cancel</Button>
-            <Button onClick={() => preSaveValidation(false)} disabled={isSaving}>Save Only</Button>
-            <Button onClick={() => preSaveValidation(true)} disabled={isSaving}>Save & Print</Button>
+            <Button onClick={() => preSaveValidation(false)} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Only'}</Button>
+            <Button onClick={() => preSaveValidation(true)} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save & Print'}</Button>
             </CardFooter>
         </Card>
         
-         <CustomerDialog isOpen={isCustomerDialogOpen} onClose={() => setIsCustomerDialogOpen(false)} onSave={handleSaveNewCustomer} customer={null}/>
+         <CustomerDialog isOpen={isCustomerDialogOpen} onClose={() => setIsCustomerDialogOpen(false)} onSave={(data) => handleSaveNewCustomer(data)} customer={null} type="battery"/>
 
         <AlertDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
             <AlertDialogContent>
@@ -491,12 +492,6 @@ export default function BatterySaleForm() {
                 <AlertDialogDescription>
                     Please review the details before saving. This action will update stock and cannot be easily undone.
                 </AlertDialogDescription>
-                <div className="my-4 space-y-1 text-sm text-foreground">
-                   <div><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</div>
-                   {cart.find(i => i.type === 'battery') && <div><strong>Battery:</strong> {cart.find(i=>i.type==='battery')?.name}</div>}
-                   {cart.find(i => i.type === 'service') && <div><strong>Charging Service:</strong> Rs. {cart.find(i=>i.type==='service')?.price.toLocaleString()}</div>}
-                   <div><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</div>
-                </div>
                 <AlertDialogFooter>
                     <AlertDialogAction onClick={() => handleSaveSale(true)}>Save & Print</AlertDialogAction>
                     <AlertDialogCancel onClick={() => handleSaveSale(false)}>Save Only</AlertDialogCancel>

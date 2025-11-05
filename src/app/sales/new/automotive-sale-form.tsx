@@ -107,6 +107,9 @@ export default function AutomotiveSaleForm() {
   
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
+  
+  const automotiveCustomers = useMemo(() => customers?.filter(c => c.type === 'automotive') || [], [customers]);
+
 
   const saleId = params.id as string;
   const isNew = saleId === 'new' || !saleId; // Treat no ID as new
@@ -129,12 +132,8 @@ export default function AutomotiveSaleForm() {
                     const data = customerSnap.data();
                     if (data && typeof data === "object") {
                         const customerData = { id: customerSnap.id, ...data } as Customer;
-                        setCustomerType(customerData.type);
-                        if (customerData.type === 'registered') {
-                            setSelectedCustomer(customerData);
-                        } else {
-                            setCustomerName(customerData.name);
-                        }
+                        setCustomerType('registered');
+                        setSelectedCustomer(customerData);
                     } else {
                         console.error("Invalid customer data:", data);
                     }
@@ -247,7 +246,7 @@ export default function AutomotiveSaleForm() {
     const newCustomerWithDefaults = { 
       ...customerData, 
       balance: 0,
-      type: 'registered' as const
+      type: 'automotive' as const
     };
     addDocumentNonBlocking(collection(firestore, 'customers'), newCustomerWithDefaults)
         .then(docRef => {
@@ -350,7 +349,7 @@ export default function AutomotiveSaleForm() {
             name: customerName,
             phone: '',
             vehicleDetails: '',
-            type: isConvertingToRegistered ? 'registered' : 'walk-in',
+            type: 'automotive', // always automotive
             balance: isConvertingToRegistered ? dueAmount : 0,
         };
         if(isConvertingToRegistered && dueDate) {
@@ -466,7 +465,7 @@ export default function AutomotiveSaleForm() {
                                     <CommandList>
                                         <CommandEmpty>No customers found.</CommandEmpty>
                                         <CommandGroup>
-                                            {customers?.filter(c => c.type === 'registered').map((customer) => (
+                                            {automotiveCustomers.map((customer) => (
                                                 <CommandItem
                                                     key={customer.id}
                                                     onSelect={() => {
@@ -810,8 +809,9 @@ export default function AutomotiveSaleForm() {
       <CustomerDialog 
         isOpen={isCustomerDialogOpen} 
         onClose={() => setIsCustomerDialogOpen(false)}
-        onSave={handleSaveNewCustomer}
+        onSave={(data) => handleSaveNewCustomer(data)}
         customer={null}
+        type="automotive"
       />
       <AlertDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
         <AlertDialogContent>

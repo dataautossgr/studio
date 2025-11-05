@@ -27,7 +27,7 @@ import {
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { DealerDialog } from './dealer-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -42,7 +42,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+type DealerType = 'automotive' | 'battery';
 
 export default function DealersPage() {
   const firestore = useFirestore();
@@ -53,26 +55,29 @@ export default function DealersPage() {
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [dealerToDelete, setDealerToDelete] = useState<Dealer | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [dialogDealerType, setDialogDealerType] = useState<DealerType>('automotive');
   const { toast } = useToast();
   
-  const handleAddDealer = () => {
+  const handleAddDealer = (type: DealerType) => {
     setSelectedDealer(null);
+    setDialogDealerType(type);
     setIsDialogOpen(true);
   };
   
   const handleEditDealer = (dealer: Dealer) => {
     setSelectedDealer(dealer);
+    setDialogDealerType(dealer.type);
     setIsDialogOpen(true);
   };
 
-  const handleSaveDealer = (dealer: Omit<Dealer, 'id' | 'balance'>) => {
+  const handleSaveDealer = (dealerData: Omit<Dealer, 'id' | 'balance' | 'type'>, type: DealerType) => {
     if (!firestore) return;
     if (selectedDealer) {
       const dealerRef = doc(firestore, 'dealers', selectedDealer.id);
-      setDocumentNonBlocking(dealerRef, { ...selectedDealer, ...dealer }, { merge: true });
+      setDocumentNonBlocking(dealerRef, { ...selectedDealer, ...dealerData, type }, { merge: true });
       toast({ title: "Success", description: "Dealer updated successfully." });
     } else {
-      const newDealer = { ...dealer, balance: 0 };
+      const newDealer = { ...dealerData, balance: 0, type };
       addDocumentNonBlocking(collection(firestore, 'dealers'), newDealer);
       toast({ title: "Success", description: "Dealer added successfully." });
     }
@@ -93,15 +98,16 @@ export default function DealersPage() {
     setIsResetting(false);
   };
 
-  const handleExport = () => {
-    if (!dealers || dealers.length === 0) {
-        toast({ variant: 'destructive', title: 'Export Failed', description: 'No dealers to export.' });
+  const handleExport = (type: DealerType) => {
+    const filteredDealers = dealers?.filter(d => d.type === type);
+    if (!filteredDealers || filteredDealers.length === 0) {
+        toast({ variant: 'destructive', title: 'Export Failed', description: `No ${type} dealers to export.` });
         return;
     }
     const headers = ['ID', 'Company', 'Contact Person', 'Phone', 'Address', 'Balance'];
     const csvContent = [
         headers.join(','),
-        ...dealers.map(d => [
+        ...filteredDealers.map(d => [
             d.id,
             `"${d.company.replace(/"/g, '""')}"`,
             `"${d.name.replace(/"/g, '""')}"`,
@@ -115,11 +121,11 @@ export default function DealersPage() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `dealers-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `dealers-${type}-${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast({ title: 'Export Successful', description: 'Your dealers list has been downloaded as a CSV file.' });
+    toast({ title: 'Export Successful', description: `Your ${type} dealers list has been downloaded.` });
   };
 
   const getBalanceVariant = (balance: number): "default" | "secondary" | "destructive" => {
@@ -128,26 +134,22 @@ export default function DealersPage() {
     return 'default';
   }
 
-  return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <Card>
+  const renderDealerTable = (type: DealerType) => (
+     <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Dealers</CardTitle>
+            <CardTitle>All {type.charAt(0).toUpperCase() + type.slice(1)} Dealers</CardTitle>
             <CardDescription>
-              Manage your suppliers and dealers.
+              Manage your suppliers for {type} products.
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleExport}>
+            <Button variant="outline" onClick={() => handleExport(type)}>
               <Download className="mr-2 h-4 w-4" /> Export CSV
             </Button>
-            <Button variant="outline" onClick={() => setIsResetting(true)}>
-              <RotateCcw className="mr-2 h-4 w-4" /> Reset
-            </Button>
-            <Button onClick={handleAddDealer}>
+            <Button onClick={() => handleAddDealer(type)}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Dealer
+              Add {type.charAt(0).toUpperCase() + type.slice(1)} Dealer
             </Button>
           </div>
         </CardHeader>
@@ -170,7 +172,7 @@ export default function DealersPage() {
                     <TableCell colSpan={5} className="text-center">Loading...</TableCell>
                 </TableRow>
               )}
-              {dealers?.map((dealer) => (
+              {dealers?.filter(d => d.type === type).map((dealer) => (
                 <TableRow key={dealer.id}>
                   <TableCell className="font-medium">{dealer.company}</TableCell>
                   <TableCell>{dealer.name}</TableCell>
@@ -220,12 +222,42 @@ export default function DealersPage() {
           </Table>
         </CardContent>
       </Card>
+  );
 
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+        <Tabs defaultValue="automotive" className="w-full">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Dealers</h1>
+                    <p className="text-muted-foreground">
+                        Manage your suppliers for different business types.
+                    </p>
+                </div>
+                <div className="flex items-center gap-4">
+                    <TabsList>
+                        <TabsTrigger value="automotive">Automotive</TabsTrigger>
+                        <TabsTrigger value="battery">Battery</TabsTrigger>
+                    </TabsList>
+                    <Button variant="outline" onClick={() => setIsResetting(true)}>
+                        <RotateCcw className="mr-2 h-4 w-4" /> Reset All
+                    </Button>
+                </div>
+            </div>
+            <TabsContent value="automotive">
+                {renderDealerTable('automotive')}
+            </TabsContent>
+            <TabsContent value="battery">
+                {renderDealerTable('battery')}
+            </TabsContent>
+        </Tabs>
+        
        <DealerDialog 
             isOpen={isDialogOpen} 
             onClose={() => setIsDialogOpen(false)}
-            onSave={handleSaveDealer}
+            onSave={(data) => handleSaveDealer(data, dialogDealerType)}
             dealer={selectedDealer}
+            type={dialogDealerType}
         />
         
         <AlertDialog open={!!dealerToDelete} onOpenChange={() => setDealerToDelete(null)}>

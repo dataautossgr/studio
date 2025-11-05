@@ -1,3 +1,4 @@
+'use client';
 import data from "./placeholder-images.json";
 import type { DocumentReference } from "firebase/firestore";
 
@@ -28,7 +29,7 @@ export interface Customer {
     phone: string;
     vehicleDetails: string;
     balance: number;
-    type: 'walk-in' | 'registered';
+    type: 'automotive' | 'battery';
     address?: string;
     paymentDueDate?: string; // Optional due date for pending balance
 }
@@ -72,6 +73,7 @@ export interface Dealer {
     phone: string;
     address?: string;
     balance: number;
+    type: 'automotive' | 'battery';
     paymentDueDate?: string; // Optional due date for pending balance
 }
 
@@ -221,9 +223,10 @@ const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
 ];
 
 const mockDealers: Omit<Dealer, 'balance'>[] = [
-    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567', address: 'Montgomery Road, Lahore' },
-    { id: 'DLR002', name: 'Nadeem Butt', company: 'Nadeem & Sons Trading', phone: '0321-7654321', address: 'Badami Bagh, Lahore' },
-    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334', address: 'Mcleod Road, Lahore' },
+    { id: 'DLR001', name: 'Imran Qureshi', company: 'Qureshi Auto Parts', phone: '0300-1234567', address: 'Montgomery Road, Lahore', type: 'automotive' },
+    { id: 'DLR002', name: 'Nadeem Butt', company: 'Nadeem & Sons Trading', phone: '0321-7654321', address: 'Badami Bagh, Lahore', type: 'automotive' },
+    { id: 'DLR003', name: 'Khalid Butt', company: 'Butt Auto Store', phone: '0333-1122334', address: 'Mcleod Road, Lahore', type: 'automotive' },
+    { id: 'DLR004', name: 'Volta Batteries', company: 'Volta International', phone: '0345-1231234', address: 'Multan Road, Lahore', type: 'battery' },
 ];
 
 const mockProducts: Product[] = productData.map((p, index) => {
@@ -237,10 +240,10 @@ const mockProducts: Product[] = productData.map((p, index) => {
 });
 
 const mockCustomers: Omit<Customer, 'balance'>[] = [
-    { id: 'CUST001', name: 'Ali Khan', phone: '0301-1112233', vehicleDetails: 'Toyota Corolla 2022', type: 'registered', address: 'DHA Phase 5, Lahore' },
-    { id: 'CUST002', name: 'Usman Autos', phone: '0322-4455667', vehicleDetails: 'Suzuki Mehran 2018', type: 'registered' },
-    { id: 'CUST003', name: 'Zahid Pervaiz', phone: '0345-9988776', vehicleDetails: 'Honda Civic 2021', type: 'registered' },
-    { id: 'CUST004', name: 'Walk-in Customer', phone: '', vehicleDetails: '', type: 'walk-in' },
+    { id: 'CUST001', name: 'Ali Khan', phone: '0301-1112233', vehicleDetails: 'Toyota Corolla 2022', type: 'automotive', address: 'DHA Phase 5, Lahore' },
+    { id: 'CUST002', name: 'Usman Autos', phone: '0322-4455667', vehicleDetails: 'Suzuki Mehran 2018', type: 'automotive' },
+    { id: 'CUST003', name: 'Zahid Pervaiz', phone: '0345-9988776', vehicleDetails: 'Honda Civic 2021', type: 'automotive' },
+    { id: 'CUST004', name: 'Rizwan Tariq', phone: '0311-9876543', vehicleDetails: 'UPS Rickshaw', type: 'battery' },
 ];
 
 
@@ -286,7 +289,7 @@ export const seedInitialData = async (db: any) => {
             paymentMethod: 'cash' as const
         },
         {
-            id: 'SALE002', invoice: 'INV-2024-002', customerId: 'CUST004', date: '2024-07-20T11:45:00Z', total: 6000, status: 'Paid' as const, discount: 0,
+            id: 'SALE002', invoice: 'INV-2024-002', customerId: 'CUST001', date: '2024-07-20T11:45:00Z', total: 6000, status: 'Paid' as const, discount: 0,
             items: [ { productId: 'PROD1003', name: 'Front Brake Pads', quantity: 1, price: 6000 } ],
             paymentMethod: 'online' as const, onlinePaymentSource: 'Easypaisa'
         },

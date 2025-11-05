@@ -44,16 +44,18 @@ export default function BatteryPurchaseForm() {
     const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
     const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
     const [isSaving, setIsSaving] = useState(false);
+    
+    const batteryDealers = useMemo(() => dealers?.filter(d => d.type === 'battery') || [], [dealers]);
 
     useEffect(() => {
-        if (editId && firestore && !dealersLoading && !batteriesLoading && batteries && dealers) {
+        if (editId && firestore && !dealersLoading && !batteriesLoading && batteries && batteryDealers) {
             const fetchPurchase = async () => {
                 const purchaseRef = doc(firestore, 'battery_purchases', editId);
                 const purchaseSnap = await getDoc(purchaseRef);
                 if (purchaseSnap.exists()) {
                     const purchaseData = purchaseSnap.data() as BatteryPurchase;
                     if(purchaseData.dealerId) {
-                        const dealer = dealers.find(d => d.id === purchaseData.dealerId);
+                        const dealer = batteryDealers.find(d => d.id === purchaseData.dealerId);
                         setSelectedDealer(dealer || null);
                     }
                     setPurchaseDate(new Date(purchaseData.date));
@@ -72,7 +74,7 @@ export default function BatteryPurchaseForm() {
             };
             fetchPurchase();
         }
-    }, [editId, firestore, batteries, dealers, batteriesLoading, dealersLoading]);
+    }, [editId, firestore, batteries, batteryDealers, batteriesLoading, dealersLoading]);
     
     const handleBatterySelect = (batteryId: string) => {
         const battery = batteries?.find(b => b.id === batteryId);
@@ -156,12 +158,12 @@ export default function BatteryPurchaseForm() {
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                         <Label>Dealer</Label>
-                        <Select onValueChange={(dealerId) => setSelectedDealer(dealers?.find(d => d.id === dealerId) || null)} value={selectedDealer?.id}>
+                        <Select onValueChange={(dealerId) => setSelectedDealer(batteryDealers?.find(d => d.id === dealerId) || null)} value={selectedDealer?.id}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a dealer" />
                             </SelectTrigger>
                             <SelectContent>
-                                {dealersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : dealers?.map(dealer => (
+                                {dealersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : batteryDealers?.map(dealer => (
                                     <SelectItem key={dealer.id} value={dealer.id}>{dealer.company}</SelectItem>
                                 ))}
                             </SelectContent>

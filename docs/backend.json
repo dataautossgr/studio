@@ -916,5 +916,3 @@
     "reasoning": "Given the hybrid nature of the application (offline-first with Firebase sync), and the zero-security development mode, the data structure is designed to mirror the SQLite database schema as closely as possible, facilitating straightforward synchronization. Since authentication is disabled in the development phase, all data is essentially public. However, I'll still adhere to the principle of path-based ownership and segregation in case security rules are added later. For example, creating path based collections for each Entity i.e Products, Sales, Dealers, Purchases, Customers, CashSession, BankTransaction and Settings. Since the requirements ask for offline access and zero security, the decision is to forego denormalization until the app is closer to release."
   }
 }
-
-    

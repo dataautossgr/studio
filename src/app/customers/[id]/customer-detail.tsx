@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -42,7 +43,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { PaymentFormData } from './payment-dialog';
 import Link from 'next/link';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, runTransaction, DocumentReference } from 'firebase/firestore';
 
 
@@ -57,7 +58,13 @@ export interface Transaction {
     paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
 }
 
-export default function CustomerLedgerDetail() {
+interface CustomerLedgerDetailProps {
+    customerSales: Sale[] | null;
+    customerPayments: Payment[] | null;
+    isLoading: boolean;
+}
+
+export default function CustomerLedgerDetail({ customerSales, customerPayments, isLoading }: CustomerLedgerDetailProps) {
     const params = useParams();
     const router = useRouter();
     const { toast } = useToast();
@@ -72,19 +79,7 @@ export default function CustomerLedgerDetail() {
 
     const customerRef = useMemoFirebase(() => customerId && firestore ? doc(firestore, 'customers', customerId) : null, [firestore, customerId]);
     const { data: customer, isLoading: isCustomerLoading } = useDoc<Customer>(customerRef);
-
-    const salesQuery = useMemoFirebase(() => {
-      if (!firestore || !customerId) return null;
-      return query(collection(firestore, 'sales'), where('customer', '==', doc(firestore, 'customers', customerId)));
-    }, [firestore, customerId]);
-    const { data: customerSales, isLoading: areSalesLoading } = useCollection<Sale>(salesQuery);
     
-    const paymentsQuery = useMemoFirebase(() => {
-      if (!firestore || !customerId) return null;
-      return query(collection(firestore, 'payments'), where('customer', '==', doc(firestore, 'customers', customerId)));
-    }, [firestore, customerId]);
-    const { data: customerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
-
     useEffect(() => {
       if (customerSales && customerPayments && customer) {
         const salesTransactions: Transaction[] = customerSales.map(s => ({
@@ -263,7 +258,7 @@ export default function CustomerLedgerDetail() {
         return 'default';
     }
 
-    if (isCustomerLoading || areSalesLoading || arePaymentsLoading) {
+    if (isCustomerLoading || isLoading) {
         return <div className="p-8">Loading customer information...</div>;
     }
     

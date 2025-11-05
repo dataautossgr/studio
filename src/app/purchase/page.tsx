@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import AutomotivePurchasesHistory from './automotive-purchases-history';
 import BatteryPurchasesHistory from '../batteries/purchases/battery-purchases-history';
-
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function PurchasesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -62,22 +62,42 @@ export default function PurchasesPage() {
               <TabsTrigger value="automotive">Automotive</TabsTrigger>
               <TabsTrigger value="battery">Batteries</TabsTrigger>
             </TabsList>
-            <div className="hidden md:flex items-center gap-2">
-              <Button asChild>
-                <Link href="/purchase/new">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  New Purchase
-                </Link>
-              </Button>
-            </div>
           </div>
         </div>
 
         <TabsContent value="automotive">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Automotive Purchases</CardTitle>
+                  <CardDescription>History of all parts and supplies purchases.</CardDescription>
+                </div>
+                <Button asChild>
+                  <Link href="/purchase/new?tab=automotive">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Automotive Purchase
+                  </Link>
+                </Button>
+            </CardHeader>
             <AutomotivePurchasesHistory dateRange={dateRange}/>
+          </Card>
         </TabsContent>
         <TabsContent value="battery">
-          <BatteryPurchasesHistory dateRange={dateRange} />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Battery Purchases</CardTitle>
+                  <CardDescription>History of all battery stock purchases.</CardDescription>
+                </div>
+                <Button asChild>
+                  <Link href="/purchase/new?tab=battery">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Battery Purchase
+                  </Link>
+                </Button>
+            </CardHeader>
+            <BatteryPurchasesHistory dateRange={dateRange} />
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

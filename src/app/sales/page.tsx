@@ -10,6 +10,7 @@ import { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, startOfDay, endOfDay } from 'date-fns';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function SalesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -61,22 +62,42 @@ export default function SalesPage() {
               <TabsTrigger value="automotive">Automotive</TabsTrigger>
               <TabsTrigger value="battery">Batteries</TabsTrigger>
             </TabsList>
-            <div className="hidden md:flex items-center gap-2">
-              <Button asChild>
-                <Link href="/sales/new">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  New Sale
-                </Link>
-              </Button>
-            </div>
           </div>
         </div>
 
         <TabsContent value="automotive">
-          <AutomotiveSalesHistory dateRange={dateRange} />
+           <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Automotive Sales</CardTitle>
+                <CardDescription>History of all parts and service sales.</CardDescription>
+              </div>
+               <Button asChild>
+                <Link href="/sales/new?tab=automotive">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  New Automotive Sale
+                </Link>
+              </Button>
+            </CardHeader>
+            <AutomotiveSalesHistory dateRange={dateRange} />
+          </Card>
         </TabsContent>
         <TabsContent value="battery">
-          <BatterySalesHistory dateRange={dateRange} />
+          <Card>
+             <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Battery Sales</CardTitle>
+                  <CardDescription>History of all battery and related sales.</CardDescription>
+                </div>
+                <Button asChild>
+                  <Link href="/sales/new?tab=battery">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Battery Sale
+                  </Link>
+                </Button>
+            </CardHeader>
+            <BatterySalesHistory dateRange={dateRange} />
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -50,7 +50,9 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                 >
                   <File className="mr-2 h-4 w-4" />
                   <span>{product.name} ({product.brand})</span>
-                   <span className="ml-auto text-xs text-muted-foreground">Rs. {product.salePrice.toLocaleString()}</span>
+                   <span className="ml-auto text-xs text-muted-foreground">
+                    Sale: Rs. {product.salePrice.toLocaleString()} / Cost: Rs. {product.costPrice.toLocaleString()}
+                   </span>
                 </CommandItem>
               ))}
               {batteries?.map((battery) => (
@@ -61,7 +63,9 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                 >
                   <BatteryIcon className="mr-2 h-4 w-4" />
                   <span>{battery.brand} {battery.model} ({battery.ampere}Ah)</span>
-                   <span className="ml-auto text-xs text-muted-foreground">Rs. {battery.salePrice.toLocaleString()}</span>
+                   <span className="ml-auto text-xs text-muted-foreground">
+                    Sale: Rs. {battery.salePrice.toLocaleString()} / Cost: Rs. {battery.costPrice.toLocaleString()}
+                   </span>
                 </CommandItem>
               ))}
             </CommandGroup>

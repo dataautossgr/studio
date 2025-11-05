@@ -45,7 +45,7 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           
-          {(products && products.length > 0) || (batteries && batteries.length > 0) && (
+           {(products && products.length > 0) || (batteries && batteries.length > 0) ? (
             <CommandGroup heading="Inventory">
               {products?.map((product) => (
                 <CommandItem
@@ -70,7 +70,7 @@ export function MasterSearchDialog({ open, onOpenChange }: MasterSearchDialogPro
                 </CommandItem>
               ))}
             </CommandGroup>
-          )}
+          ) : null}
 
           {customers && customers.length > 0 && (
              <CommandGroup heading="Customers">

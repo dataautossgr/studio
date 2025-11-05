@@ -154,7 +154,7 @@ export interface ScrapStock {
 }
 
 export interface SaleItem {
-    id: string;
+    productId: string;
     name: string;
     quantity: number;
     price: number;

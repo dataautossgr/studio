@@ -52,12 +52,12 @@ const ReportView = ({
     const revenue = sales.reduce((sum, sale) => sum + sale.total, 0);
 
     const profit = sales.reduce((sum, sale) => {
-        const saleItems = (Array.isArray(sale.items) ? sale.items : []) as (Sale['items'][0] | SaleItem)[];
+        const saleItems = (Array.isArray(sale.items) ? sale.items : []) as Sale['items'] | SaleItem[];
         const cost = saleItems.reduce((itemSum, item) => {
             if ('type' in item && item.type === 'scrap') {
                 return itemSum;
             }
-            const productId = 'productId' in item ? item.productId : ('id' in item ? item.id : null);
+            const productId = item.productId;
             if (!productId) return itemSum;
 
             const product = products.find(p => p.id === productId);
@@ -88,7 +88,7 @@ const ReportView = ({
     sales.forEach(sale => {
         if(Array.isArray(sale.items)) {
             sale.items.forEach(item => {
-                const productId = 'productId' in item ? item.productId : ('id' in item ? item.id : null);
+                const productId = item.productId;
                 if (!productId) return;
                 
                 const currentQty = productSales.get(productId) || 0;

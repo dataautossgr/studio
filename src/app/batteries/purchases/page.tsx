@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface PurchaseItem {
     id: string; // This is the battery ID from the 'batteries' collection
@@ -24,6 +25,8 @@ interface PurchaseItem {
     costPrice: number;
     currentStock: number;
 }
+
+const onlinePaymentSources = ["Meezan Bank", "Nayapay", "Sadapay", "Easypaisa", "Jazzcash", "Upaisa", "Islamic Bank", "Other"];
 
 export default function BatteryPurchaseForm() {
     const router = useRouter();
@@ -45,6 +48,14 @@ export default function BatteryPurchaseForm() {
     const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(new Date());
     const [isSaving, setIsSaving] = useState(false);
     
+    const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Online'>('Cash');
+    const [paymentSourceAccount, setPaymentSourceAccount] = useState('');
+    const [paymentDestinationDetails, setPaymentDestinationDetails] = useState({
+      accountTitle: '',
+      bankName: '',
+      accountNumber: ''
+    });
+
     const batteryDealers = useMemo(() => dealers?.filter(d => d.type === 'battery') || [], [dealers]);
 
     useEffect(() => {
@@ -70,6 +81,11 @@ export default function BatteryPurchaseForm() {
                         };
                     });
                     setItems(purchaseItems);
+                    
+                    // Populate payment details
+                    if(purchaseData.paymentMethod) setPaymentMethod(purchaseData.paymentMethod);
+                    if(purchaseData.paymentSourceAccount) setPaymentSourceAccount(purchaseData.paymentSourceAccount);
+                    if(purchaseData.paymentDestinationDetails) setPaymentDestinationDetails(purchaseData.paymentDestinationDetails);
                 }
             };
             fetchPurchase();
@@ -123,7 +139,9 @@ export default function BatteryPurchaseForm() {
                     dealerId: selectedDealer.id,
                     date: purchaseDate.toISOString(),
                     items: items.map(i => ({ batteryId: i.id, quantity: i.quantity, costPrice: i.costPrice })),
-                    totalAmount: totalAmount
+                    totalAmount: totalAmount,
+                    paymentMethod: paymentMethod,
+                    ...(paymentMethod === 'Online' && { paymentSourceAccount, paymentDestinationDetails }),
                 };
 
                 if (isNew) {
@@ -239,6 +257,50 @@ export default function BatteryPurchaseForm() {
                         </TableBody>
                     </Table>
                 </div>
+                
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Payment Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                            <Label>Payment Method</Label>
+                            <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'Cash' | 'Online')} className="flex gap-4">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cash" /><Label htmlFor="cash">Cash</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Online" id="online" /><Label htmlFor="online">Online</Label></div>
+                            </RadioGroup>
+                        </div>
+
+                        {paymentMethod === 'Online' && (
+                            <div className="grid md:grid-cols-2 gap-6 p-4 border rounded-md">
+                                <div className="space-y-2">
+                                    <Label htmlFor="paymentSource">My Account (Source)</Label>
+                                    <Select value={paymentSourceAccount} onValueChange={setPaymentSourceAccount}>
+                                        <SelectTrigger id="paymentSource"><SelectValue placeholder="Select my bank" /></SelectTrigger>
+                                        <SelectContent>
+                                            {onlinePaymentSources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-4">
+                                  <h4 className="text-sm font-medium text-muted-foreground">Dealer's Account (Destination)</h4>
+                                  <div className="space-y-2">
+                                      <Label htmlFor="dest-title" className="text-xs">Account Title</Label>
+                                      <Input id="dest-title" value={paymentDestinationDetails.accountTitle} onChange={e => setPaymentDestinationDetails(p => ({...p, accountTitle: e.target.value}))} placeholder="e.g. John Doe"/>
+                                  </div>
+                                   <div className="space-y-2">
+                                      <Label htmlFor="dest-bank" className="text-xs">Bank Name</Label>
+                                      <Input id="dest-bank" value={paymentDestinationDetails.bankName} onChange={e => setPaymentDestinationDetails(p => ({...p, bankName: e.target.value}))} placeholder="e.g. HBL"/>
+                                  </div>
+                                   <div className="space-y-2">
+                                      <Label htmlFor="dest-acc" className="text-xs">Account Number (Optional)</Label>
+                                      <Input id="dest-acc" value={paymentDestinationDetails.accountNumber} onChange={e => setPaymentDestinationDetails(p => ({...p, accountNumber: e.target.value}))} placeholder="e.g. PK..."/>
+                                  </div>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 <div className="flex justify-end text-xl font-bold">
                     <div className="flex items-center gap-4">

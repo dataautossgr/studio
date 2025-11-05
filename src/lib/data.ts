@@ -199,6 +199,13 @@ export interface BatteryPurchase {
     costPrice: number;
   }[];
   totalAmount: number;
+  paymentMethod?: 'Cash' | 'Online';
+  paymentSourceAccount?: string;
+  paymentDestinationDetails?: {
+    accountTitle: string;
+    bankName: string;
+    accountNumber?: string;
+  };
 }
 
 

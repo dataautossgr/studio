@@ -81,11 +81,14 @@
           "description": "Discount amount for the sale."
         },
         "paymentMethod": {
-            "type": "string",
-            "enum": ["cash", "online"]
+          "type": "string",
+          "enum": [
+            "cash",
+            "online"
+          ]
         },
         "onlinePaymentSource": {
-            "type": "string"
+          "type": "string"
         }
       },
       "required": [
@@ -187,21 +190,30 @@
         },
         "paymentMethod": {
           "type": "string",
-          "enum": ["Cash", "Online"],
+          "enum": [
+            "Cash",
+            "Online"
+          ],
           "description": "Method of payment."
         },
         "paymentSourceAccount": {
-            "type": "string",
-            "description": "The user's account from which the payment was made."
+          "type": "string",
+          "description": "The user's account from which the payment was made."
         },
         "paymentDestinationDetails": {
-            "type": "object",
-            "description": "Details of the dealer's account where payment was sent.",
-            "properties": {
-                "accountTitle": {"type": "string"},
-                "bankName": {"type": "string"},
-                "accountNumber": {"type": "string"}
+          "type": "object",
+          "description": "Details of the dealer's account where payment was sent.",
+          "properties": {
+            "accountTitle": {
+              "type": "string"
+            },
+            "bankName": {
+              "type": "string"
+            },
+            "accountNumber": {
+              "type": "string"
             }
+          }
         }
       },
       "required": [
@@ -360,16 +372,51 @@
       "type": "object",
       "description": "Represents a payment received from a customer.",
       "properties": {
-        "id": { "type": "string", "description": "Unique ID for the payment." },
-        "customer": { "type": "string", "description": "Reference to the Customer document." },
-        "amount": { "type": "number", "description": "Amount paid." },
-        "date": { "type": "string", "format": "date-time", "description": "Timestamp of the payment." },
-        "paymentMethod": { "type": "string", "enum": ["Cash", "Bank Transfer", "Cheque"] },
-        "notes": { "type": "string", "description": "Optional notes for the payment." },
-        "receiptImageUrl": { "type": "string", "description": "URL for an optional receipt image." },
-        "reference": { "type": "string", "description": "A reference number for the payment." }
+        "id": {
+          "type": "string",
+          "description": "Unique ID for the payment."
+        },
+        "customer": {
+          "type": "string",
+          "description": "Reference to the Customer document."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount paid."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the payment."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "Cash",
+            "Bank Transfer",
+            "Cheque"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes for the payment."
+        },
+        "receiptImageUrl": {
+          "type": "string",
+          "description": "URL for an optional receipt image."
+        },
+        "reference": {
+          "type": "string",
+          "description": "A reference number for the payment."
+        }
       },
-      "required": ["id", "customer", "amount", "date", "paymentMethod"]
+      "required": [
+        "id",
+        "customer",
+        "amount",
+        "date",
+        "paymentMethod"
+      ]
     },
     "DealerPayment": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -377,16 +424,51 @@
       "type": "object",
       "description": "Represents a payment made to a dealer.",
       "properties": {
-        "id": { "type": "string", "description": "Unique ID for the payment." },
-        "dealer": { "type": "string", "description": "Reference to the Dealer document." },
-        "amount": { "type": "number", "description": "Amount paid." },
-        "date": { "type": "string", "format": "date-time", "description": "Timestamp of the payment." },
-        "paymentMethod": { "type": "string", "enum": ["Cash", "Bank Transfer", "Cheque"] },
-        "notes": { "type": "string", "description": "Optional notes for the payment." },
-        "receiptImageUrl": { "type": "string", "description": "URL for an optional receipt image." },
-        "reference": { "type": "string", "description": "A reference number for the payment." }
+        "id": {
+          "type": "string",
+          "description": "Unique ID for the payment."
+        },
+        "dealer": {
+          "type": "string",
+          "description": "Reference to the Dealer document."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount paid."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the payment."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "Cash",
+            "Bank Transfer",
+            "Cheque"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes for the payment."
+        },
+        "receiptImageUrl": {
+          "type": "string",
+          "description": "URL for an optional receipt image."
+        },
+        "reference": {
+          "type": "string",
+          "description": "A reference number for the payment."
+        }
       },
-      "required": ["id", "dealer", "amount", "date", "paymentMethod"]
+      "required": [
+        "id",
+        "dealer",
+        "amount",
+        "date",
+        "paymentMethod"
+      ]
     },
     "RepairJob": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -394,17 +476,58 @@
       "type": "object",
       "description": "Represents a temporary bill for accumulating products.",
       "properties": {
-        "id": { "type": "string", "description": "Auto-generated unique ID." },
-        "jobId": { "type": "string", "description": "Human-readable job ID (e.g., JOB-2025-001)." },
-        "customer": { "type": "string", "description": "Reference to the Customer document." },
-        "vehicleInfo": { "type": "string", "description": "Car model, registration number, etc." },
-        "mechanic": { "type": "string", "description": "Name of the assigned mechanic (optional)." },
-        "status": { "type": "string", "enum": ["In Progress", "Paused", "Completed", "Cancelled"] },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the bill was created." },
-        "closedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the bill was finalized into a sale." },
-        "total": { "type": "number", "description": "Total bill amount." }
+        "id": {
+          "type": "string",
+          "description": "Auto-generated unique ID."
+        },
+        "jobId": {
+          "type": "string",
+          "description": "Human-readable job ID (e.g., JOB-2025-001)."
+        },
+        "customer": {
+          "type": "string",
+          "description": "Reference to the Customer document."
+        },
+        "vehicleInfo": {
+          "type": "string",
+          "description": "Car model, registration number, etc."
+        },
+        "mechanic": {
+          "type": "string",
+          "description": "Name of the assigned mechanic (optional)."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "In Progress",
+            "Paused",
+            "Completed",
+            "Cancelled"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the bill was created."
+        },
+        "closedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the bill was finalized into a sale."
+        },
+        "total": {
+          "type": "number",
+          "description": "Total bill amount."
+        }
       },
-      "required": ["id", "jobId", "customer", "vehicleInfo", "status", "createdAt"]
+      "required": [
+        "id",
+        "jobId",
+        "customer",
+        "vehicleInfo",
+        "status",
+        "createdAt"
+      ]
     },
     "RepairJobItem": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -412,13 +535,33 @@
       "type": "object",
       "description": "Represents a single item (product/part) used in a repair job.",
       "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the job item." },
-        "jobId": { "type": "string", "description": "Reference to the RepairJob document." },
-        "productId": { "type": "string", "description": "Reference to the Product document." },
-        "quantity": { "type": "number" },
-        "price": { "type": "number", "description": "Price of the item at the time of job." }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the job item."
+        },
+        "jobId": {
+          "type": "string",
+          "description": "Reference to the RepairJob document."
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to the Product document."
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the item at the time of job."
+        }
       },
-      "required": ["id", "jobId", "productId", "quantity", "price"]
+      "required": [
+        "id",
+        "jobId",
+        "productId",
+        "quantity",
+        "price"
+      ]
     },
     "Expense": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -445,7 +588,11 @@
         },
         "paymentMethod": {
           "type": "string",
-          "enum": ["Cash", "Bank", "Credit"],
+          "enum": [
+            "Cash",
+            "Bank",
+            "Credit"
+          ],
           "description": "Method of payment."
         },
         "paidTo": {
@@ -461,7 +608,14 @@
           "description": "URL of an attached bill or receipt."
         }
       },
-      "required": ["id", "date", "category", "amount", "paymentMethod", "paidTo"]
+      "required": [
+        "id",
+        "date",
+        "category",
+        "amount",
+        "paymentMethod",
+        "paidTo"
+      ]
     },
     "Battery": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -469,18 +623,53 @@
       "description": "Represents a battery in the inventory.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "brand": { "type": "string" },
-        "model": { "type": "string" },
-        "ampere": { "type": "number" },
-        "type": { "type": "string", "enum": ["Lead-Acid", "Lithium", "AGM"] },
-        "costPrice": { "type": "number" },
-        "salePrice": { "type": "number" },
-        "stock": { "type": "number" },
-        "warrantyMonths": { "type": "number" },
-        "lowStockThreshold": { "type": "number" }
+        "id": {
+          "type": "string"
+        },
+        "brand": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "ampere": {
+          "type": "number"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Lead-Acid",
+            "Lithium",
+            "AGM"
+          ]
+        },
+        "costPrice": {
+          "type": "number"
+        },
+        "salePrice": {
+          "type": "number"
+        },
+        "stock": {
+          "type": "number"
+        },
+        "warrantyMonths": {
+          "type": "number"
+        },
+        "lowStockThreshold": {
+          "type": "number"
+        }
       },
-      "required": ["id", "brand", "model", "ampere", "costPrice", "salePrice", "stock", "warrantyMonths", "lowStockThreshold"]
+      "required": [
+        "id",
+        "brand",
+        "model",
+        "ampere",
+        "costPrice",
+        "salePrice",
+        "stock",
+        "warrantyMonths",
+        "lowStockThreshold"
+      ]
     },
     "ScrapStock": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -488,11 +677,22 @@
       "description": "Represents the stock of scrap batteries.",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "Usually a singleton document ID like 'main'" },
-        "totalWeightKg": { "type": "number" },
-        "totalScrapValue": { "type": "number" }
+        "id": {
+          "type": "string",
+          "description": "Usually a singleton document ID like 'main'"
+        },
+        "totalWeightKg": {
+          "type": "number"
+        },
+        "totalScrapValue": {
+          "type": "number"
+        }
       },
-      "required": ["id", "totalWeightKg", "totalScrapValue"]
+      "required": [
+        "id",
+        "totalWeightKg",
+        "totalScrapValue"
+      ]
     },
     "BatterySale": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -500,38 +700,115 @@
       "description": "Represents a sale transaction involving batteries or services.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "invoice": { "type": "string" },
-        "customer": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["Paid", "Unpaid", "Partial"] },
+        "id": {
+          "type": "string"
+        },
+        "invoice": {
+          "type": "string"
+        },
+        "customer": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "total": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Paid",
+            "Unpaid",
+            "Partial"
+          ]
+        },
         "items": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "id": { "type": "string" },
-              "name": { "type": "string" },
-              "quantity": { "type": "number" },
-              "price": { "type": "number" },
-              "costPrice": { "type": "number" },
-              "stock": { "type": "number" },
-              "isOneTime": { "type": "boolean" },
-              "type": { "type": "string", "enum": ["battery", "service", "scrap", "acid", "one-time"] },
-              "warrantyMonths": { "type": "number" },
-              "manufacturingCode": { "type": "string" }
+              "productId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              },
+              "price": {
+                "type": "number"
+              },
+              "costPrice": {
+                "type": "number"
+              },
+              "stock": {
+                "type": "number"
+              },
+              "isOneTime": {
+                "type": "boolean"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "battery",
+                  "service",
+                  "scrap",
+                  "acid",
+                  "one-time"
+                ]
+              },
+              "warrantyMonths": {
+                "type": "number"
+              },
+              "manufacturingCode": {
+                "type": "string"
+              }
             },
-            "required": ["id", "name", "quantity", "price", "costPrice", "stock", "isOneTime", "type"]
+            "required": [
+              "productId",
+              "name",
+              "quantity",
+              "price",
+              "costPrice",
+              "stock",
+              "isOneTime",
+              "type"
+            ]
           }
         },
-        "discount": { "type": "number" },
-        "paymentMethod": { "type": "string", "enum": ["cash", "online"] },
-        "onlinePaymentSource": { "type": "string" },
-        "partialAmountPaid": { "type": "number" },
-        "dueDate": { "type": "string", "format": "date-time" }
+        "discount": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "cash",
+            "online"
+          ]
+        },
+        "onlinePaymentSource": {
+          "type": "string"
+        },
+        "partialAmountPaid": {
+          "type": "number"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time"
+        }
       },
-      "required": ["id", "invoice", "customer", "date", "total", "status", "items"]
+      "required": [
+        "id",
+        "invoice",
+        "customer",
+        "date",
+        "total",
+        "status",
+        "items"
+      ]
     },
     "BatteryPurchase": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -539,24 +816,73 @@
       "description": "Represents a purchase of new batteries from a dealer.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "dealerId": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
+        "id": {
+          "type": "string"
+        },
+        "dealerId": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
         "items": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "batteryId": { "type": "string" },
-              "quantity": { "type": "number" },
-              "costPrice": { "type": "number" }
+              "batteryId": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              },
+              "costPrice": {
+                "type": "number"
+              }
             },
-            "required": ["batteryId", "quantity", "costPrice"]
+            "required": [
+              "batteryId",
+              "quantity",
+              "costPrice"
+            ]
           }
         },
-        "totalAmount": { "type": "number" }
+        "totalAmount": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "Cash",
+            "Online"
+          ]
+        },
+        "paymentSourceAccount": {
+          "type": "string"
+        },
+        "paymentDestinationDetails": {
+          "type": "object",
+          "properties": {
+            "accountTitle": {
+              "type": "string"
+            },
+            "bankName": {
+              "type": "string"
+            },
+            "accountNumber": {
+              "type": "string"
+            }
+          }
+        }
       },
-      "required": ["id", "dealerId", "date", "items", "totalAmount"]
+      "required": [
+        "id",
+        "dealerId",
+        "date",
+        "items",
+        "totalAmount"
+      ]
     },
     "ScrapPurchase": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -564,17 +890,47 @@
       "description": "Represents a single purchase of scrap batteries.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "sellerName": { "type": "string" },
-        "sellerAddress": { "type": "string" },
-        "sellerNIC": { "type": "string" },
-        "weightKg": { "type": "number" },
-        "ratePerKg": { "type": "number" },
-        "totalValue": { "type": "number" },
-        "paymentMethod": { "type": "string", "enum": ["Cash", "Bank"] }
+        "id": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sellerName": {
+          "type": "string"
+        },
+        "sellerAddress": {
+          "type": "string"
+        },
+        "sellerNIC": {
+          "type": "string"
+        },
+        "weightKg": {
+          "type": "number"
+        },
+        "ratePerKg": {
+          "type": "number"
+        },
+        "totalValue": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "Cash",
+            "Bank"
+          ]
+        }
       },
-      "required": ["id", "date", "weightKg", "ratePerKg", "totalValue", "paymentMethod"]
+      "required": [
+        "id",
+        "date",
+        "weightKg",
+        "ratePerKg",
+        "totalValue",
+        "paymentMethod"
+      ]
     },
     "ScrapSale": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -582,14 +938,34 @@
       "description": "Represents a single sale of scrap batteries.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "buyerName": { "type": "string" },
-        "weightKg": { "type": "number" },
-        "ratePerKg": { "type": "number" },
-        "totalValue": { "type": "number" }
+        "id": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "buyerName": {
+          "type": "string"
+        },
+        "weightKg": {
+          "type": "number"
+        },
+        "ratePerKg": {
+          "type": "number"
+        },
+        "totalValue": {
+          "type": "number"
+        }
       },
-      "required": ["id", "date", "buyerName", "weightKg", "ratePerKg", "totalValue"]
+      "required": [
+        "id",
+        "date",
+        "buyerName",
+        "weightKg",
+        "ratePerKg",
+        "totalValue"
+      ]
     },
     "AcidStock": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -597,12 +973,26 @@
       "description": "Represents the total stock of acid.",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "Singleton document ID, e.g., 'main'" },
-        "totalQuantityKg": { "type": "number" },
-        "totalValue": { "type": "number" },
-        "lowStockThreshold": { "type": "number" }
+        "id": {
+          "type": "string",
+          "description": "Singleton document ID, e.g., 'main'"
+        },
+        "totalQuantityKg": {
+          "type": "number"
+        },
+        "totalValue": {
+          "type": "number"
+        },
+        "lowStockThreshold": {
+          "type": "number"
+        }
       },
-      "required": ["id", "totalQuantityKg", "totalValue", "lowStockThreshold"]
+      "required": [
+        "id",
+        "totalQuantityKg",
+        "totalValue",
+        "lowStockThreshold"
+      ]
     },
     "AcidPurchase": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -610,14 +1000,33 @@
       "description": "Represents a single purchase of acid.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "quantityKg": { "type": "number" },
-        "ratePerKg": { "type": "number" },
-        "totalValue": { "type": "number" },
-        "supplier": { "type": "string" }
+        "id": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "quantityKg": {
+          "type": "number"
+        },
+        "ratePerKg": {
+          "type": "number"
+        },
+        "totalValue": {
+          "type": "number"
+        },
+        "supplier": {
+          "type": "string"
+        }
       },
-      "required": ["id", "date", "quantityKg", "ratePerKg", "totalValue"]
+      "required": [
+        "id",
+        "date",
+        "quantityKg",
+        "ratePerKg",
+        "totalValue"
+      ]
     },
     "AcidConsumption": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -625,34 +1034,85 @@
       "description": "Represents a record of acid consumed for internal use.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "quantityKg": { "type": "number" },
-        "notes": { "type": "string" }
+        "id": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "quantityKg": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string"
+        }
       },
-      "required": ["id", "date", "quantityKg"]
+      "required": [
+        "id",
+        "date",
+        "quantityKg"
+      ]
     },
     "BatteryClaim": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "BatteryClaim",
-        "description": "Represents a battery warranty claim transaction.",
-        "type": "object",
-        "properties": {
-            "id": { "type": "string" },
-            "originalSaleId": { "type": "string" },
-            "customerId": { "type": "string" },
-            "claimedBatteryId": { "type": "string" },
-            "replacementBatteryId": { "type": "string" },
-            "claimDate": { "type": "string", "format": "date-time" },
-            "originalBatteryPrice": { "type": "number" },
-            "replacementBatteryPrice": { "type": "number" },
-            "priceDifference": { "type": "number" },
-            "serviceCharges": { "type": "number" },
-            "totalPayable": { "type": "number" },
-            "isPaid": { "type": "boolean" },
-            "notes": { "type": "string" }
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BatteryClaim",
+      "description": "Represents a battery warranty claim transaction.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
         },
-        "required": ["id", "originalSaleId", "customerId", "claimedBatteryId", "replacementBatteryId", "claimDate", "originalBatteryPrice", "replacementBatteryPrice", "totalPayable", "isPaid"]
+        "originalSaleId": {
+          "type": "string"
+        },
+        "customerId": {
+          "type": "string"
+        },
+        "claimedBatteryId": {
+          "type": "string"
+        },
+        "replacementBatteryId": {
+          "type": "string"
+        },
+        "claimDate": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "originalBatteryPrice": {
+          "type": "number"
+        },
+        "replacementBatteryPrice": {
+          "type": "number"
+        },
+        "priceDifference": {
+          "type": "number"
+        },
+        "serviceCharges": {
+          "type": "number"
+        },
+        "totalPayable": {
+          "type": "number"
+        },
+        "isPaid": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "originalSaleId",
+        "customerId",
+        "claimedBatteryId",
+        "replacementBatteryId",
+        "claimDate",
+        "originalBatteryPrice",
+        "replacementBatteryPrice",
+        "totalPayable",
+        "isPaid"
+      ]
     }
   },
   "auth": {
@@ -891,7 +1351,9 @@
         "path": "/batteries/{batteryId}",
         "definition": {
           "entityName": "Battery",
-          "schema": { "$ref": "#/backend/entities/Battery" },
+          "schema": {
+            "$ref": "#/backend/entities/Battery"
+          },
           "description": "Stores individual battery stock information."
         }
       },
@@ -899,7 +1361,9 @@
         "path": "/scrap_stock/{stockId}",
         "definition": {
           "entityName": "ScrapStock",
-          "schema": { "$ref": "#/backend/entities/ScrapStock" },
+          "schema": {
+            "$ref": "#/backend/entities/ScrapStock"
+          },
           "description": "Stores the total weight and value of scrap batteries."
         }
       },
@@ -907,7 +1371,9 @@
         "path": "/battery_sales/{saleId}",
         "definition": {
           "entityName": "BatterySale",
-          "schema": { "$ref": "#/backend/entities/BatterySale" },
+          "schema": {
+            "$ref": "#/backend/entities/BatterySale"
+          },
           "description": "Stores battery sale transactions."
         }
       },
@@ -915,7 +1381,9 @@
         "path": "/battery_purchases/{purchaseId}",
         "definition": {
           "entityName": "BatteryPurchase",
-          "schema": { "$ref": "#/backend/entities/BatteryPurchase" },
+          "schema": {
+            "$ref": "#/backend/entities/BatteryPurchase"
+          },
           "description": "Stores new battery purchase information."
         }
       },
@@ -923,7 +1391,9 @@
         "path": "/scrap_purchases/{scrapPurchaseId}",
         "definition": {
           "entityName": "ScrapPurchase",
-          "schema": { "$ref": "#/backend/entities/ScrapPurchase" },
+          "schema": {
+            "$ref": "#/backend/entities/ScrapPurchase"
+          },
           "description": "Stores individual scrap battery purchase transactions."
         }
       },
@@ -931,7 +1401,9 @@
         "path": "/scrap_sales/{saleId}",
         "definition": {
           "entityName": "ScrapSale",
-          "schema": { "$ref": "#/backend/entities/ScrapSale" },
+          "schema": {
+            "$ref": "#/backend/entities/ScrapSale"
+          },
           "description": "Stores individual scrap battery sale transactions."
         }
       },
@@ -939,7 +1411,9 @@
         "path": "/acid_stock/{stockId}",
         "definition": {
           "entityName": "AcidStock",
-          "schema": { "$ref": "#/backend/entities/AcidStock" },
+          "schema": {
+            "$ref": "#/backend/entities/AcidStock"
+          },
           "description": "Stores the total quantity and value of acid stock."
         }
       },
@@ -947,7 +1421,9 @@
         "path": "/acid_purchases/{purchaseId}",
         "definition": {
           "entityName": "AcidPurchase",
-          "schema": { "$ref": "#/backend/entities/AcidPurchase" },
+          "schema": {
+            "$ref": "#/backend/entities/AcidPurchase"
+          },
           "description": "Stores individual acid purchase transactions."
         }
       },
@@ -955,7 +1431,9 @@
         "path": "/acid_consumption/{consumptionId}",
         "definition": {
           "entityName": "AcidConsumption",
-          "schema": { "$ref": "#/backend/entities/AcidConsumption" },
+          "schema": {
+            "$ref": "#/backend/entities/AcidConsumption"
+          },
           "description": "Stores records of internally consumed acid."
         }
       },
@@ -963,7 +1441,9 @@
         "path": "/battery_claims/{claimId}",
         "definition": {
           "entityName": "BatteryClaim",
-          "schema": { "$ref": "#/backend/entities/BatteryClaim" },
+          "schema": {
+            "$ref": "#/backend/entities/BatteryClaim"
+          },
           "description": "Stores battery warranty claim transactions."
         }
       }

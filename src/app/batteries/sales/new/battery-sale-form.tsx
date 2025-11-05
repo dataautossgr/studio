@@ -482,7 +482,7 @@ export default function BatterySaleForm() {
             </CardFooter>
         </Card>
         
-         <CustomerDialog isOpen={isCustomerDialogOpen} onClose={() => setIsCustomerDialogOpen(false)} onSave={(data) => handleSaveNewCustomer(data)} customer={null} type="battery"/>
+        <CustomerDialog isOpen={isCustomerDialogOpen} onClose={() => setIsCustomerDialogOpen(false)} onSave={(data) => handleSaveNewCustomer(data)} customer={null} type="battery"/>
 
         <AlertDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
             <AlertDialogContent>

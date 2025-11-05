@@ -46,7 +46,9 @@ export function DealerDialog({ isOpen, onClose, onSave, dealer, type: initialTyp
     setDealerType(initialType);
     if (dealer) {
       reset(dealer);
-      setDealerType(dealer.type);
+      if (dealer.type) {
+        setDealerType(dealer.type);
+      }
     } else {
       reset({
         company: '',

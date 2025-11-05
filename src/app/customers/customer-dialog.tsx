@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
@@ -46,7 +46,9 @@ export function CustomerDialog({ isOpen, onClose, onSave, customer, type: initia
     setCustomerType(initialType);
     if (customer) {
       reset(customer);
-      setCustomerType(customer.type);
+      if (customer.type) {
+        setCustomerType(customer.type);
+      }
     } else {
       reset({
         name: '',

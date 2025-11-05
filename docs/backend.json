@@ -79,6 +79,13 @@
         "discount": {
           "type": "number",
           "description": "Discount amount for the sale."
+        },
+        "paymentMethod": {
+            "type": "string",
+            "enum": ["cash", "online"]
+        },
+        "onlinePaymentSource": {
+            "type": "string"
         }
       },
       "required": [

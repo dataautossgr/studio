@@ -317,12 +317,13 @@ export default function AutomotiveSaleForm() {
     };
     
     // Conditionally add fields to avoid sending `undefined`
-    if (status === 'Paid') {
+    if (status === 'Paid' || status === 'Partial') {
         saleData.paymentMethod = paymentMethod || 'cash';
         if (paymentMethod === 'online') {
             saleData.onlinePaymentSource = onlinePaymentSource;
         }
     }
+
     if (status === 'Partial') {
         saleData.partialAmountPaid = partialAmount;
     }
@@ -659,10 +660,10 @@ export default function AutomotiveSaleForm() {
                   <Label htmlFor="status" className="flex-shrink-0">Sale Status</Label>
                   <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => {
                       setStatus(val);
-                      if (val !== 'Paid') {
-                          setPaymentMethod(null);
-                      } else {
+                      if (val === 'Paid') {
                           setPaymentMethod(paymentMethod || 'cash');
+                      } else {
+                          setPaymentMethod(null);
                       }
                   }}>
                     <SelectTrigger>
@@ -719,18 +720,12 @@ export default function AutomotiveSaleForm() {
                     </div>
                 )}
                
-               {status === 'Paid' && (
+               {(status === 'Paid' || status === 'Partial') && (
                 <div className="space-y-4 rounded-md border p-4">
                     <Label>Payment Method</Label>
                     <RadioGroup value={paymentMethod || ''} onValueChange={(val: 'cash' | 'online') => setPaymentMethod(val)} className="flex gap-4">
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="cash" id="cash" />
-                            <Label htmlFor="cash">Cash</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="online" id="online" />
-                            <Label htmlFor="online">Online</Label>
-                        </div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="cash" id="cash" /><Label htmlFor="cash">Cash</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="online" id="online" /><Label htmlFor="online">Online</Label></div>
                     </RadioGroup>
                     {paymentMethod === 'online' && (
                         <div className="grid gap-2">
@@ -805,7 +800,7 @@ export default function AutomotiveSaleForm() {
       <CustomerDialog 
         isOpen={isCustomerDialogOpen} 
         onClose={() => setIsCustomerDialogOpen(false)}
-        onSave={(data) => handleSaveNewCustomer(data)}
+        onSave={(data) => handleSaveNewCustomer(data, 'automotive')}
         customer={null}
         type="automotive"
       />

@@ -111,7 +111,7 @@ export default function BatterySaleForm() {
                 setDiscount(saleData.discount || 0);
                 setStatus(saleData.status);
                 
-                if (saleData.status === 'Paid') {
+                if (saleData.status === 'Paid' || saleData.status === 'Partial') {
                     setPaymentMethod(saleData.paymentMethod || 'cash');
                     setOnlinePaymentSource(saleData.onlinePaymentSource || '');
                 } else {
@@ -264,7 +264,7 @@ export default function BatterySaleForm() {
         status,
         items: cart,
         discount,
-        ...(status === 'Paid' && { paymentMethod: paymentMethod || 'cash' }),
+        ...( (status === 'Paid' || status === 'Partial') && { paymentMethod: paymentMethod || 'cash' }),
         ...(paymentMethod === 'online' && { onlinePaymentSource }),
         ...(status === 'Partial' && { partialAmountPaid: partialAmount }),
         ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
@@ -436,7 +436,7 @@ export default function BatterySaleForm() {
                     <div className="space-y-4">
                         <div className="flex items-center gap-4">
                             <Label htmlFor="status" className="flex-shrink-0">Sale Status</Label>
-                            <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => { setStatus(val); if (val !== 'Paid') { setPaymentMethod(null); } else { setPaymentMethod(paymentMethod || 'cash'); } }}>
+                            <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => { setStatus(val); if (val !== 'Paid' && val !== 'Partial') { setPaymentMethod(null); } else { setPaymentMethod(paymentMethod || 'cash'); } }}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent><SelectItem value="Paid">Paid</SelectItem><SelectItem value="Unpaid">Unpaid</SelectItem><SelectItem value="Partial">Partial</SelectItem></SelectContent>
                             </Select>
@@ -450,7 +450,8 @@ export default function BatterySaleForm() {
                             </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus/></PopoverContent></Popover>
                         </div>)}
                         {status === 'Partial' && (<div className="grid grid-cols-[120px_1fr] items-center gap-4 rounded-md border p-4"><Label htmlFor="partialAmount">Amount Paid</Label><Input id="partialAmount" type="number" value={partialAmount} onChange={(e) => setPartialAmount(parseFloat(e.target.value) || 0)} className="w-full" min="0" max={finalAmount}/></div>)}
-                        {status === 'Paid' && (<div className="space-y-4 rounded-md border p-4">
+                        
+                        {(status === 'Paid' || status === 'Partial') && (<div className="space-y-4 rounded-md border p-4">
                             <Label>Payment Method</Label>
                             <RadioGroup value={paymentMethod || ''} onValueChange={(val: 'cash' | 'online') => setPaymentMethod(val)} className="flex gap-4">
                                 <div className="flex items-center space-x-2"><RadioGroupItem value="cash" id="cash" /><Label htmlFor="cash">Cash</Label></div>

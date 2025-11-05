@@ -41,8 +41,8 @@ export default function DashboardPage() {
   const acidStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'acid_stock', 'main') : null, [firestore]);
   
   const todayStart = startOfToday();
-  const paymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'payments'), where('date', '>=', todayStart.toISOString())) : null, [firestore, todayStart]);
-  const expensesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'expenses'), where('date', '>=', todayStart.toISOString())) : null, [firestore, todayStart]);
+  const paymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'payments'), where('date', '>=', todayStart.toISOString())) : null, [firestore]);
+  const expensesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'expenses'), where('date', '>=', todayStart.toISOString())) : null, [firestore]);
 
 
   const { data: salesData, isLoading: salesLoading } = useCollection<Sale>(salesCollection);

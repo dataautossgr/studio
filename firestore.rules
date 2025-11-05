@@ -169,7 +169,7 @@ service cloud.firestore {
     /**
      * @description Allows read and write access to dealer payments.
      * @path /dealer_payments/{paymentId}
-     * @allow (get, list, create, update, delete) if request.auth != null;
+     * @allow (get, list, create, update, delete) if true;
      * @principle Authenticated read and write access.
      */
     match /dealer_payments/{paymentId} {

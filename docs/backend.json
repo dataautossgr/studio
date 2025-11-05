@@ -606,6 +606,22 @@
         "notes": { "type": "string" }
       },
       "required": ["id", "date", "quantityKg"]
+    },
+    "BatteryClaim": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "BatteryClaim",
+        "description": "Represents a battery warranty claim transaction.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "originalSaleId": { "type": "string" },
+            "customerId": { "type": "string" },
+            "claimedBatteryId": { "type": "string" },
+            "claimDate": { "type": "string", "format": "date-time" },
+            "serviceCharges": { "type": "number" },
+            "notes": { "type": "string" }
+        },
+        "required": ["id", "originalSaleId", "customerId", "claimedBatteryId", "claimDate"]
     }
   },
   "auth": {
@@ -910,6 +926,14 @@
           "entityName": "AcidConsumption",
           "schema": { "$ref": "#/backend/entities/AcidConsumption" },
           "description": "Stores records of internally consumed acid."
+        }
+      },
+      {
+        "path": "/battery_claims/{claimId}",
+        "definition": {
+          "entityName": "BatteryClaim",
+          "schema": { "$ref": "#/backend/entities/BatteryClaim" },
+          "description": "Stores battery warranty claim transactions."
         }
       }
     ],

@@ -320,6 +320,15 @@ service cloud.firestore {
     match /acid_consumption/{consumptionId} {
       allow get, list, create, update, delete: if true;
     }
+    
+    /**
+     * @description Allows read and write access to battery claims.
+     * @path /battery_claims/{claimId}
+     * @allow (get, list, create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /battery_claims/{claimId} {
+      allow get, list, create, update, delete: if true;
+    }
   }
 }
-    

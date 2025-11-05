@@ -218,6 +218,16 @@ export interface AcidConsumption {
   notes?: string;
 }
 
+export interface BatteryClaim {
+    id: string;
+    originalSaleId: string;
+    customerId: string;
+    claimedBatteryId: string;
+    claimDate: string;
+    serviceCharges?: number;
+    notes?: string;
+}
+
 
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [
@@ -365,5 +375,3 @@ export const seedInitialData = async (db: any) => {
     
     console.log("Data seeding complete.");
 };
-
-    

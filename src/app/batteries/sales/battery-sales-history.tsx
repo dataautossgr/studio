@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, Pencil, Trash2, Undo2, PlusCircle, Download } from 'lucide-react';
+import { MoreHorizontal, FileText, Pencil, Trash2, Undo2, PlusCircle, Download, ShieldCheck } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -213,6 +213,12 @@ export default function BatterySalesHistory({ dateRange }: BatterySalesHistoryPr
                           <Link href={`/sales/new?tab=battery&edit=${sale.id}`}>
                               <Pencil className="mr-2 h-4 w-4" />
                               Edit
+                          </Link>
+                      </DropdownMenuItem>
+                       <DropdownMenuItem asChild>
+                          <Link href={`/batteries/claims/new?saleId=${sale.id}`}>
+                              <ShieldCheck className="mr-2 h-4 w-4" />
+                              Claim Warranty
                           </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />

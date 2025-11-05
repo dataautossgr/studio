@@ -29,7 +29,8 @@ import {
   BatteryCharging,
   Droplets,
   MinusCircle,
-  Download
+  Download,
+  Package,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -50,12 +51,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, runTransaction } from 'firebase/firestore';
-import type { Battery, ScrapStock, ScrapPurchase, AcidPurchase, AcidStock } from '@/lib/data';
+import type { Battery, ScrapStock, ScrapPurchase, AcidPurchase, AcidStock, ScrapSale } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { BatteryDialog } from './battery-dialog';
 import type { BatteryFormData } from './battery-dialog';
 import { ScrapPurchaseDialog, type ScrapPurchaseFormData } from './scrap-purchase-dialog';
 import { AcidPurchaseDialog, type AcidPurchaseFormData } from './acid-purchase-dialog';
+import { SellScrapDialog, type SellScrapFormData } from './sell-scrap-dialog';
 import { format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,14 +69,17 @@ export default function BatteryInventory() {
   const scrapStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'scrap_stock', 'main') : null, [firestore]);
   const acidPurchasesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'acid_purchases') : null, [firestore]);
   const acidStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'acid_stock', 'main') : null, [firestore]);
+  const scrapSalesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'scrap_sales') : null, [firestore]);
   
   const { data: batteries, isLoading: isLoadingBatteries } = useCollection<Battery>(batteriesCollection);
   const { data: scrapStock, isLoading: isLoadingScrap } = useDoc<ScrapStock>(scrapStockRef);
   const { data: acidPurchases, isLoading: isLoadingAcidPurchases } = useCollection<AcidPurchase>(acidPurchasesCollection);
   const { data: acidStock, isLoading: isLoadingAcidStock } = useDoc<AcidStock>(acidStockRef);
+  const { data: scrapSales, isLoading: isLoadingScrapSales } = useCollection<ScrapSale>(scrapSalesCollection);
   
   const [isBatteryDialogOpen, setIsBatteryDialogOpen] = useState(false);
-  const [isScrapDialogOpen, setIsScrapDialogOpen] = useState(false);
+  const [isScrapPurchaseDialogOpen, setIsScrapPurchaseDialogOpen] = useState(false);
+  const [isScrapSaleDialogOpen, setIsScrapSaleDialogOpen] = useState(false);
   const [isAcidDialogOpen, setIsAcidDialogOpen] = useState(false);
   
   const [acidConsumption, setAcidConsumption] = useState(0);
@@ -153,11 +158,49 @@ export default function BatteryInventory() {
         });
         
         toast({ title: "Scrap Purchase Saved", description: "Scrap stock has been updated." });
-        setIsScrapDialogOpen(false);
+        setIsScrapPurchaseDialogOpen(false);
 
     } catch (e) {
         console.error("Scrap purchase transaction failed: ", e);
         toast({ variant: 'destructive', title: "Error", description: "Failed to save scrap purchase." });
+    }
+  };
+
+  const handleSaveScrapSale = async (data: SellScrapFormData) => {
+    if (!firestore || !scrapStockRef) return;
+
+    const totalValue = data.weightKg * data.ratePerKg;
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const scrapStockDoc = await transaction.get(scrapStockRef);
+            const currentWeight = scrapStockDoc.exists() ? scrapStockDoc.data().totalWeightKg : 0;
+            
+            if (data.weightKg > currentWeight) {
+                throw new Error("Cannot sell more scrap than is available in stock.");
+            }
+
+            const newScrapSaleRef = doc(collection(firestore, 'scrap_sales'));
+            const saleRecord: Omit<ScrapSale, 'id'> = {
+                date: new Date().toISOString(),
+                buyerName: data.buyerName,
+                weightKg: data.weightKg,
+                ratePerKg: data.ratePerKg,
+                totalValue: totalValue,
+            };
+            transaction.set(newScrapSaleRef, saleRecord);
+
+            transaction.set(scrapStockRef, {
+                totalWeightKg: currentWeight - data.weightKg,
+            }, { merge: true });
+        });
+        
+        toast({ title: "Scrap Sale Saved", description: `${data.weightKg} KG of scrap has been sold and stock updated.` });
+        setIsScrapSaleDialogOpen(false);
+
+    } catch (e: any) {
+        console.error("Scrap sale transaction failed: ", e);
+        toast({ variant: 'destructive', title: "Error", description: e.message || "Failed to save scrap sale." });
     }
   };
 
@@ -291,7 +334,7 @@ export default function BatteryInventory() {
     toast({ title: 'Export Successful', description: 'Your batteries list has been downloaded as a CSV file.' });
   };
 
-  const isLoading = isLoadingBatteries || isLoadingScrap || isLoadingAcidStock || isLoadingAcidPurchases;
+  const isLoading = isLoadingBatteries || isLoadingScrap || isLoadingAcidStock || isLoadingAcidPurchases || isLoadingScrapSales;
   const isAcidLow = acidStock && acidStock.totalQuantityKg <= acidStock.lowStockThreshold;
 
   const summaryCards = [
@@ -338,7 +381,7 @@ export default function BatteryInventory() {
                 <Download className="mr-2 h-4 w-4" />
                 Export Batteries
             </Button>
-            <Button variant="secondary" onClick={() => setIsScrapDialogOpen(true)}>
+            <Button variant="secondary" onClick={() => setIsScrapPurchaseDialogOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Scrap Purchase
             </Button>
@@ -414,63 +457,36 @@ export default function BatteryInventory() {
         <div className="grid gap-8 md:grid-cols-2">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Acid Purchase History</CardTitle>
-                    <CardDescription>Manage your acid stock and purchase records.</CardDescription>
-                </div>
-                <Button onClick={() => setIsAcidDialogOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Acid Purchase
-                </Button>
+                    <div>
+                        <CardTitle>Scrap Sales History</CardTitle>
+                        <CardDescription>Track all your scrap battery sales.</CardDescription>
+                    </div>
+                    <Button onClick={() => setIsScrapSaleDialogOpen(true)}>
+                        <Package className="mr-2 h-4 w-4" /> Sell Scrap
+                    </Button>
                 </CardHeader>
                 <CardContent>
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Supplier</TableHead>
-                        <TableHead>Qty (KG)</TableHead>
-                        <TableHead className="text-right">Total Value</TableHead>
-                        <TableHead>
-                        <span className="sr-only">Actions</span>
-                        </TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {isLoadingAcidPurchases && (
-                        <TableRow>
-                        <TableCell colSpan={5} className="text-center">Loading purchase history...</TableCell>
-                        </TableRow>
-                    )}
-                    {acidPurchases?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((purchase) => (
-                        <TableRow key={purchase.id}>
-                        <TableCell>{format(new Date(purchase.date), 'dd MMM, yyyy')}</TableCell>
-                        <TableCell className="font-medium">{purchase.supplier || 'N/A'}</TableCell>
-                        <TableCell>{purchase.quantityKg} KG</TableCell>
-                        <TableCell className="text-right font-mono">Rs. {purchase.totalValue.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">
-                            <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Toggle menu</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                onSelect={() => setAcidPurchaseToDelete(purchase)}
-                                className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
-                                >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                        </TableRow>
-                    ))}
-                    </TableBody>
-                </Table>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Buyer</TableHead>
+                                <TableHead>Weight (KG)</TableHead>
+                                <TableHead className="text-right">Total Value</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingScrapSales && <TableRow><TableCell colSpan={4} className="text-center">Loading sales...</TableCell></TableRow>}
+                            {scrapSales?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(sale => (
+                                <TableRow key={sale.id}>
+                                    <TableCell>{format(new Date(sale.date), 'dd MMM, yyyy')}</TableCell>
+                                    <TableCell>{sale.buyerName}</TableCell>
+                                    <TableCell>{sale.weightKg} KG</TableCell>
+                                    <TableCell className="text-right font-mono">Rs. {sale.totalValue.toLocaleString()}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
 
@@ -518,9 +534,16 @@ export default function BatteryInventory() {
       />
 
       <ScrapPurchaseDialog
-        isOpen={isScrapDialogOpen}
-        onClose={() => setIsScrapDialogOpen(false)}
+        isOpen={isScrapPurchaseDialogOpen}
+        onClose={() => setIsScrapPurchaseDialogOpen(false)}
         onSave={handleSaveScrapPurchase}
+      />
+      
+      <SellScrapDialog
+        isOpen={isScrapSaleDialogOpen}
+        onClose={() => setIsScrapSaleDialogOpen(false)}
+        onSave={handleSaveScrapSale}
+        maxWeight={scrapStock?.totalWeightKg || 0}
       />
 
       <AcidPurchaseDialog

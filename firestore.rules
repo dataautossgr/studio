@@ -266,6 +266,17 @@ service cloud.firestore {
       allow get, list, create, update, delete: if true;
     }
 
+     /**
+     * @description Allows read and write access to scrap sales.
+     * @path /scrap_sales/{saleId}
+     * @allow (get, list) if true;
+     * @allow (create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /scrap_sales/{saleId} {
+      allow get, list, create, update, delete: if true;
+    }
+
     /**
      * @description Allows read and write access to acid stock.
      * @path /acid_stock/{stockId}

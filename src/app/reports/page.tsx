@@ -53,6 +53,10 @@ const ReportView = ({
 
     const profit = sales.reduce((sum, sale) => {
         const cost = sale.items.reduce((itemSum, item) => {
+            // In battery sales, scrap items are not a cost of goods sold.
+            if ('type' in item && item.type === 'scrap') {
+                return itemSum;
+            }
             const productId = 'productId' in item ? item.productId : item.id;
             // @ts-ignore
             const product = products.find(p => p.id === productId);

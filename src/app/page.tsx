@@ -89,6 +89,10 @@ export default function DashboardPage() {
   
     const calculateProfit = (sale: Sale | BatterySale, productsList: (Product | Battery)[]) => {
       const saleCost = sale.items.reduce((itemSum, item) => {
+        // For battery sales, ignore scrap items in profit calculation
+        if ('type' in item && item.type === 'scrap') {
+            return itemSum;
+        }
         const productId = 'productId' in item ? item.productId : item.id;
         const product = productsList.find(p => p.id === productId);
         return itemSum + ((product?.costPrice || 0) * item.quantity);
@@ -96,7 +100,7 @@ export default function DashboardPage() {
   
       if (sale.status === 'Paid') return sale.total - saleCost;
       if (sale.status === 'Partial') return (sale.partialAmountPaid || 0) - saleCost;
-      return 0;
+      return 0 - saleCost; // If unpaid, the cost is still incurred
     };
   
     const automotiveProfit = todaysAutomotiveSales.reduce((acc, sale) => acc + calculateProfit(sale, products), 0);

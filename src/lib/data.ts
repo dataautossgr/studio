@@ -184,6 +184,16 @@ export interface ScrapPurchase {
     totalValue: number;
 }
 
+export interface ScrapSale {
+    id: string;
+    date: string;
+    buyerName: string;
+    weightKg: number;
+    ratePerKg: number;
+    totalValue: number;
+}
+
+
 export interface AcidStock {
   id: string; // Singleton document ID, e.g., 'main'
   totalQuantityKg: number;

@@ -76,9 +76,6 @@ export default function CashSessionPage() {
   const expensesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'expenses'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
   const { data: todayExpenses } = useCollection<Expense>(expensesQuery);
 
-  const dealerPaymentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'dealer_payments'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
-  const { data: todayDealerPayments } = useCollection<Payment>(dealerPaymentsQuery); // Re-using Payment type
-
   const scrapPurchasesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scrap_purchases'), where('date', '>=', todayStart.toISOString()), where('date', '<=', todayEnd.toISOString())) : null, [firestore]);
   const { data: todayScrapPurchases } = useCollection<ScrapPurchase>(scrapPurchasesQuery);
    
@@ -107,9 +104,7 @@ export default function CashSessionPage() {
         todayExpenses?.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0) || 0
     , [todayExpenses]);
 
-    const totalCashToDealers = useMemo(() =>
-        todayDealerPayments?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0) || 0
-    , [todayDealerPayments]);
+    const totalCashToDealers = 0; // Temporarily disabled
     
     const totalCashForScrap = useMemo(() =>
         todayScrapPurchases?.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.totalValue, 0) || 0

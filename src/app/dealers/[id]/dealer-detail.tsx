@@ -78,7 +78,10 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     const { data: dealer, isLoading: isDealerLoading } = useDoc<Dealer>(dealerRef);
 
     useEffect(() => {
-      if (dealerPurchases && dealerPayments && dealer) {
+      // Ensure dealerPayments is treated as an empty array if null or undefined
+      const validDealerPayments = dealerPayments || [];
+
+      if (dealerPurchases && dealer) {
         const purchaseTransactions: Transaction[] = dealerPurchases.map(p => ({
           id: p.id,
           date: p.date,
@@ -89,7 +92,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
           balance: 0,
         }));
         
-        const paymentTransactions: Transaction[] = dealerPayments.map(p => ({
+        const paymentTransactions: Transaction[] = validDealerPayments.map(p => ({
           id: p.id,
           date: p.date,
           type: 'Payment',

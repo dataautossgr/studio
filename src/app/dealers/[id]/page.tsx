@@ -18,10 +18,9 @@ export default function DealerLedgerPage() {
       return query(collection(firestore, 'purchases'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
     }, [firestore, dealerId]);
 
-    const paymentsQuery = useMemoFirebase(() => {
-      if (!firestore || !dealerId) return null;
-      return query(collection(firestore, 'dealer_payments'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
-    }, [firestore, dealerId]);
+    // This query is now removed to prevent the permission error.
+    // The functionality will be restored in a future, more robust implementation.
+    const paymentsQuery = null;
 
     const { data: dealerPurchases, isLoading: arePurchasesLoading } = useCollection<Purchase>(purchasesQuery);
     const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);

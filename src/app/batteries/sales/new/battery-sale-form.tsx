@@ -51,7 +51,7 @@ export default function BatterySaleForm() {
   
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [customerName, setCustomerName] = useState('');
+  const [walkInCustomerName, setWalkInCustomerName] = useState('');
   const [discount, setDiscount] = useState(0);
   const [status, setStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online' | null>('cash');
@@ -84,7 +84,7 @@ export default function BatterySaleForm() {
 
   // Form Population for Editing
   useEffect(() => {
-    if (editId && firestore && !customersLoading && !batteriesLoading) {
+    if (editId && firestore && !customersLoading && !batteriesLoading && batteries) {
         const fetchSaleData = async () => {
             const saleRef = doc(firestore, 'battery_sales', editId);
             const saleSnap = await getDoc(saleRef);
@@ -100,7 +100,7 @@ export default function BatterySaleForm() {
                         if (customerData.type === 'registered') {
                             setSelectedCustomer(customerData);
                         } else {
-                            setCustomerName(customerData.name);
+                            setWalkInCustomerName(customerData.name);
                         }
                     }
                 }
@@ -141,11 +141,15 @@ export default function BatterySaleForm() {
   const finalAmount = subtotal - discount;
   const changeToReturn = paymentMethod === 'cash' && cashReceived > finalAmount ? cashReceived - finalAmount : 0;
   
-  const handleBatterySelect = (battery: Battery) => {
+  const handleBatterySelect = (battery: Battery | null) => {
+    if(!battery) {
+        setCart(cart.filter(item => item.type !== 'battery'));
+        return;
+    }
     const existingItem = cart.find(item => item.id === battery.id);
-    if(existingItem) return; // Prevent adding same battery twice
+    if(existingItem) return;
 
-    setCart(prev => [...prev, {
+    setCart(prev => [...prev.filter(item => item.type !== 'battery'), {
         id: battery.id,
         name: `${battery.brand} ${battery.model} (${battery.ampere}Ah)`,
         quantity: 1,
@@ -204,7 +208,7 @@ export default function BatterySaleForm() {
   };
 
   const preSaveValidation = (print: boolean) => {
-    if (!saleDate || cart.length === 0 || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !customerName)) {
+    if (!saleDate || cart.length === 0 || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !walkInCustomerName)) {
         toast({ variant: "destructive", title: "Validation Error", description: "Please fill all required fields and add items to the cart." });
         return;
     }
@@ -243,7 +247,7 @@ export default function BatterySaleForm() {
         const isConverting = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
         customerRef = doc(collection(firestore, 'customers'));
         const customerPayload: Omit<Customer, 'id'> = {
-            name: customerName, phone: '', vehicleDetails: '',
+            name: walkInCustomerName, phone: '', vehicleDetails: '',
             type: isConverting ? 'registered' : 'walk-in',
             balance: isConverting ? dueAmount : 0,
         };
@@ -325,7 +329,7 @@ export default function BatterySaleForm() {
                 <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                 <Label>Customer Type</Label>
-                <Select value={customerType} onValueChange={(val: 'walk-in' | 'registered') => { setCustomerType(val); setSelectedCustomer(null); setCustomerName(''); }}>
+                <Select value={customerType} onValueChange={(val: 'walk-in' | 'registered') => { setCustomerType(val); setSelectedCustomer(null); setWalkInCustomerName(''); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                     <SelectItem value="walk-in">Walk-in Customer</SelectItem>
@@ -335,7 +339,7 @@ export default function BatterySaleForm() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="customerName">{customerType === 'walk-in' ? 'Customer Name' : 'Customer'}</Label>
-                    {customerType === 'walk-in' ? ( <Input id="customerName" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="e.g., John Doe" />) 
+                    {customerType === 'walk-in' ? ( <Input id="customerName" value={walkInCustomerName} onChange={(e) => setWalkInCustomerName(e.target.value)} placeholder="e.g., John Doe" />) 
                     : (
                         <div className="flex gap-2">
                             <Popover>
@@ -385,24 +389,19 @@ export default function BatterySaleForm() {
                 <div className="space-y-2">
                     <Label>Add Items to Bill</Label>
                     <div className="flex flex-wrap gap-2">
-                        <Popover>
-                            <PopoverTrigger asChild><Button variant="outline" className="flex-1 min-w-[200px] justify-start font-normal text-muted-foreground"><Search className="mr-2 h-4 w-4" /> Add Battery from Stock...</Button></PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                <Command>
-                                    <CommandInput placeholder="Search battery by brand or model..."/>
-                                    <CommandList>
-                                        <CommandEmpty>No batteries found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {batteries?.map(battery => (
-                                                <CommandItem key={battery.id} onSelect={() => {handleBatterySelect(battery); (document.activeElement as HTMLElement)?.blur();}}>
-                                                    {battery.brand} {battery.model} ({battery.ampere}Ah) - Stock: {battery.stock}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                         <Select onValueChange={(id) => handleBatterySelect(batteries?.find(b => b.id === id) || null)} value={cart.find(i => i.type === 'battery')?.id || '__none__'}>
+                            <SelectTrigger className="flex-1 min-w-[200px]">
+                                <SelectValue placeholder="Select a battery from stock..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">No Battery (Service Only)</SelectItem>
+                                {batteries?.map(battery => (
+                                    <SelectItem key={battery.id} value={battery.id}>
+                                        {battery.brand} {battery.model} ({battery.ampere}Ah) - Stock: {battery.stock}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <Button variant="secondary" onClick={() => addSpecialItem('service')}>Charging Service</Button>
                         <Button variant="secondary" onClick={() => addSpecialItem('acid')}>Sell Acid</Button>
                         <Button variant="destructive" onClick={() => addSpecialItem('scrap')}>Scrap Trade-in</Button>
@@ -482,7 +481,7 @@ export default function BatterySaleForm() {
             </CardFooter>
         </Card>
         
-        <CustomerDialog isOpen={isCustomerDialogOpen} onClose={() => setIsCustomerDialogOpen(false)} onSave={handleSaveNewCustomer} customer={null}/>
+         <CustomerDialog isOpen={isCustomerDialogOpen} onClose={() => setIsCustomerDialogOpen(false)} onSave={handleSaveNewCustomer} customer={null}/>
 
         <AlertDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
             <AlertDialogContent>
@@ -493,10 +492,10 @@ export default function BatterySaleForm() {
                     Please review the details before saving. This action will update stock and cannot be easily undone.
                 </AlertDialogDescription>
                 <div className="my-4 space-y-1 text-sm text-foreground">
-                    <div><strong>Customer:</strong> {customerType === 'walk-in' ? customerName : selectedCustomer?.name}</div>
-                    {cart.filter(i => i.type === 'battery').length > 0 && <div><strong>Battery:</strong> {cart.find(i=>i.type==='battery')?.name}</div>}
-                    {cart.filter(i => i.type === 'service').length > 0 && <div><strong>Charging Service:</strong> Rs. {cart.find(i=>i.type==='service')?.price.toLocaleString()}</div>}
-                    <div><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</div>
+                   <div><strong>Customer:</strong> {customerType === 'walk-in' ? walkInCustomerName : selectedCustomer?.name}</div>
+                   {cart.find(i => i.type === 'battery') && <div><strong>Battery:</strong> {cart.find(i=>i.type==='battery')?.name}</div>}
+                   {cart.find(i => i.type === 'service') && <div><strong>Charging Service:</strong> Rs. {cart.find(i=>i.type==='service')?.price.toLocaleString()}</div>}
+                   <div><strong>Final Amount:</strong> Rs. {finalAmount.toLocaleString()}</div>
                 </div>
                 <AlertDialogFooter>
                     <AlertDialogAction onClick={() => handleSaveSale(true)}>Save & Print</AlertDialogAction>
@@ -510,7 +509,7 @@ export default function BatterySaleForm() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Unpaid Sale for Walk-in Customer</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This sale is marked as unpaid. Do you want to register '{customerName}' as a new customer to track their balance?
+                        This sale is marked as unpaid. Do you want to register '{walkInCustomerName}' as a new customer to track their balance?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

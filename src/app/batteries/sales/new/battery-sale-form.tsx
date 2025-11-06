@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch, getDoc, getCountFromServer, DocumentReference, setDoc } from 'firebase/firestore';
-import type { Customer, Battery, BatterySale, AcidStock } from '@/lib/data';
+import type { Customer, Battery, BatterySale, AcidStock, BankAccount, BankTransaction } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,8 +43,6 @@ interface CartItem {
   manufacturingCode?: string;
 }
 
-const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
-
 export default function BatterySaleForm() {
   const [sale, setSale] = useState<BatterySale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -75,9 +73,11 @@ export default function BatterySaleForm() {
   const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
   const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
   const acidStockRef = useMemoFirebase(() => firestore ? doc(firestore, 'acid_stock', 'main') : null, [firestore]);
+  const bankAccountsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'my_bank_accounts') : null, [firestore]);
 
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
+  const { data: bankAccounts, isLoading: bankAccountsLoading } = useCollection<BankAccount>(bankAccountsCollection);
   
   const batteryCustomers = useMemo(() => customers?.filter(c => c.type === 'battery') || [], [customers]);
 
@@ -216,6 +216,10 @@ export default function BatterySaleForm() {
         toast({ variant: "destructive", title: "Validation Error", description: "Please fill all required fields and add items to the cart." });
         return;
     }
+     if (paymentMethod === 'online' && !onlinePaymentSource) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Please select a bank account for online payment." });
+        return;
+    }
     if (customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial')) {
         setIsWalkInUnpaidDialogOpen(true);
     } else {
@@ -256,6 +260,11 @@ export default function BatterySaleForm() {
         };
         batch.set(customerRef, customerPayload);
     }
+    
+    let saleIdToPrint = editId;
+    const saleRef = isNew ? doc(collection(firestore, 'battery_sales')) : doc(firestore, 'battery_sales', saleIdToPrint!);
+    if(isNew) saleIdToPrint = saleRef.id;
+
 
     const saleData: Omit<BatterySale, 'id' | 'invoice'> = {
         customer: customerRef,
@@ -269,6 +278,14 @@ export default function BatterySaleForm() {
         ...(status === 'Partial' && { partialAmountPaid: partialAmount }),
         ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
     };
+
+    if (isNew) {
+        const salesSnapshot = await getCountFromServer(collection(firestore, 'battery_sales'));
+        const newInvoice = `B-INV-${new Date().getFullYear()}-${(salesSnapshot.data().count + 1).toString().padStart(4, '0')}`;
+        batch.set(saleRef, { ...saleData, invoice: newInvoice });
+    } else {
+        batch.update(saleRef, saleData as any);
+    }
 
     for (const item of cart) {
         if (item.type === 'battery' && !item.isOneTime) {
@@ -286,17 +303,33 @@ export default function BatterySaleForm() {
              batch.set(scrapStockRef, { totalWeightKg: currentScrapWeight + item.quantity }, { merge: true });
         }
     }
+    
+     if (paymentMethod === 'online' && onlinePaymentSource) {
+        const amountToCredit = status === 'Paid' ? finalAmount : partialAmount;
+        if(amountToCredit > 0) {
+            const bankRef = doc(firestore, 'my_bank_accounts', onlinePaymentSource);
+            const bankSnap = await getDoc(bankRef);
+            if (bankSnap.exists()) {
+                const currentBalance = bankSnap.data().balance;
+                const newBalance = currentBalance + amountToCredit;
+                batch.update(bankRef, { balance: newBalance });
 
-    let saleIdToPrint = editId;
-    if (isNew) {
-        const salesSnapshot = await getCountFromServer(collection(firestore, 'battery_sales'));
-        const newInvoice = `B-INV-${new Date().getFullYear()}-${(salesSnapshot.data().count + 1).toString().padStart(4, '0')}`;
-        const newSaleRef = doc(collection(firestore, 'battery_sales'));
-        batch.set(newSaleRef, { ...saleData, invoice: newInvoice });
-        saleIdToPrint = newSaleRef.id;
-    } else {
-        batch.update(doc(firestore, 'battery_sales', editId), saleData as any);
+                const transactionRef = doc(collection(firestore, 'bank_transactions'));
+                const transactionPayload: Omit<BankTransaction, 'id'> = {
+                    accountId: onlinePaymentSource,
+                    date: finalSaleDate.toISOString(),
+                    description: `Battery Sale INV-${(saleData as any).invoice || saleRef.id.slice(-4)}`,
+                    type: 'Credit',
+                    amount: amountToCredit,
+                    balanceAfter: newBalance,
+                    referenceId: saleRef.id,
+                    referenceType: 'Sale'
+                };
+                batch.set(transactionRef, transactionPayload);
+            }
+        }
     }
+
 
     try {
         await batch.commit();
@@ -457,7 +490,7 @@ export default function BatterySaleForm() {
                                 <div className="flex items-center space-x-2"><RadioGroupItem value="cash" id="cash" /><Label htmlFor="cash">Cash</Label></div>
                                 <div className="flex items-center space-x-2"><RadioGroupItem value="online" id="online" /><Label htmlFor="online">Online</Label></div>
                             </RadioGroup>
-                            {paymentMethod === 'online' && (<div className="grid gap-2"><Label htmlFor="online-source">Bank/Service</Label><Select value={onlinePaymentSource} onValueChange={setOnlinePaymentSource}><SelectTrigger id="online-source"><SelectValue placeholder="Select a payment source" /></SelectTrigger><SelectContent>{onlinePaymentProviders.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></div>)}
+                            {paymentMethod === 'online' && (<div className="grid gap-2"><Label htmlFor="online-source">Receiving Account</Label><Select value={onlinePaymentSource} onValueChange={setOnlinePaymentSource}><SelectTrigger id="online-source"><SelectValue placeholder="Select an account" /></SelectTrigger><SelectContent>{bankAccountsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : bankAccounts?.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.bankName} ({acc.accountTitle})</SelectItem>)}</SelectContent></Select></div>)}
                             {paymentMethod === 'cash' && (<div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label htmlFor="cashReceived">Cash Received</Label><Input id="cashReceived" type="number" value={cashReceived} onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}/></div><div className="space-y-2"><Label>Change</Label><p className="font-bold text-lg h-10 flex items-center">Rs. {changeToReturn.toLocaleString()}</p></div></div>)}
                         </div>)}
                     </div>

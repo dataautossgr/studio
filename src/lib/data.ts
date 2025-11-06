@@ -108,7 +108,7 @@ export interface Purchase {
     paymentDestinationDetails?: {
       accountTitle: string;
       bankName: string;
-      accountNumber: string;
+      accountNumber?: string;
     };
 }
 

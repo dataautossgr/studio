@@ -25,8 +25,8 @@ import { Textarea } from '@/components/ui/textarea';
 import type { Transaction } from './customer-detail';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { BankAccount } from '@/lib/data';
 
-const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
@@ -45,9 +45,11 @@ interface PaymentDialogProps {
   onSave: (data: PaymentFormData) => void;
   customerName: string;
   payment: Transaction | null;
+  bankAccounts: BankAccount[];
+  isLoadingBankAccounts: boolean;
 }
 
-export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }: PaymentDialogProps) {
+export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment, bankAccounts, isLoadingBankAccounts }: PaymentDialogProps) {
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
   });
@@ -173,18 +175,19 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
             </div>
             {paymentMethod === 'Online' && (
                 <div className="space-y-2">
-                    <Label htmlFor="onlinePaymentSource">Bank/Service</Label>
+                    <Label htmlFor="onlinePaymentSource">Receiving Account</Label>
                      <Controller
                         name="onlinePaymentSource"
                         control={control}
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger id="onlinePaymentSource">
-                                    <SelectValue placeholder="Select a payment source" />
+                                    <SelectValue placeholder="Select an account" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {onlinePaymentProviders.map(provider => (
-                                        <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                                    {isLoadingBankAccounts ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                    bankAccounts.map(account => (
+                                        <SelectItem key={account.id} value={account.id}>{account.bankName} ({account.accountTitle})</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>

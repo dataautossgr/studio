@@ -25,8 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { Transaction } from './dealer-detail';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const onlinePaymentProviders = ["Meezan Bank", "Nayapay", "Sadapay", "Easypaisa", "Jazzcash", "Upaisa", "Islamic Bank", "Other"];
+import type { BankAccount } from '@/lib/data';
 
 
 const paymentSchema = z.object({
@@ -51,9 +50,11 @@ interface PaymentDialogProps {
   onSave: (data: PaymentFormData) => void;
   dealerName: string;
   payment: Transaction | null;
+  bankAccounts: BankAccount[];
+  isLoadingBankAccounts: boolean;
 }
 
-export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: PaymentDialogProps) {
+export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, bankAccounts, isLoadingBankAccounts }: PaymentDialogProps) {
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
   });
@@ -192,9 +193,10 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
                           <SelectValue placeholder="Select my bank" />
                         </SelectTrigger>
                         <SelectContent>
-                          {onlinePaymentProviders.map((provider) => (
-                            <SelectItem key={provider} value={provider}>
-                              {provider}
+                          {isLoadingBankAccounts ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
+                          bankAccounts.map(account => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.bankName} ({account.accountTitle})
                             </SelectItem>
                           ))}
                         </SelectContent>

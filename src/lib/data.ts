@@ -57,7 +57,7 @@ export interface Payment {
   customer: DocumentReference;
   amount: number;
   date: string;
-  paymentMethod: 'Cash' | 'Bank Transfer' | 'Cheque';
+  paymentMethod: 'Cash' | 'Online' | 'Cheque';
   onlinePaymentSource?: string; // Can be bank ID or name
   notes?: string;
   receiptImageUrl?: string;
@@ -69,7 +69,7 @@ export interface DealerPayment {
   dealer: DocumentReference;
   amount: number;
   date: string;
-  paymentMethod: 'Cash' | 'Bank Transfer' | 'Cheque';
+  paymentMethod: 'Cash' | 'Online' | 'Cheque';
   onlinePaymentSource?: string; // This will store the BankAccount ID
   paymentDestinationDetails?: {
       accountTitle?: string;
@@ -146,7 +146,7 @@ export interface BankTransaction {
   amount: number;
   balanceAfter: number;
   referenceId?: string; // Optional reference to a Sale, Purchase, etc.
-  referenceType?: 'Sale' | 'Purchase' | 'Payment' | 'Dealer Payment' | 'Manual';
+  referenceType?: 'Sale' | 'Purchase' | 'Customer Payment' | 'Dealer Payment' | 'Manual';
 }
 
 

@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { type Dealer, type Purchase, type DealerPayment } from '@/lib/data';
+import { type Dealer, type Purchase, type DealerPayment, type BankAccount, type BankTransaction } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc, query, where, runTransaction, DocumentReference } from 'firebase/firestore';
 
 
@@ -77,6 +77,8 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     
     const dealerRef = useMemoFirebase(() => dealerId && firestore ? doc(firestore, 'dealers', dealerId) : null, [firestore, dealerId]);
     const { data: dealer, isLoading: isDealerLoading } = useDoc<Dealer>(dealerRef);
+    const bankAccountsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'my_bank_accounts') : null, [firestore]);
+    const { data: bankAccounts, isLoading: isLoadingBankAccounts } = useCollection<BankAccount>(bankAccountsCollection);
 
     useEffect(() => {
       const validDealerPayments = dealerPayments || [];
@@ -134,16 +136,21 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
             await runTransaction(firestore, async (transaction) => {
                 const dealerDoc = await transaction.get(dealerRef);
                 if (!dealerDoc.exists()) throw new Error("Dealer not found!");
+                const currentBalance = dealerDoc.data().balance || 0;
 
                 let oldAmount = 0;
+                let oldOnlinePaymentSource: string | undefined;
+
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
                     const paymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
                     const oldPaymentDoc = await transaction.get(paymentRef);
-                    if (oldPaymentDoc.exists()) oldAmount = oldPaymentDoc.data().amount || 0;
+                    if (oldPaymentDoc.exists()) {
+                         oldAmount = oldPaymentDoc.data().amount || 0;
+                         oldOnlinePaymentSource = oldPaymentDoc.data().onlinePaymentSource;
+                    }
                 }
 
-                const currentBalance = dealerDoc.data().balance || 0;
-                const paymentPayload = {
+                const paymentPayload: Omit<DealerPayment, 'id' | 'dealer'> = {
                     amount: paymentData.amount,
                     date: paymentData.paymentDate.toISOString(),
                     paymentMethod: paymentData.paymentMethod,
@@ -151,22 +158,57 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                     receiptImageUrl: paymentData.receiptImageUrl || '',
                     notes: paymentData.notes || '',
                     paymentDestinationDetails: paymentData.paymentDestinationDetails || null,
+                    reference: transactionToEdit?.reference || `PAID-${Date.now().toString().slice(-6)}`,
                 };
                 
+                let paymentRef: DocumentReference;
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
-                    const paymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
+                    paymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
                     const difference = paymentData.amount - oldAmount;
                     transaction.update(paymentRef, paymentPayload);
                     transaction.update(dealerRef, { balance: currentBalance - difference });
                 } else {
-                    const newPaymentRef = doc(collection(firestore, 'dealer_payments'));
-                    const newPayment: Omit<DealerPayment, 'id'> = {
-                        ...paymentPayload,
-                        dealer: dealerRef,
-                        reference: `PAID-${Date.now().toString().slice(-6)}`,
-                    };
-                    transaction.set(newPaymentRef, newPayment);
+                    paymentRef = doc(collection(firestore, 'dealer_payments'));
+                    transaction.set(paymentRef, { ...paymentPayload, dealer: dealerRef });
                     transaction.update(dealerRef, { balance: currentBalance - paymentData.amount });
+                }
+
+                 // Handle Bank Balance Update
+                const handleBankUpdate = async (accountId: string, amount: number, type: 'Credit' | 'Debit', note: string) => {
+                    const bankRef = doc(firestore, 'my_bank_accounts', accountId);
+                    const bankSnap = await transaction.get(bankRef);
+                    if (bankSnap.exists()) {
+                        const currentBankBalance = bankSnap.data().balance;
+                        const newBalance = type === 'Credit' ? currentBankBalance + amount : currentBankBalance - amount;
+                        transaction.update(bankRef, { balance: newBalance });
+
+                        const txRef = doc(collection(firestore, 'bank_transactions'));
+                        const txPayload: Omit<BankTransaction, 'id'> = {
+                            accountId,
+                            date: paymentData.paymentDate.toISOString(),
+                            description: note,
+                            type,
+                            amount,
+                            balanceAfter: newBalance,
+                            referenceId: paymentRef.id,
+                            referenceType: 'Dealer Payment'
+                        };
+                        transaction.set(txRef, txPayload);
+                    }
+                };
+
+                // Revert old transaction if online source changed
+                if (transactionToEdit && oldOnlinePaymentSource && oldOnlinePaymentSource !== paymentData.onlinePaymentSource) {
+                    await handleBankUpdate(oldOnlinePaymentSource, oldAmount, 'Credit', `Reversal for payment edit to ${dealer.company}`);
+                }
+                
+                // Add new transaction if it's online
+                if (paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
+                    const amountToDebit = paymentData.amount - (oldOnlinePaymentSource === paymentData.onlinePaymentSource ? oldAmount : 0);
+                     if (amountToDebit !== 0) {
+                        const verb = transactionToEdit ? 'update' : 'payment';
+                        await handleBankUpdate(paymentData.onlinePaymentSource, amountToDebit, 'Debit', `Dealer ${verb} to ${dealer.company}`);
+                    }
                 }
             });
 
@@ -200,13 +242,26 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 const collectionName = transactionToDelete.type === 'Purchase' ? 'purchases' : 'dealer_payments';
                 const ref = doc(firestore, collectionName, transactionToDelete.id);
                 
-                const docToDelete = await transaction.get(ref);
-                if(!docToDelete.exists()) throw new Error("Transaction to delete not found!");
+                const docToDeleteSnap = await transaction.get(ref);
+                if(!docToDeleteSnap.exists()) throw new Error("Transaction to delete not found!");
+                const docToDelete = docToDeleteSnap.data();
 
                 const currentBalance = dealerDoc.data().balance || 0;
-                let amount = transactionToDelete.type === 'Purchase' ? transactionToDelete.debit : transactionToDelete.credit;
+                let newBalance: number;
                 
-                const newBalance = transactionToDelete.type === 'Purchase' ? currentBalance - amount : currentBalance + amount;
+                if (transactionToDelete.type === 'Purchase') {
+                    newBalance = currentBalance - transactionToDelete.debit;
+                } else { // Payment
+                    newBalance = currentBalance + transactionToDelete.credit;
+                     if (docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
+                        const bankRef = doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource);
+                        const bankSnap = await transaction.get(bankRef);
+                        if (bankSnap.exists()) {
+                            const currentBankBalance = bankSnap.data().balance;
+                            transaction.update(bankRef, { balance: currentBankBalance + docToDelete.amount });
+                        }
+                    }
+                }
 
                 transaction.update(dealerRef, { balance: newBalance });
                 transaction.delete(ref);
@@ -323,6 +378,8 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
             onSave={handleSavePayment}
             dealerName={dealer.company}
             payment={transactionToEdit}
+            bankAccounts={bankAccounts || []}
+            isLoadingBankAccounts={isLoadingBankAccounts}
         />
         
         <AlertDialog open={!!transactionToDelete} onOpenChange={() => setTransactionToDelete(null)}>

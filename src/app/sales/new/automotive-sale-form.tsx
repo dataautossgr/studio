@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Search } from 'lucide-react';
-import { type Product, type Customer, type Sale } from '@/lib/data';
+import { type Product, type Customer, type Sale, type BankAccount } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -73,8 +73,6 @@ interface CartItem {
   isOneTime: boolean;
 }
 
-const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
-
 export default function AutomotiveSaleForm() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -104,9 +102,11 @@ export default function AutomotiveSaleForm() {
 
   const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
   const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
+  const bankAccountsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'my_bank_accounts') : null, [firestore]);
   
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
+  const { data: bankAccounts, isLoading: bankAccountsLoading } = useCollection<BankAccount>(bankAccountsCollection);
   
   const automotiveCustomers = useMemo(() => customers?.filter(c => c.type === 'automotive') || [], [customers]);
 
@@ -259,33 +259,15 @@ export default function AutomotiveSaleForm() {
         });
   };
 
-  const handleSaveAndPrint = () => {
-    preSaveValidation(true);
-  };
-  
-  const handleSaveOnly = () => {
-    preSaveValidation(false);
-  };
-
   const preSaveValidation = (print: boolean) => {
-    if (!saleDate) {
-        toast({ variant: "destructive", title: "Validation Error", description: "Please select a sale date." });
+    if (!saleDate || cart.length === 0 || (customerType === 'registered' && !selectedCustomer) || (customerType === 'walk-in' && !customerName)) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Please fill all required fields." });
         return;
     }
-    if (cart.length === 0) {
-        toast({ variant: "destructive", title: "Validation Error", description: "Cart cannot be empty." });
+    if (paymentMethod === 'online' && !onlinePaymentSource) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Please select a bank account for online payment." });
         return;
     }
-     if (customerType === 'registered' && !selectedCustomer) {
-        toast({ variant: "destructive", title: "Validation Error", description: "Please select a registered customer." });
-        return;
-    }
-    if (customerType === 'walk-in' && !customerName) {
-        toast({ variant: "destructive", title: "Validation Error", description: "Please enter a name for the walk-in customer." });
-        return;
-    }
-
-    // New logic for walk-in unpaid
     if (customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial')) {
         setIsWalkInUnpaidDialogOpen(true);
     } else {
@@ -293,114 +275,99 @@ export default function AutomotiveSaleForm() {
     }
   };
 
-
   const handleSaveSale = async (print = false) => {
     if (!firestore || !saleDate) return;
-
-    const finalSaleDate = new Date(saleDate);
-    const [hours, minutes] = saleTime.split(':').map(Number);
-    finalSaleDate.setHours(hours, minutes);
-
-    const dueAmount = finalAmount - (status === 'Partial' ? partialAmount : 0);
-
-    const saleData: Partial<Sale> & { customer?: DocumentReference } = {
-        date: finalSaleDate.toISOString(),
-        total: finalAmount,
-        status: status,
-        discount,
-        items: cart.map(item => ({
-            productId: item.isOneTime ? item.id : item.id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-        })),
-    };
-    
-    // Conditionally add fields to avoid sending `undefined`
-    if (status === 'Paid' || status === 'Partial') {
-        saleData.paymentMethod = paymentMethod || 'cash';
-        if (paymentMethod === 'online') {
-            saleData.onlinePaymentSource = onlinePaymentSource;
-        }
-    }
-
-    if (status === 'Partial') {
-        saleData.partialAmountPaid = partialAmount;
-    }
-    if (status !== 'Paid' && dueDate) {
-        saleData.dueDate = dueDate.toISOString();
-    }
-    
     const batch = writeBatch(firestore);
-
-    let customerRef;
-
-    if (customerType === 'registered' && selectedCustomer) {
-        customerRef = doc(firestore, 'customers', selectedCustomer.id);
-        if (status !== 'Paid') {
-            const previousDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
-            const balanceChange = dueAmount - previousDue;
-            const newBalance = (selectedCustomer.balance || 0) + balanceChange;
-            batch.update(customerRef, { balance: newBalance });
-        }
-    } else { // Walk-in or converting to registered
-        const isConvertingToRegistered = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
-        customerRef = doc(collection(firestore, 'customers'));
-        const customerPayload: Omit<Customer, 'id'> = {
-            name: customerName,
-            phone: '',
-            vehicleDetails: '',
-            type: 'automotive', // always automotive
-            balance: isConvertingToRegistered ? dueAmount : 0,
-        };
-        if(isConvertingToRegistered && dueDate) {
-            customerPayload.paymentDueDate = dueDate.toISOString();
-        }
-        batch.set(customerRef, customerPayload);
-    }
     
-    saleData.customer = customerRef;
-
-    cart.forEach(item => {
-        if (!item.isOneTime && item.stock !== undefined) {
-            const productRef = doc(firestore, 'products', item.id);
-            const newStock = item.stock - item.quantity;
-            batch.update(productRef, { stock: newStock });
-        }
-    });
-    
-    if (isNew) {
-        const salesCollectionRef = collection(firestore, 'sales');
-        const salesSnapshot = await getCountFromServer(salesCollectionRef);
-        const newInvoiceNumber = (salesSnapshot.data().count + 1).toString().padStart(3, '0');
-        const newSaleRef = doc(salesCollectionRef);
-        (saleData as Sale).invoice = `INV-${newInvoiceNumber}`;
-        batch.set(newSaleRef, saleData);
-    } else {
-        const saleRef = doc(firestore, 'sales', saleId);
-        batch.update(saleRef, saleData);
-    }
-
     try {
-        await batch.commit();
-        toast({
-          title: "Sale Saved",
-          description: `Invoice has been saved successfully.`,
-        });
+        const finalSaleDate = new Date(saleDate);
+        const [hours, minutes] = saleTime.split(':').map(Number);
+        finalSaleDate.setHours(hours, minutes);
 
-        if (print) {
-          setTimeout(() => window.print(), 500); 
+        let customerRef;
+        if (customerType === 'registered' && selectedCustomer) {
+            customerRef = doc(firestore, 'customers', selectedCustomer.id);
+        } else {
+            const newCustomerRef = doc(collection(firestore, 'customers'));
+            const isConverting = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
+            const customerPayload: Omit<Customer, 'id'> = {
+                name: customerName, phone: '', vehicleDetails: '', type: 'automotive',
+                balance: isConverting ? (finalAmount - partialAmount) : 0,
+            };
+            batch.set(newCustomerRef, customerPayload);
+            customerRef = newCustomerRef;
+        }
+
+        const saleRef = isNew ? doc(collection(firestore, 'sales')) : doc(firestore, 'sales', saleId);
+        
+        const saleData = {
+            date: finalSaleDate.toISOString(),
+            total: finalAmount,
+            status,
+            discount,
+            customer: customerRef,
+            items: cart.map(item => ({ productId: item.id, name: item.name, quantity: item.quantity, price: item.price })),
+            ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
+            ...( (status === 'Paid' || status === 'Partial') && { paymentMethod }),
+            ...( paymentMethod === 'online' && { onlinePaymentSource }),
+            ...( status === 'Partial' && { partialAmountPaid: partialAmount }),
+        };
+
+        if (isNew) {
+            const salesSnapshot = await getCountFromServer(collection(firestore, 'sales'));
+            const newInvoiceNumber = (salesSnapshot.data().count + 1).toString().padStart(3, '0');
+            batch.set(saleRef, { ...saleData, invoice: `INV-${newInvoiceNumber}` });
+        } else {
+            batch.update(saleRef, saleData);
+        }
+
+        // Update balances and stock
+        if (status !== 'Paid' && selectedCustomer) {
+            const dueAmount = finalAmount - partialAmount;
+            const originalDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
+            const balanceChange = dueAmount - originalDue;
+            batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + balanceChange });
+        }
+
+        cart.forEach(item => {
+            if (!item.isOneTime) {
+                const productRef = doc(firestore, 'products', item.id);
+                batch.update(productRef, { stock: item.stock - item.quantity });
+            }
+        });
+        
+        // Update bank balance for online payments
+        if (paymentMethod === 'online' && onlinePaymentSource) {
+            const amountToCredit = status === 'Paid' ? finalAmount : partialAmount;
+            if(amountToCredit > 0) {
+                const bankRef = doc(firestore, 'my_bank_accounts', onlinePaymentSource);
+                const bankSnap = await getDoc(bankRef);
+                if (bankSnap.exists()) {
+                    const currentBalance = bankSnap.data().balance;
+                    const newBalance = currentBalance + amountToCredit;
+                    batch.update(bankRef, { balance: newBalance });
+
+                    const transactionRef = doc(collection(firestore, 'bank_transactions'));
+                    batch.set(transactionRef, {
+                        accountId: onlinePaymentSource,
+                        date: finalSaleDate.toISOString(),
+                        description: `Sale ${isNew ? saleRef.id : saleId}`,
+                        type: 'Credit',
+                        amount: amountToCredit,
+                        balanceAfter: newBalance,
+                        referenceId: saleRef.id,
+                        referenceType: 'Sale'
+                    });
+                }
+            }
         }
         
-        setIsPrintDialogOpen(false);
-        router.push('/sales');
+        await batch.commit();
+        toast({ title: "Sale Saved", description: "Transaction recorded successfully." });
+        if (print) { router.push(`/sales/invoice/${saleRef.id}`); } else { router.push('/sales'); }
     } catch (error) {
         console.error("Error saving sale:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to save sale. Please try again.",
-        });
+        toast({ variant: "destructive", title: "Error", description: "Failed to save sale." });
     }
   };
   
@@ -420,7 +387,6 @@ export default function AutomotiveSaleForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Customer Section */}
            <div className="grid gap-4 md:grid-cols-3">
              <div className="space-y-2">
               <Label>Customer Type</Label>
@@ -484,7 +450,6 @@ export default function AutomotiveSaleForm() {
                         </Popover>
                         <Button variant="outline" size="icon" onClick={() => setIsCustomerDialogOpen(true)}>
                             <UserPlus className="h-4 w-4" />
-                            <span className="sr-only">Add New Customer</span>
                         </Button>
                     </div>
                 )}
@@ -522,7 +487,6 @@ export default function AutomotiveSaleForm() {
             </div>
           </div>
           
-          {/* Product Selection */}
           <div className="space-y-2">
             <Label>Add Products</Label>
             <div className="flex gap-2">
@@ -546,19 +510,8 @@ export default function AutomotiveSaleForm() {
                                 handleProductSelect(product);
                                 document.body.click();
                               }}
-                              className="cursor-pointer"
                             >
-                              <div className="flex w-full justify-between items-center">
-                                <div>
-                                    <p className="font-medium">{product.name}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Purchase Cost: Rs. {product.costPrice.toLocaleString()}
-                                    </p>
-                                </div>
-                                <span className="text-sm font-mono text-muted-foreground ml-4">
-                                    Stock: {product.stock}
-                                </span>
-                            </div>
+                              {product.name}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -573,152 +526,40 @@ export default function AutomotiveSaleForm() {
             </div>
           </div>
           
-          {/* Cart Table */}
           <div className="border rounded-md">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-1/2">Product</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Sale Price</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead className="w-1/2">Product</TableHead><TableHead>Quantity</TableHead><TableHead>Sale Price</TableHead><TableHead>Total</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
               <TableBody>
-                {cart.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      Your cart is empty.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  cart.map((item) => (
+                {cart.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Your cart is empty.</TableCell></TableRow>
+                : cart.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>
-                        {item.isOneTime ? (
-                          <Input
-                            value={item.name}
-                            onChange={(e) =>
-                              updateCartItem(item.id, 'name', e.target.value)
-                            }
-                            className="text-sm"
-                            placeholder="Enter product name"
-                          />
-                        ) : (
-                          <span className="font-medium">{item.name}</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateCartItem(item.id, 'quantity', e.target.value)
-                          }
-                          className="w-20"
-                          step="0.1"
-                          min="0"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={item.price}
-                          onChange={(e) =>
-                            updateCartItem(item.id, 'price', e.target.value)
-                          }
-                          className="w-24"
-                          min="0"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        Rs. {(item.quantity * item.price).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFromCart(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
+                      <TableCell>{item.isOneTime ? <Input value={item.name} onChange={(e) => updateCartItem(item.id, 'name', e.target.value)} /> : <span className="font-medium">{item.name}</span>}</TableCell>
+                      <TableCell><Input type="number" value={item.quantity} onChange={(e) => updateCartItem(item.id, 'quantity', e.target.value)} className="w-20" min="1"/></TableCell>
+                      <TableCell><Input type="number" value={item.price} onChange={(e) => updateCartItem(item.id, 'price', e.target.value)} className="w-24" min="0"/></TableCell>
+                      <TableCell className="text-right font-mono">Rs. {(item.quantity * item.price).toLocaleString()}</TableCell>
+                      <TableCell><Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                     </TableRow>
-                  ))
-                )}
+                  ))}
               </TableBody>
             </Table>
           </div>
           
-          {/* Calculation Section */}
           <div className="grid gap-4 md:grid-cols-2">
              <div className="space-y-4">
                <div className="flex items-center gap-4">
                   <Label htmlFor="status" className="flex-shrink-0">Sale Status</Label>
-                  <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => {
-                      setStatus(val);
-                      if (val === 'Paid') {
-                          setPaymentMethod(paymentMethod || 'cash');
-                      } else {
-                          setPaymentMethod(null);
-                      }
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Paid">Paid</SelectItem>
-                      <SelectItem value="Unpaid">Unpaid</SelectItem>
-                      <SelectItem value="Partial">Partial</SelectItem>
-                    </SelectContent>
+                  <Select value={status} onValueChange={(val: 'Paid' | 'Unpaid' | 'Partial') => { setStatus(val); if (val !== 'Paid' && val !== 'Partial') setPaymentMethod(null); else setPaymentMethod(paymentMethod || 'cash'); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="Paid">Paid</SelectItem><SelectItem value="Unpaid">Unpaid</SelectItem><SelectItem value="Partial">Partial</SelectItem></SelectContent>
                   </Select>
                </div>
-                
                 {(status === 'Unpaid' || status === 'Partial') && (
                      <div className="space-y-2">
                         <Label>Payment Due Date (Optional)</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !dueDate && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dueDate ? format(dueDate, "PPP") : <span>Set a due date</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={dueDate}
-                                onSelect={setDueDate}
-                                initialFocus
-                            />
-                            </PopoverContent>
-                        </Popover>
+                        <Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dueDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{dueDate ? format(dueDate, "PPP") : <span>Set a due date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus/></PopoverContent></Popover>
                     </div>
                 )}
-
-                {status === 'Partial' && (
-                    <div className="grid grid-cols-[120px_1fr] items-center gap-4 rounded-md border p-4">
-                        <Label htmlFor="partialAmount">Amount Paid</Label>
-                        <Input
-                            id="partialAmount"
-                            type="number"
-                            value={partialAmount}
-                            onChange={(e) => setPartialAmount(parseFloat(e.target.value) || 0)}
-                            className="w-full"
-                            min="0"
-                            max={finalAmount}
-                        />
-                    </div>
-                )}
+                {status === 'Partial' && (<div className="grid grid-cols-[120px_1fr] items-center gap-4 rounded-md border p-4"><Label htmlFor="partialAmount">Amount Paid</Label><Input id="partialAmount" type="number" value={partialAmount} onChange={(e) => setPartialAmount(parseFloat(e.target.value) || 0)} className="w-full" min="0" max={finalAmount}/></div>)}
                
                {(status === 'Paid' || status === 'Partial') && (
                 <div className="space-y-4 rounded-md border p-4">
@@ -728,113 +569,35 @@ export default function AutomotiveSaleForm() {
                         <div className="flex items-center space-x-2"><RadioGroupItem value="online" id="online" /><Label htmlFor="online">Online</Label></div>
                     </RadioGroup>
                     {paymentMethod === 'online' && (
-                        <div className="grid gap-2">
-                             <Label htmlFor="online-source">Bank/Service</Label>
-                             <Select value={onlinePaymentSource} onValueChange={setOnlinePaymentSource}>
-                                <SelectTrigger id="online-source">
-                                    <SelectValue placeholder="Select a payment source" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {onlinePaymentProviders.map(provider => (
-                                        <SelectItem key={provider} value={provider}>{provider}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                             </Select>
-                        </div>
-                    )}
-                    {paymentMethod === 'cash' && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="cashReceived">Cash Received</Label>
-                                <Input 
-                                    id="cashReceived"
-                                    type="number"
-                                    value={cashReceived}
-                                    onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Change</Label>
-                                <p className="font-bold text-lg h-10 flex items-center">
-                                    Rs. {changeToReturn.toLocaleString()}
-                                </p>
-                            </div>
-                        </div>
-                    )}
+                        <div className="grid gap-2"><Label htmlFor="online-source">Receiving Account</Label>
+                            <Select value={onlinePaymentSource} onValueChange={setOnlinePaymentSource}>
+                                <SelectTrigger id="online-source"><SelectValue placeholder="Select an account" /></SelectTrigger>
+                                <SelectContent>{bankAccountsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : bankAccounts?.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.bankName} ({acc.accountTitle})</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>)}
+                    {paymentMethod === 'cash' && (<div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label htmlFor="cashReceived">Cash Received</Label><Input id="cashReceived" type="number" value={cashReceived} onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}/></div><div className="space-y-2"><Label>Change</Label><p className="font-bold text-lg h-10 flex items-center">Rs. {changeToReturn.toLocaleString()}</p></div></div>)}
                 </div>
                )}
             </div>
             <div className="space-y-2 text-right">
-                <div className="flex justify-end items-center gap-4">
-                    <Label>Subtotal</Label>
-                    <p className="font-semibold w-32">Rs. {subtotal.toLocaleString()}</p>
-                </div>
-                <div className="flex justify-end items-center gap-4">
-                    <Label htmlFor="discount">Discount</Label>
-                    <Input 
-                        id="discount"
-                        type="number"
-                        value={discount}
-                        onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                        className="w-32"
-                    />
-                </div>
-                 <div className="flex justify-end items-center gap-4 text-lg font-bold">
-                    <Label>Final Amount</Label>
-                    <p className="w-32">Rs. {finalAmount.toLocaleString()}</p>
-                </div>
-                {status === 'Partial' && finalAmount > partialAmount && (
-                    <div className="flex justify-end items-center gap-4 text-destructive">
-                        <Label>Remaining Balance</Label>
-                        <p className="font-semibold w-32">Rs. {(finalAmount - partialAmount).toLocaleString()}</p>
-                    </div>
-                )}
+                <div className="flex justify-end items-center gap-4"><Label>Subtotal</Label><p className="font-semibold w-32">Rs. {subtotal.toLocaleString()}</p></div>
+                <div className="flex justify-end items-center gap-4"><Label htmlFor="discount">Discount</Label><Input id="discount" type="number" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} className="w-32"/></div>
+                 <div className="flex justify-end items-center gap-4 text-lg font-bold"><Label>Final Amount</Label><p className="w-32">Rs. {finalAmount.toLocaleString()}</p></div>
+                {status === 'Partial' && finalAmount > partialAmount && (<div className="flex justify-end items-center gap-4 text-destructive"><Label>Remaining Balance</Label><p className="font-semibold w-32">Rs. {(finalAmount - partialAmount).toLocaleString()}</p></div>)}
             </div>
           </div>
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => router.push('/sales')}>Cancel</Button>
-          <Button onClick={() => setIsPrintDialogOpen(true)}>Save Sale</Button>
+          <Button onClick={handleSaveAndPrint}>Save & Print</Button>
+          <Button onClick={handleSaveOnly}>Save Only</Button>
         </CardFooter>
       </Card>
-      <CustomerDialog 
-        isOpen={isCustomerDialogOpen} 
-        onClose={() => setIsCustomerDialogOpen(false)}
-        onSave={(data) => handleSaveNewCustomer(data, 'automotive')}
-        customer={null}
-        type="automotive"
-      />
-      <AlertDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+      <CustomerDialog isOpen={isCustomerDialogOpen} onClose={() => setIsCustomerDialogOpen(false)} onSave={handleSaveNewCustomer} customer={null} type="automotive"/>
+      <AlertDialog open={isWalkInUnpaidDialogOpen} onOpenChange={setIsWalkInUnpaidDialogOpen}>
         <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Save Sale</AlertDialogTitle>
-            <AlertDialogDescription>
-                Do you want to print an invoice for this sale?
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogAction onClick={() => preSaveValidation(true)}>Save & Print</AlertDialogAction>
-            <AlertDialogCancel onClick={() => preSaveValidation(false)}>Save Only</AlertDialogCancel>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-     <AlertDialog open={isWalkInUnpaidDialogOpen} onOpenChange={setIsWalkInUnpaidDialogOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Unpaid Sale for Walk-in Customer</AlertDialogTitle>
-            <AlertDialogDescription>
-                This sale is marked as unpaid. Do you want to register '{customerName}' as a new customer to track their balance?
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogAction onClick={() => {
-                    setIsWalkInUnpaidDialogOpen(false);
-                    handleSaveSale(false); // isPrint is false, can be connected to print dialog later
-                }}>
-                    Yes, Register Customer
-                </AlertDialogAction>
-                <AlertDialogCancel>No, Cancel Sale</AlertDialogCancel>
-            </AlertDialogFooter>
+            <AlertDialogHeader><AlertDialogTitle>Unpaid Sale for Walk-in Customer</AlertDialogTitle><AlertDialogDescription>This sale is marked as unpaid. Do you want to register '{customerName}' as a new customer to track their balance?</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogAction onClick={() => { setIsWalkInUnpaidDialogOpen(false); handleSaveSale(false); }}>Yes, Register Customer</AlertDialogAction><AlertDialogCancel>No, Cancel Sale</AlertDialogCancel></AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
     </div>

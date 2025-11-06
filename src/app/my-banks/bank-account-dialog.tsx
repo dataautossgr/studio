@@ -20,7 +20,7 @@ const bankAccountSchema = z.object({
   accountTitle: z.string().min(1, 'Account title is required'),
   bankName: z.string().min(1, 'Bank name is required'),
   accountNumber: z.string().optional(),
-  openingBalance: z.coerce.number().min(0, 'Balance must be a positive number'),
+  openingBalance: z.coerce.number().min(0, 'Balance must be a non-negative number'),
 });
 
 export type BankAccountFormData = z.infer<typeof bankAccountSchema>;
@@ -85,8 +85,9 @@ export function BankAccountDialog({ isOpen, onClose, onSave, account }: BankAcco
             </div>
              <div className="space-y-2">
                 <Label htmlFor="openingBalance">Current / Opening Balance (Rs.)</Label>
-                <Input id="openingBalance" type="number" {...register('openingBalance')} className={errors.openingBalance ? 'border-destructive' : ''} />
+                <Input id="openingBalance" type="number" {...register('openingBalance')} className={errors.openingBalance ? 'border-destructive' : ''} readOnly={isEditing} />
                 {errors.openingBalance && <p className="text-xs text-destructive mt-1">{errors.openingBalance.message}</p>}
+                {isEditing && <p className="text-xs text-muted-foreground">Balance can only be changed via transactions.</p>}
             </div>
           </div>
           <DialogFooter>

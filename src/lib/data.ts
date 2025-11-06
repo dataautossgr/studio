@@ -60,6 +60,7 @@ export interface Payment {
   amount: number;
   date: string;
   paymentMethod: 'Cash' | 'Bank Transfer' | 'Cheque';
+  onlinePaymentSource?: string;
   notes?: string;
   receiptImageUrl?: string;
   reference?: string;
@@ -71,6 +72,7 @@ export interface DealerPayment {
   amount: number;
   date: string;
   paymentMethod: 'Cash' | 'Bank Transfer' | 'Cheque';
+  onlinePaymentSource?: string;
   notes?: string;
   receiptImageUrl?: string;
   reference?: string;

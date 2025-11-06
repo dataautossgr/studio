@@ -397,6 +397,9 @@
             "Cheque"
           ]
         },
+        "onlinePaymentSource": {
+          "type": "string"
+        },
         "notes": {
           "type": "string",
           "description": "Optional notes for the payment."
@@ -448,6 +451,9 @@
             "Bank Transfer",
             "Cheque"
           ]
+        },
+        "onlinePaymentSource": {
+          "type": "string"
         },
         "notes": {
           "type": "string",

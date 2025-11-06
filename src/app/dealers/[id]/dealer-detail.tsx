@@ -102,6 +102,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
           paymentDetails: {
             paymentDate: new Date(p.date),
             paymentMethod: p.paymentMethod,
+            onlinePaymentSource: p.onlinePaymentSource,
             notes: p.notes,
             receiptImageUrl: p.receiptImageUrl,
           }
@@ -153,9 +154,10 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                         amount: paymentData.amount,
                         date: paymentData.paymentDate.toISOString(),
                         paymentMethod: paymentData.paymentMethod,
+                        onlinePaymentSource: paymentData.onlinePaymentSource,
                         notes: paymentData.notes || '',
                         receiptImageUrl: paymentData.receiptImageUrl || '',
-                        reference: `RECV-${Date.now().toString().slice(-6)}`,
+                        reference: `PAID-${Date.now().toString().slice(-6)}`,
                     };
                     transaction.set(newPaymentRef, newPayment);
                     transaction.update(dealerRef, { balance: currentBalance - paymentData.amount });

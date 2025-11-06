@@ -23,11 +23,16 @@ import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import type { Transaction } from './dealer-detail';
 import Image from 'next/image';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
+
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
   paymentDate: z.date(),
   paymentMethod: z.enum(['Cash', 'Bank Transfer', 'Cheque']),
+  onlinePaymentSource: z.string().optional(),
   notes: z.string().optional(),
   receiptImageUrl: z.string().optional(),
 });
@@ -58,6 +63,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
             amount: payment.credit,
             paymentDate: new Date(payment.date),
             paymentMethod: payment.paymentDetails.paymentMethod,
+            onlinePaymentSource: payment.paymentDetails.onlinePaymentSource,
             notes: payment.paymentDetails.notes,
             receiptImageUrl: payment.paymentDetails.receiptImageUrl,
         });
@@ -66,6 +72,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
             amount: 0,
             paymentDate: new Date(),
             paymentMethod: 'Cash',
+            onlinePaymentSource: '',
             notes: '',
             receiptImageUrl: '',
         });
@@ -164,6 +171,27 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
                     )}
                 />
             </div>
+            {paymentMethod === 'Bank Transfer' && (
+                <div className="space-y-2">
+                    <Label htmlFor="onlinePaymentSource">Bank/Service</Label>
+                     <Controller
+                        name="onlinePaymentSource"
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger id="onlinePaymentSource">
+                                    <SelectValue placeholder="Select a payment source" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {onlinePaymentProviders.map(provider => (
+                                        <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
+            )}
             {(paymentMethod === 'Bank Transfer' || paymentMethod === 'Cheque') && (
               <div className="space-y-2">
                 <Label htmlFor="receipt-upload">

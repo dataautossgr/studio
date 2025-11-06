@@ -201,5 +201,3 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
     </Dialog>
   );
 }
-
-    

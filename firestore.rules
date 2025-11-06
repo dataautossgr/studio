@@ -335,13 +335,12 @@ service cloud.firestore {
     }
     
     /**
-     * @description Allows read and write access to user's bank accounts.
+     * @description Allows authenticated read and write access to user's bank accounts.
      * @path /my_bank_accounts/{accountId}
-     * @allow (read, write) if true;
-     * @principle Public read and write access.
+     * @principle Authenticated read and write access.
      */
-    match /my_bank_accounts/{document=**} {
-      allow read, write: if true;
+    match /my_bank_accounts/{accountId} {
+       allow read, write: if request.auth != null;
     }
   }
 }

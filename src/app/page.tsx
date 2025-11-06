@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -111,7 +112,7 @@ export default function DashboardPage() {
     
     const onlineFromAutomotiveSales = todaysAutomotiveSales.reduce((acc, sale) => acc + getPaymentFromSale(sale, 'online'), 0);
     const onlineFromBatterySales = todaysBatterySales.reduce((acc, sale) => acc + getPaymentFromSale(sale, 'online'), 0);
-    const onlineFromDues = todayPayments.filter(p => p.paymentMethod === 'Bank Transfer').reduce((acc, p) => acc + p.amount, 0);
+    const onlineFromDues = todayPayments.filter(p => p.paymentMethod === 'Online').reduce((acc, p) => acc + p.amount, 0);
     const todaysOnlineIn = onlineFromAutomotiveSales + onlineFromBatterySales + onlineFromDues;
 
     const allRecentSales = [...salesData, ...batterySalesData]

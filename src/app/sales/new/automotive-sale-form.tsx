@@ -371,6 +371,13 @@ export default function AutomotiveSaleForm() {
     }
   };
   
+  const handleSaveAndPrint = () => {
+    preSaveValidation(true);
+  };
+  const handleSaveOnly = () => {
+      preSaveValidation(false);
+  };
+
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const finalAmount = subtotal - discount;
   const changeToReturn = paymentMethod === 'cash' && cashReceived > finalAmount ? cashReceived - finalAmount : 0;
@@ -589,7 +596,7 @@ export default function AutomotiveSaleForm() {
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => router.push('/sales')}>Cancel</Button>
-          <Button onClick={handleSaveAndPrint}>Save & Print</Button>
+          <Button onClick={handleSaveAndPrint}>Save &amp; Print</Button>
           <Button onClick={handleSaveOnly}>Save Only</Button>
         </CardFooter>
       </Card>

@@ -340,7 +340,7 @@ service cloud.firestore {
      * @allow (read, write) if true;
      * @principle Public read and write access.
      */
-    match /my_bank_accounts/{accountId} {
+    match /my_bank_accounts/{document=**} {
       allow read, write: if true;
     }
   }

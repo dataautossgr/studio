@@ -16,6 +16,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Generic rule: Allow read/write access to any authenticated user for most collections
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
     /**
      * @description Allows read and write access to products.
      * @path /products/{productId}
@@ -332,15 +337,6 @@ service cloud.firestore {
       allow create: if true;
       allow update: if true;
       allow delete: if true;
-    }
-    
-    /**
-     * @description Allows authenticated read and write access to user's bank accounts.
-     * @path /my_bank_accounts/{accountId}
-     * @principle Authenticated read and write access.
-     */
-    match /my_bank_accounts/{accountId} {
-       allow read, write: if request.auth != null;
     }
   }
 }

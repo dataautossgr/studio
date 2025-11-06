@@ -1,6 +1,6 @@
+
 'use client';
 import type { Product, Purchase, Dealer } from '@/lib/data';
-import { seedInitialData } from '@/lib/data';
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
@@ -169,9 +169,11 @@ export default function AutomotiveInventory() {
   };
 
   const handleReset = async () => {
-    if (!firestore) return;
-    await seedInitialData(firestore);
-    toast({ title: "Inventory Reset", description: "The inventory list has been reset to its initial state." });
+    toast({
+        title: 'Coming Soon',
+        description: 'This feature is not yet implemented.',
+        variant: 'destructive',
+    });
     setIsResetting(false);
   };
 

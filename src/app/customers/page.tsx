@@ -1,6 +1,6 @@
 
 'use client';
-import { type Customer, seedInitialData } from '@/lib/data';
+import { type Customer } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -97,12 +97,14 @@ export default function CustomersPage() {
     setCustomerToDelete(null);
   };
 
-  const handleReset = async () => {
-    if(!firestore) return;
-    await seedInitialData(firestore);
-    toast({ title: "Customers Reset", description: "The customer list has been reset to its initial state." });
+  const handleReset = () => {
+    toast({
+        title: 'Coming Soon',
+        description: 'This feature is not yet implemented.',
+        variant: 'destructive',
+    });
     setIsResetting(false);
-  }
+  };
 
   const handleExport = (type: CustomerType) => {
     const filteredCustomers = customers?.filter(c => c.type === type);

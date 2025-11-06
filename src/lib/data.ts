@@ -1,4 +1,3 @@
-'use client';
 import type { DocumentReference } from "firebase/firestore";
 
 export type Unit = 'piece' | 'cartoon' | 'ml' | 'litre' | 'kg' | 'g' | 'inch' | 'foot' | 'meter';

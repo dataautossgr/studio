@@ -1,6 +1,6 @@
 
 'use client';
-import { type Dealer, seedInitialData } from '@/lib/data';
+import { type Dealer } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -92,9 +92,11 @@ export default function DealersPage() {
   };
 
   const handleReset = async () => {
-    if (!firestore) return;
-    await seedInitialData(firestore);
-    toast({ title: "Dealers Reset", description: "The dealer list has been reset to its initial state." });
+    toast({
+        title: 'Coming Soon',
+        description: 'This feature is not yet implemented.',
+        variant: 'destructive',
+    });
     setIsResetting(false);
   };
 

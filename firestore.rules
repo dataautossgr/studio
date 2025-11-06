@@ -333,5 +333,15 @@ service cloud.firestore {
       allow update: if true;
       allow delete: if true;
     }
+    
+    /**
+     * @description Allows read and write access to user's bank accounts.
+     * @path /my_bank_accounts/{accountId}
+     * @allow (get, list, create, update, delete) if true;
+     * @principle Public read and write access.
+     */
+    match /my_bank_accounts/{accountId} {
+      allow get, list, create, update, delete: if true;
+    }
   }
 }

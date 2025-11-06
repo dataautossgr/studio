@@ -13,6 +13,7 @@ import {
   Wallet,
   Wrench,
   ShieldCheck,
+  Landmark,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -33,6 +34,7 @@ const links = [
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/expenses', label: 'Expenses', icon: CreditCard },
   { href: '/cash-flow', label: 'Cash Flow', icon: Wallet },
+  { href: '/my-banks', label: 'My Banks', icon: Landmark },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

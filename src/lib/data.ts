@@ -278,6 +278,14 @@ export interface BatteryClaim {
     notes?: string;
 }
 
+export interface BankAccount {
+  id: string;
+  accountTitle: string;
+  bankName: string;
+  accountNumber?: string;
+  balance: number;
+}
+
 
 
 const productData: Omit<Product, 'imageUrl' | 'imageHint' | 'id'>[] = [

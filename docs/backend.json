@@ -1128,6 +1128,25 @@
         "totalPayable",
         "isPaid"
       ]
+    },
+    "BankAccount": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BankAccount",
+      "description": "Represents one of the user's own bank accounts or online wallets.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "accountTitle": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "balance": { "type": "number" }
+      },
+      "required": [
+        "id",
+        "accountTitle",
+        "bankName",
+        "balance"
+      ]
     }
   },
   "auth": {
@@ -1460,6 +1479,16 @@
             "$ref": "#/backend/entities/BatteryClaim"
           },
           "description": "Stores battery warranty claim transactions."
+        }
+      },
+      {
+        "path": "/my_bank_accounts/{accountId}",
+        "definition": {
+          "entityName": "BankAccount",
+          "schema": {
+            "$ref": "#/backend/entities/BankAccount"
+          },
+          "description": "Stores the user's own bank accounts."
         }
       }
     ],

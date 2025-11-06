@@ -48,7 +48,7 @@ interface AutomotivePurchasesHistoryProps {
 
 export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurchasesHistoryProps) {
   const firestore = useFirestore();
-  const purchasesCollection = useMemoFirebase(() => collection(firestore, 'purchases'), [firestore]);
+  const purchasesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'purchases') : null, [firestore]);
   const { data: allPurchases, isLoading } = useCollection<Purchase>(purchasesCollection);
 
   const [enrichedPurchases, setEnrichedPurchases] = useState<EnrichedPurchase[]>([]);
@@ -56,7 +56,7 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
   const { toast } = useToast();
 
    useEffect(() => {
-    if (!allPurchases) return;
+    if (!allPurchases || !firestore) return;
 
     const enrichPurchasesData = async () => {
         const enriched = await Promise.all(allPurchases.map(async (purchase) => {
@@ -79,11 +79,11 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
                 dealer: { id: dealerId, name: dealerName }
             };
         }));
-        setEnrichedPurchases(enriched);
+        setEnrichedPurchases(enriched.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     };
 
     enrichPurchasesData();
-}, [allPurchases]);
+}, [allPurchases, firestore]);
 
 
   useEffect(() => {

@@ -57,8 +57,8 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
         const enriched = await Promise.all(allPurchases.map(async (purchase) => {
             let dealerName = 'N/A';
             if (purchase.dealerId) {
-                const dealerRef = doc(firestore, 'dealers', purchase.dealerId);
                 try {
+                    const dealerRef = doc(firestore, 'dealers', purchase.dealerId);
                     const dealerSnap = await getDoc(dealerRef);
                     if (dealerSnap.exists()) {
                         dealerName = (dealerSnap.data() as Dealer).company;

@@ -1,3 +1,4 @@
+
 'use client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,12 @@ export default function BatteryPurchaseForm() {
                     // Populate payment details
                     if(purchaseData.paymentMethod) setPaymentMethod(purchaseData.paymentMethod);
                     if(purchaseData.paymentSourceAccount) setPaymentSourceAccount(purchaseData.paymentSourceAccount);
-                    if(purchaseData.paymentDestinationDetails) setPaymentDestinationDetails(purchaseData.paymentDestinationDetails);
+                    if (purchaseData.paymentDestinationDetails) {
+                        setPaymentDestinationDetails({
+                          ...purchaseData.paymentDestinationDetails,
+                          accountNumber: purchaseData.paymentDestinationDetails.accountNumber || '',
+                        });
+                    }
                 }
             };
             fetchPurchase();

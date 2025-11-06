@@ -178,7 +178,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
                         name="onlinePaymentSource"
                         control={control}
                         render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger id="onlinePaymentSource">
                                     <SelectValue placeholder="Select a payment source" />
                                 </SelectTrigger>

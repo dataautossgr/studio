@@ -141,22 +141,25 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 }
 
                 const currentBalance = dealerDoc.data().balance || 0;
+                const paymentPayload = {
+                    amount: paymentData.amount,
+                    date: paymentData.paymentDate.toISOString(),
+                    paymentMethod: paymentData.paymentMethod,
+                    onlinePaymentSource: paymentData.onlinePaymentSource || '',
+                    notes: paymentData.notes || '',
+                    receiptImageUrl: paymentData.receiptImageUrl || '',
+                };
                 
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
                     const paymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
                     const difference = paymentData.amount - oldAmount;
-                    transaction.update(paymentRef, { ...paymentData, date: paymentData.paymentDate.toISOString() });
+                    transaction.update(paymentRef, paymentPayload);
                     transaction.update(dealerRef, { balance: currentBalance - difference });
                 } else {
                     const newPaymentRef = doc(collection(firestore, 'dealer_payments'));
                     const newPayment: Omit<DealerPayment, 'id'> = {
+                        ...paymentPayload,
                         dealer: dealerRef,
-                        amount: paymentData.amount,
-                        date: paymentData.paymentDate.toISOString(),
-                        paymentMethod: paymentData.paymentMethod,
-                        onlinePaymentSource: paymentData.onlinePaymentSource,
-                        notes: paymentData.notes || '',
-                        receiptImageUrl: paymentData.receiptImageUrl || '',
                         reference: `PAID-${Date.now().toString().slice(-6)}`,
                     };
                     transaction.set(newPaymentRef, newPayment);

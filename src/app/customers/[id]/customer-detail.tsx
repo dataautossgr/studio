@@ -150,6 +150,14 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
 
                 // --- 2. PREPARE WRITES ---
                 const currentBalance = customerDoc.data().balance || 0;
+                const paymentPayload = {
+                    amount: paymentData.amount,
+                    date: paymentData.paymentDate.toISOString(),
+                    paymentMethod: paymentData.paymentMethod,
+                    onlinePaymentSource: paymentData.onlinePaymentSource || '',
+                    notes: paymentData.notes || '',
+                    receiptImageUrl: paymentData.receiptImageUrl || '',
+                };
                 
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
                     // Editing an existing payment
@@ -157,27 +165,15 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                     const newAmount = paymentData.amount;
                     const difference = newAmount - oldAmount; // if new is > old, diff is positive. Balance should decrease.
 
-                    transaction.update(paymentRef, {
-                        amount: newAmount,
-                        date: paymentData.paymentDate.toISOString(),
-                        paymentMethod: paymentData.paymentMethod,
-                        onlinePaymentSource: paymentData.onlinePaymentSource,
-                        notes: paymentData.notes,
-                        receiptImageUrl: paymentData.receiptImageUrl,
-                    });
+                    transaction.update(paymentRef, paymentPayload);
                     transaction.update(customerRef, { balance: currentBalance - difference });
 
                 } else {
                     // Adding a new payment
                     const newPaymentRef = doc(collection(firestore, 'payments'));
                     const newPayment: Omit<Payment, 'id'> = {
+                        ...paymentPayload,
                         customer: customerRef,
-                        amount: paymentData.amount,
-                        date: paymentData.paymentDate.toISOString(),
-                        paymentMethod: paymentData.paymentMethod,
-                        onlinePaymentSource: paymentData.onlinePaymentSource,
-                        notes: paymentData.notes || '',
-                        receiptImageUrl: paymentData.receiptImageUrl || '',
                         reference: `RECV-${Date.now().toString().slice(-6)}`,
                     };
                     

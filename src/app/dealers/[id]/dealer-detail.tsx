@@ -146,7 +146,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
 
                 let oldBankSnap: DocumentSnapshot | null = null;
                 const oldOnlinePaymentSource = oldPaymentDoc?.data()?.onlinePaymentSource;
-                if (oldOnlinePaymentSource) {
+                if (oldPaymentDoc?.data()?.paymentMethod === 'Online' && oldOnlinePaymentSource) {
                     oldBankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', oldOnlinePaymentSource));
                 }
                 
@@ -190,27 +190,29 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 }
                 
                 // Add new transaction if it's online
-                if (newBankSnap?.exists() && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
-                    const newBankRef = newBankSnap.ref;
-                    const currentBankBalance = newBankSnap.data()?.balance || 0;
-                    const amountToDebit = paymentData.amount - (oldOnlinePaymentSource === paymentData.onlinePaymentSource ? oldAmount : 0);
+                if (paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
+                    const newBankRef = newBankSnap?.ref;
+                    if (newBankRef && newBankSnap?.exists()) {
+                        const currentBankBalance = newBankSnap.data()?.balance || 0;
+                        const amountToDebit = paymentData.amount - (oldOnlinePaymentSource === paymentData.onlinePaymentSource ? oldAmount : 0);
 
-                     if (amountToDebit !== 0) {
-                        const newBalance = currentBankBalance - amountToDebit;
-                        transaction.update(newBankRef, { balance: newBalance });
+                         if (amountToDebit !== 0) {
+                            const newBalance = currentBankBalance - amountToDebit;
+                            transaction.update(newBankRef, { balance: newBalance });
 
-                        const txRef = doc(collection(firestore, 'bank_transactions'));
-                        const txPayload: Omit<BankTransaction, 'id'> = {
-                            accountId: paymentData.onlinePaymentSource,
-                            date: paymentData.paymentDate.toISOString(),
-                            description: `Payment ${transactionToEdit ? 'update for' : 'to'} ${dealer.company}`,
-                            type: 'Debit',
-                            amount: amountToDebit,
-                            balanceAfter: newBalance,
-                            referenceId: paymentRef.id,
-                            referenceType: 'Dealer Payment'
-                        };
-                        transaction.set(txRef, txPayload);
+                            const txRef = doc(collection(firestore, 'bank_transactions'));
+                            const txPayload: Omit<BankTransaction, 'id'> = {
+                                accountId: paymentData.onlinePaymentSource,
+                                date: paymentData.paymentDate.toISOString(),
+                                description: `Payment ${transactionToEdit ? 'update for' : 'to'} ${dealer.company}`,
+                                type: 'Debit',
+                                amount: amountToDebit,
+                                balanceAfter: newBalance,
+                                referenceId: paymentRef.id,
+                                referenceType: 'Dealer Payment'
+                            };
+                            transaction.set(txRef, txPayload);
+                        }
                     }
                 }
             });
@@ -403,3 +405,5 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     </div>
   );
 }
+
+    

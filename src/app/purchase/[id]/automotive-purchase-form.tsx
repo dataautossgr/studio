@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -271,12 +272,9 @@ export default function AutomotivePurchaseForm() {
             items: purchaseItems.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, costPrice: i.costPrice })),
             ...( (status === 'Paid' || status === 'Partial') && { paymentMethod }),
             ...( paymentMethod === 'Online' && { paymentSourceAccount, paymentDestinationDetails }),
+            ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
           };
           
-          if (status !== 'Paid' && dueDate) {
-            purchaseData.dueDate = dueDate.toISOString();
-          }
-  
           // Step 3: Create or update purchase document
           const purchaseDocRef = isNew ? doc(collection(firestore, 'purchases')) : doc(firestore, 'purchases', purchaseId!);
           transaction.set(purchaseDocRef, purchaseData);

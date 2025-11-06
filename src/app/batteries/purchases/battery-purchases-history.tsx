@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -33,7 +34,7 @@ import type { BatteryPurchase, Dealer } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 
-interface EnrichedPurchase extends Omit<BatteryPurchase, 'dealerId'> {
+interface EnrichedPurchase extends BatteryPurchase {
   dealerName: string;
 }
 

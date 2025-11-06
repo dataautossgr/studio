@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +10,8 @@ export default function NewPurchasePage() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'automotive';
 
+  // This page is for creating NEW purchases. The forms themselves handle the edit logic.
+  // The 'new' route will always render the forms in "new" mode.
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <Tabs defaultValue={initialTab} className="w-full">

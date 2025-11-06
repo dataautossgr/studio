@@ -32,6 +32,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 interface CartItem {
   id: string;
+  productId: string;
   name: string;
   quantity: number;
   price: number;
@@ -107,7 +108,7 @@ export default function BatterySaleForm() {
                     setWalkInCustomerName(saleData.customer);
                 }
                 
-                setCart(saleData.items);
+                setCart(saleData.items.map(item => ({...item, productId: item.id})));
                 setDiscount(saleData.discount || 0);
                 setStatus(saleData.status);
                 
@@ -152,11 +153,12 @@ export default function BatterySaleForm() {
         setCart(cart.filter(item => item.type !== 'battery'));
         return;
     }
-    const existingItem = cart.find(item => item.id === battery.id);
+    const existingItem = cart.find(item => item.productId === battery.id);
     if(existingItem) return;
 
     setCart(prev => [...prev.filter(item => item.type !== 'battery'), {
         id: battery.id,
+        productId: battery.id,
         name: `${battery.brand} ${battery.model} (${battery.ampere}Ah)`,
         quantity: 1,
         price: battery.salePrice,
@@ -181,7 +183,7 @@ export default function BatterySaleForm() {
     if(type === 'scrap') price = 0;
 
     setCart(prev => [...prev, {
-        id: newId, name, quantity, price,
+        id: newId, productId: newId, name, quantity, price,
         costPrice: 0, stock: 0, isOneTime: true, type,
     }]);
   };
@@ -289,7 +291,7 @@ export default function BatterySaleForm() {
 
     for (const item of cart) {
         if (item.type === 'battery' && !item.isOneTime) {
-            batch.update(doc(firestore, 'batteries', item.id), { stock: item.stock - item.quantity });
+            batch.update(doc(firestore, 'batteries', item.productId), { stock: item.stock - item.quantity });
         }
         if (item.type === 'acid' && acidStockRef) {
             const acidStockSnap = await getDoc(acidStockRef);

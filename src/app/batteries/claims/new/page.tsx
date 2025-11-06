@@ -79,7 +79,7 @@ export default function NewClaimPage() {
   }, [priceDifference, serviceCharges]);
 
   const handleSaveClaim = async () => {
-    if (!firestore || !originalSale || !customer || !selectedReplacementBattery) {
+    if (!firestore || !originalSale || !customer || !selectedReplacementBattery || !originalBatteryItem) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
@@ -101,10 +101,10 @@ export default function NewClaimPage() {
     const claimData: Omit<BatteryClaim, 'id'> = {
         originalSaleId: originalSale.id,
         customerId: customer.id,
-        claimedBatteryId: originalBatteryItem?.id || 'N/A',
+        claimedBatteryId: originalBatteryItem.id,
         replacementBatteryId: selectedReplacementBattery.id,
         claimDate: new Date().toISOString(),
-        originalBatteryPrice: originalBatteryItem?.price || 0,
+        originalBatteryPrice: originalBatteryItem.price,
         replacementBatteryPrice: selectedReplacementBattery.salePrice,
         priceDifference: priceDifference,
         serviceCharges,
@@ -122,6 +122,7 @@ export default function NewClaimPage() {
         
         const saleItem: SaleItem = {
             id: `claim-${newClaimRef.id}`,
+            productId: `claim-${newClaimRef.id}`,
             name: `Warranty Claim Charges (Inv: ${originalSale.invoice})`,
             quantity: 1,
             price: totalPayable,

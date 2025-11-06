@@ -4,7 +4,6 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
-import { AuthGate } from '@/components/auth-gate';
 import { StoreSettingsProvider } from '@/context/store-settings-context';
 
 export const metadata: Metadata = {
@@ -31,13 +30,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <FirebaseClientProvider>
-            <StoreSettingsProvider>
-              <AuthGate>
+          <StoreSettingsProvider>
+            <FirebaseClientProvider>
                 {children}
-              </AuthGate>
-            </StoreSettingsProvider>
-          </FirebaseClientProvider>
+            </FirebaseClientProvider>
+          </StoreSettingsProvider>
           <Toaster />
         </ThemeProvider>
       </body>

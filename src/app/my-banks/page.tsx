@@ -222,28 +222,29 @@ export default function MyBanksPage() {
             {isLoading && <p>Loading accounts...</p>}
             {!isLoading && bankAccounts?.filter(acc => acc.balance !== -1).map(account => (
               <AccordionItem value={account.id} key={account.id}>
-                <AccordionTrigger>
-                    <div className="flex justify-between w-full items-center">
-                      <div className="text-left">
-                        <p className="font-semibold">{account.accountTitle}</p>
-                        <p className="text-sm text-muted-foreground">{account.bankName} - {account.accountNumber || 'N/A'}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                          <Badge variant={account.balance < 0 ? 'destructive' : 'secondary'} className="font-mono text-lg">Rs. {account.balance.toLocaleString()}</Badge>
-                           <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                  <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                  <DropdownMenuItem onSelect={() => handleEditAccount(account)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
-                                  <DropdownMenuItem onSelect={() => setAccountToDelete(account)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
-                              </DropdownMenuContent>
-                          </DropdownMenu>
-                      </div>
-                    </div>
-                </AccordionTrigger>
+                <div className="flex items-center w-full py-4">
+                  <div className="flex-1 text-left">
+                    <p className="font-semibold">{account.accountTitle}</p>
+                    <p className="text-sm text-muted-foreground">{account.bankName} - {account.accountNumber || 'N/A'}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Badge variant={account.balance < 0 ? 'destructive' : 'secondary'} className="font-mono text-lg">Rs. {account.balance.toLocaleString()}</Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => handleEditAccount(account)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setAccountToDelete(account)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                     <AccordionTrigger>
+                        <span className="sr-only">Toggle Details</span>
+                    </AccordionTrigger>
+                  </div>
+                </div>
                 <AccordionContent>
                    <Table>
                       <TableHeader>

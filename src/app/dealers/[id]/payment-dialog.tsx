@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Dialog,
@@ -173,7 +174,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
             </div>
             {paymentMethod === 'Bank Transfer' && (
                 <div className="space-y-2">
-                    <Label htmlFor="onlinePaymentSource">Bank/Service</Label>
+                    <Label htmlFor="onlinePaymentSource">My Account (Source)</Label>
                      <Controller
                         name="onlinePaymentSource"
                         control={control}
@@ -229,3 +230,5 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
     </Dialog>
   );
 }
+
+    

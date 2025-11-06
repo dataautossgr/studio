@@ -142,10 +142,9 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
                     const paymentRef = doc(firestore, 'payments', transactionToEdit.id);
                     const oldPaymentDoc = await transaction.get(paymentRef);
-                    if (!oldPaymentDoc.exists()) {
-                        throw new Error("Payment to edit not found!");
+                    if (oldPaymentDoc.exists()) {
+                      oldAmount = oldPaymentDoc.data().amount || 0;
                     }
-                    oldAmount = oldPaymentDoc.data().amount || 0;
                 }
 
                 // --- 2. PREPARE WRITES ---
@@ -391,4 +390,6 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     </div>
   );
 }
+    
+
     

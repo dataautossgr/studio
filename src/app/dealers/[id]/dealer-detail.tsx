@@ -166,7 +166,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                     onlinePaymentSource: paymentData.onlinePaymentSource || '',
                     receiptImageUrl: paymentData.receiptImageUrl || '',
                     notes: paymentData.notes || '',
-                    paymentDestinationDetails: paymentData.paymentDestinationDetails || null,
+                    paymentDestinationDetails: paymentData.paymentDestinationDetails || undefined,
                     reference: transactionToEdit?.reference || `PAID-${Date.now().toString().slice(-6)}`,
                 };
                 
@@ -179,6 +179,9 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 } else {
                     paymentRef = doc(collection(firestore, 'dealer_payments'));
                     transaction.set(paymentRef, { ...paymentPayload, dealer: dealerRef });
+                    if (paymentData.paymentMethod === 'Cash') {
+                        // This payment will be picked up by the cash flow page automatically.
+                    }
                     transaction.update(dealerRef, { balance: currentBalance - paymentData.amount });
                 }
 
@@ -405,5 +408,3 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     </div>
   );
 }
-
-    

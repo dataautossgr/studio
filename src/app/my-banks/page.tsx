@@ -221,8 +221,8 @@ export default function MyBanksPage() {
             {isLoading && <p>Loading accounts...</p>}
             {!isLoading && bankAccounts?.filter(acc => acc.balance !== -1).map(account => (
               <AccordionItem value={account.id} key={account.id}>
-                <AccordionTrigger>
-                  <div className="flex justify-between w-full pr-4">
+                <AccordionTrigger asChild>
+                  <div className="flex justify-between w-full pr-4 items-center">
                     <div className="text-left">
                       <p className="font-semibold">{account.accountTitle}</p>
                       <p className="text-sm text-muted-foreground">{account.bankName} - {account.accountNumber || 'N/A'}</p>

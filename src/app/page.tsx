@@ -70,11 +70,10 @@ export default function DashboardPage() {
   const isLoading = salesLoading || batterySalesLoading || productsLoading || customersLoading || batteriesLoading || acidLoading || paymentsLoading || expensesLoading;
   
   const dashboardStats = useMemo(() => {
-    // This guard clause is crucial. It ensures calculations only run when all data is available.
     if (!salesData || !batterySalesData || !products || !customers || !batteries || !todayPayments || !todayExpenses) {
         return {
             lowStockCount: 0, automotivePendingPayments: 0, batteryPendingPayments: 0,
-            todaysRevenue: 0, todaysCashIn: 0, isAcidLow: false, recentSales: [],
+            todaysRevenue: 0, todaysCashIn: 0, todaysOnlineIn: 0, isAcidLow: false, recentSales: [],
             automotiveDuesCount: 0, batteryDuesCount: 0
         };
     }
@@ -97,18 +96,24 @@ export default function DashboardPage() {
     const batteryRevenue = todaysBatterySales.reduce((acc, sale) => acc + sale.total, 0);
     const todaysRevenue = automotiveRevenue + batteryRevenue;
   
-    const getCashFromSale = (sale: Sale | BatterySale) => {
-        if (sale.paymentMethod !== 'cash') return 0;
+    const getPaymentFromSale = (sale: Sale | BatterySale, method: 'cash' | 'online') => {
+        if (sale.paymentMethod !== method) return 0;
         if (sale.status === 'Paid') return sale.total;
         if (sale.status === 'Partial') return sale.partialAmountPaid || 0;
         return 0;
     };
-    const cashFromAutomotiveSales = todaysAutomotiveSales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
-    const cashFromBatterySales = todaysBatterySales.reduce((acc, sale) => acc + getCashFromSale(sale), 0);
+
+    const cashFromAutomotiveSales = todaysAutomotiveSales.reduce((acc, sale) => acc + getPaymentFromSale(sale, 'cash'), 0);
+    const cashFromBatterySales = todaysBatterySales.reduce((acc, sale) => acc + getPaymentFromSale(sale, 'cash'), 0);
     const cashFromDues = todayPayments.filter(p => p.paymentMethod === 'Cash').reduce((acc, p) => acc + p.amount, 0);
     const cashFromExpenses = todayExpenses.filter(e => e.paymentMethod === 'Cash').reduce((acc, e) => acc + e.amount, 0);
     const todaysCashIn = cashFromAutomotiveSales + cashFromBatterySales + cashFromDues - cashFromExpenses;
-  
+    
+    const onlineFromAutomotiveSales = todaysAutomotiveSales.reduce((acc, sale) => acc + getPaymentFromSale(sale, 'online'), 0);
+    const onlineFromBatterySales = todaysBatterySales.reduce((acc, sale) => acc + getPaymentFromSale(sale, 'online'), 0);
+    const onlineFromDues = todayPayments.filter(p => p.paymentMethod === 'Bank Transfer').reduce((acc, p) => acc + p.amount, 0);
+    const todaysOnlineIn = onlineFromAutomotiveSales + onlineFromBatterySales + onlineFromDues;
+
     const allRecentSales = [...salesData, ...batterySalesData]
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
@@ -118,7 +123,8 @@ export default function DashboardPage() {
       automotivePendingPayments,
       batteryPendingPayments,
       todaysRevenue, 
-      todaysCashIn, 
+      todaysCashIn,
+      todaysOnlineIn, 
       isAcidLow, 
       recentSales: allRecentSales,
       automotiveDuesCount: automotiveCustomersWithDues.length,
@@ -127,7 +133,7 @@ export default function DashboardPage() {
   }, [salesData, batterySalesData, products, customers, batteries, acidStock, todayPayments, todayExpenses]);
 
 
-  const { todaysRevenue, todaysCashIn, lowStockCount, isAcidLow, automotivePendingPayments, batteryPendingPayments, automotiveDuesCount, batteryDuesCount, recentSales } = dashboardStats;
+  const { todaysRevenue, todaysCashIn, todaysOnlineIn, lowStockCount, isAcidLow, automotivePendingPayments, batteryPendingPayments, automotiveDuesCount, batteryDuesCount, recentSales } = dashboardStats;
 
   const reportCards = [
     {
@@ -141,6 +147,12 @@ export default function DashboardPage() {
       value: `Rs. ${todaysCashIn.toLocaleString()}`,
       icon: Wallet,
       change: 'Cash sales + dues received - cash expenses',
+    },
+    {
+      title: "Today's Online In",
+      value: `Rs. ${todaysOnlineIn.toLocaleString()}`,
+      icon: CreditCard,
+      change: 'Online sales + dues received',
     },
     {
       title: 'Low Stock Items',
@@ -205,8 +217,8 @@ export default function DashboardPage() {
         <MasterSearchDialog open={isSearchOpen} onOpenChange={setIsSearchOpen} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {isLoading ? Array.from({length: 5}).map((_, i) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {isLoading ? Array.from({length: 6}).map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <Skeleton className="h-4 w-2/3" />

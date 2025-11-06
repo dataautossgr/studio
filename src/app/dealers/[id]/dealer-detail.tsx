@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, where, runTransaction, DocumentReference } from 'firebase/firestore';
+import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
 
 
 export interface Transaction {
@@ -134,21 +134,30 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
 
         try {
             await runTransaction(firestore, async (transaction) => {
+                // --- ALL READS MUST COME BEFORE WRITES ---
                 const dealerDoc = await transaction.get(dealerRef);
                 if (!dealerDoc.exists()) throw new Error("Dealer not found!");
-                const currentBalance = dealerDoc.data().balance || 0;
 
-                let oldAmount = 0;
-                let oldOnlinePaymentSource: string | undefined;
-
+                let oldPaymentDoc: DocumentSnapshot | null = null;
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
                     const paymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
-                    const oldPaymentDoc = await transaction.get(paymentRef);
-                    if (oldPaymentDoc.exists()) {
-                         oldAmount = oldPaymentDoc.data().amount || 0;
-                         oldOnlinePaymentSource = oldPaymentDoc.data().onlinePaymentSource;
-                    }
+                    oldPaymentDoc = await transaction.get(paymentRef);
                 }
+
+                let oldBankSnap: DocumentSnapshot | null = null;
+                const oldOnlinePaymentSource = oldPaymentDoc?.data()?.onlinePaymentSource;
+                if (oldOnlinePaymentSource) {
+                    oldBankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', oldOnlinePaymentSource));
+                }
+                
+                let newBankSnap: DocumentSnapshot | null = null;
+                if (paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
+                    newBankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
+                }
+
+                // --- ALL WRITES START FROM HERE ---
+                const currentBalance = dealerDoc.data().balance || 0;
+                const oldAmount = oldPaymentDoc?.data()?.amount || 0;
 
                 const paymentPayload: Omit<DealerPayment, 'id' | 'dealer'> = {
                     amount: paymentData.amount,
@@ -173,41 +182,35 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                     transaction.update(dealerRef, { balance: currentBalance - paymentData.amount });
                 }
 
-                 // Handle Bank Balance Update
-                const handleBankUpdate = async (accountId: string, amount: number, type: 'Credit' | 'Debit', note: string) => {
-                    const bankRef = doc(firestore, 'my_bank_accounts', accountId);
-                    const bankSnap = await transaction.get(bankRef);
-                    if (bankSnap.exists()) {
-                        const currentBankBalance = bankSnap.data().balance;
-                        const newBalance = type === 'Credit' ? currentBankBalance + amount : currentBankBalance - amount;
-                        transaction.update(bankRef, { balance: newBalance });
+                // Revert old transaction if online source changed
+                if (oldBankSnap?.exists() && oldOnlinePaymentSource !== paymentData.onlinePaymentSource) {
+                    const oldBankRef = oldBankSnap.ref;
+                    const oldBankBalance = oldBankSnap.data()?.balance || 0;
+                    transaction.update(oldBankRef, { balance: oldBankBalance + oldAmount });
+                }
+                
+                // Add new transaction if it's online
+                if (newBankSnap?.exists() && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
+                    const newBankRef = newBankSnap.ref;
+                    const currentBankBalance = newBankSnap.data()?.balance || 0;
+                    const amountToDebit = paymentData.amount - (oldOnlinePaymentSource === paymentData.onlinePaymentSource ? oldAmount : 0);
+
+                     if (amountToDebit !== 0) {
+                        const newBalance = currentBankBalance - amountToDebit;
+                        transaction.update(newBankRef, { balance: newBalance });
 
                         const txRef = doc(collection(firestore, 'bank_transactions'));
                         const txPayload: Omit<BankTransaction, 'id'> = {
-                            accountId,
+                            accountId: paymentData.onlinePaymentSource,
                             date: paymentData.paymentDate.toISOString(),
-                            description: note,
-                            type,
-                            amount,
+                            description: `Payment ${transactionToEdit ? 'update for' : 'to'} ${dealer.company}`,
+                            type: 'Debit',
+                            amount: amountToDebit,
                             balanceAfter: newBalance,
                             referenceId: paymentRef.id,
                             referenceType: 'Dealer Payment'
                         };
                         transaction.set(txRef, txPayload);
-                    }
-                };
-
-                // Revert old transaction if online source changed
-                if (transactionToEdit && oldOnlinePaymentSource && oldOnlinePaymentSource !== paymentData.onlinePaymentSource) {
-                    await handleBankUpdate(oldOnlinePaymentSource, oldAmount, 'Credit', `Reversal for payment edit to ${dealer.company}`);
-                }
-                
-                // Add new transaction if it's online
-                if (paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
-                    const amountToDebit = paymentData.amount - (oldOnlinePaymentSource === paymentData.onlinePaymentSource ? oldAmount : 0);
-                     if (amountToDebit !== 0) {
-                        const verb = transactionToEdit ? 'update' : 'payment';
-                        await handleBankUpdate(paymentData.onlinePaymentSource, amountToDebit, 'Debit', `Dealer ${verb} to ${dealer.company}`);
                     }
                 }
             });

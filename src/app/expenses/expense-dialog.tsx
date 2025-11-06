@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Dialog,
@@ -52,7 +53,7 @@ const expenseSchema = z.object({
   date: z.date(),
   category: z.string().min(1, 'Category is required'),
   amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
-  paymentMethod: z.enum(['Cash', 'Bank', 'Credit']),
+  paymentMethod: z.enum(['Cash', 'Online', 'Credit']),
   paidTo: z.string().min(1, 'Paid To is required'),
   description: z.string().optional(),
   attachmentUrl: z.string().optional(),
@@ -255,8 +256,8 @@ export function ExpenseDialog({
                       <Label htmlFor="cash">Cash</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Bank" id="bank" />
-                      <Label htmlFor="bank">Bank</Label>
+                      <RadioGroupItem value="Online" id="online" />
+                      <Label htmlFor="online">Online</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="Credit" id="credit" />

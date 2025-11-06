@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -47,7 +48,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -61,7 +62,7 @@ export interface Expense {
   date: string; // Storing as ISO string
   category: string;
   amount: number;
-  paymentMethod: 'Cash' | 'Bank' | 'Credit';
+  paymentMethod: 'Cash' | 'Online' | 'Credit';
   paidTo: string;
   description?: string;
   attachmentUrl?: string;
@@ -353,5 +354,3 @@ export default function ExpensesPage() {
     </div>
   );
 }
-
-    

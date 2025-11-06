@@ -31,7 +31,7 @@ const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay
 const paymentSchema = z.object({
   amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
   paymentDate: z.date(),
-  paymentMethod: z.enum(['Cash', 'Bank Transfer', 'Cheque']),
+  paymentMethod: z.enum(['Cash', 'Online', 'Cheque']),
   onlinePaymentSource: z.string().optional(),
   notes: z.string().optional(),
   receiptImageUrl: z.string().optional(),
@@ -160,8 +160,8 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
                                 <Label htmlFor="cash">Cash</Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Bank Transfer" id="bank" />
-                                <Label htmlFor="bank">Bank Transfer</Label>
+                                <RadioGroupItem value="Online" id="online" />
+                                <Label htmlFor="online">Online</Label>
                             </div>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="Cheque" id="cheque" />
@@ -171,7 +171,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
                     )}
                 />
             </div>
-            {paymentMethod === 'Bank Transfer' && (
+            {paymentMethod === 'Online' && (
                 <div className="space-y-2">
                     <Label htmlFor="onlinePaymentSource">Bank/Service</Label>
                      <Controller
@@ -192,10 +192,10 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
                     />
                 </div>
             )}
-            {(paymentMethod === 'Bank Transfer' || paymentMethod === 'Cheque') && (
+            {(paymentMethod === 'Online' || paymentMethod === 'Cheque') && (
               <div className="space-y-2">
                 <Label htmlFor="receipt-upload">
-                  {paymentMethod === 'Bank Transfer' ? 'Upload Receipt (Optional)' : 'Upload Cheque Image (Optional)'}
+                  {paymentMethod === 'Online' ? 'Upload Receipt (Optional)' : 'Upload Cheque Image (Optional)'}
                 </Label>
                 <div className="flex items-center gap-4">
                   {receiptImageUrl ? (
@@ -229,5 +229,3 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment }
     </Dialog>
   );
 }
-
-    

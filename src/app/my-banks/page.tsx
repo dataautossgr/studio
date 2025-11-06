@@ -222,8 +222,8 @@ export default function MyBanksPage() {
             {isLoading && <p>Loading accounts...</p>}
             {!isLoading && bankAccounts?.filter(acc => acc.balance !== -1).map(account => (
               <AccordionItem value={account.id} key={account.id}>
-                 <AccordionTrigger>
-                    <div className="flex justify-between w-full pr-4 items-center">
+                <AccordionTrigger>
+                    <div className="flex justify-between w-full items-center">
                       <div className="text-left">
                         <p className="font-semibold">{account.accountTitle}</p>
                         <p className="text-sm text-muted-foreground">{account.bankName} - {account.accountNumber || 'N/A'}</p>
@@ -233,7 +233,7 @@ export default function MyBanksPage() {
                            <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                  <MoreHorizontal className="h-4 w-4" />
+                                    <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -243,7 +243,7 @@ export default function MyBanksPage() {
                           </DropdownMenu>
                       </div>
                     </div>
-                 </AccordionTrigger>
+                </AccordionTrigger>
                 <AccordionContent>
                    <Table>
                       <TableHeader>

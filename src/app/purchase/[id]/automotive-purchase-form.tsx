@@ -126,7 +126,12 @@ export default function AutomotivePurchaseForm() {
                 setReceiptImageUrl(purchase.receiptImageUrl);
                 if (purchase.paymentMethod) setPaymentMethod(purchase.paymentMethod);
                 if (purchase.paymentSourceAccount) setPaymentSourceAccount(purchase.paymentSourceAccount);
-                if (purchase.paymentDestinationDetails) setPaymentDestinationDetails(purchase.paymentDestinationDetails);
+                if (purchase.paymentDestinationDetails) {
+                    setPaymentDestinationDetails({
+                        ...purchase.paymentDestinationDetails,
+                        accountNumber: purchase.paymentDestinationDetails.accountNumber || '',
+                    });
+                }
             };
             fetchPurchaseData();
         }

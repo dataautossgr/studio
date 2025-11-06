@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Product": {
@@ -454,6 +455,14 @@
         },
         "onlinePaymentSource": {
           "type": "string"
+        },
+        "paymentDestinationDetails": {
+          "type": "object",
+          "properties": {
+            "accountTitle": { "type": "string" },
+            "bankName": { "type": "string" },
+            "accountNumber": { "type": "string" }
+          }
         },
         "notes": {
           "type": "string",

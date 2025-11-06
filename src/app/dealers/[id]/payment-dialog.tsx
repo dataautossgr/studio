@@ -26,7 +26,7 @@ import type { Transaction } from './dealer-detail';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const onlinePaymentProviders = ["Easypaisa", "Jazzcash", "Meezan Bank", "Nayapay", "Sadapay", "Upaisa", "Islamic Bank"];
+const onlinePaymentProviders = ["Meezan Bank", "Nayapay", "Sadapay", "Easypaisa", "Jazzcash", "Upaisa", "Islamic Bank", "Other"];
 
 
 const paymentSchema = z.object({
@@ -34,8 +34,13 @@ const paymentSchema = z.object({
   paymentDate: z.date(),
   paymentMethod: z.enum(['Cash', 'Bank Transfer', 'Cheque']),
   onlinePaymentSource: z.string().optional(),
-  notes: z.string().optional(),
   receiptImageUrl: z.string().optional(),
+  notes: z.string().optional(),
+  paymentDestinationDetails: z.object({
+    accountTitle: z.string().optional(),
+    bankName: z.string().optional(),
+    accountNumber: z.string().optional(),
+  }).optional(),
 });
 
 export type PaymentFormData = z.infer<typeof paymentSchema>;
@@ -65,8 +70,9 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
             paymentDate: new Date(payment.date),
             paymentMethod: payment.paymentDetails.paymentMethod,
             onlinePaymentSource: payment.paymentDetails.onlinePaymentSource,
-            notes: payment.paymentDetails.notes,
             receiptImageUrl: payment.paymentDetails.receiptImageUrl,
+            notes: payment.paymentDetails.notes,
+            paymentDestinationDetails: (payment.paymentDetails as any).paymentDestinationDetails || { accountTitle: '', bankName: '', accountNumber: '' },
         });
       } else {
         reset({
@@ -74,8 +80,9 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
             paymentDate: new Date(),
             paymentMethod: 'Cash',
             onlinePaymentSource: '',
-            notes: '',
             receiptImageUrl: '',
+            notes: '',
+            paymentDestinationDetails: { accountTitle: '', bankName: '', accountNumber: '' },
         });
       }
     }
@@ -99,7 +106,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Payment for {dealerName}</DialogTitle>
           <DialogDescription>
@@ -173,25 +180,44 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
                 />
             </div>
             {paymentMethod === 'Bank Transfer' && (
+              <div className="grid md:grid-cols-2 gap-6 p-4 border rounded-md">
                 <div className="space-y-2">
-                    <Label htmlFor="onlinePaymentSource">My Account (Source)</Label>
-                     <Controller
-                        name="onlinePaymentSource"
-                        control={control}
-                        render={({ field }) => (
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger id="onlinePaymentSource">
-                                    <SelectValue placeholder="Select a payment source" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {onlinePaymentProviders.map(provider => (
-                                        <SelectItem key={provider} value={provider}>{provider}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
+                  <Label htmlFor="onlinePaymentSource">My Account (Source)</Label>
+                  <Controller
+                    name="onlinePaymentSource"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger id="onlinePaymentSource">
+                          <SelectValue placeholder="Select my bank" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {onlinePaymentProviders.map((provider) => (
+                            <SelectItem key={provider} value={provider}>
+                              {provider}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </div>
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Dealer's Account (Destination)</h4>
+                   <div className="space-y-2">
+                       <Label htmlFor="dest-title" className="text-xs">Account Title</Label>
+                       <Input id="dest-title" {...register('paymentDestinationDetails.accountTitle')} placeholder="e.g. Qureshi Autos"/>
+                   </div>
+                    <div className="space-y-2">
+                       <Label htmlFor="dest-bank" className="text-xs">Bank Name</Label>
+                       <Input id="dest-bank" {...register('paymentDestinationDetails.bankName')} placeholder="e.g. HBL"/>
+                   </div>
+                    <div className="space-y-2">
+                       <Label htmlFor="dest-acc" className="text-xs">Account Number (Optional)</Label>
+                       <Input id="dest-acc" {...register('paymentDestinationDetails.accountNumber')} placeholder="e.g. PK..."/>
+                   </div>
+                </div>
+              </div>
             )}
             {(paymentMethod === 'Bank Transfer' || paymentMethod === 'Cheque') && (
               <div className="space-y-2">
@@ -230,5 +256,3 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment }: 
     </Dialog>
   );
 }
-
-    

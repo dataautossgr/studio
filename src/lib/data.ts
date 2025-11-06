@@ -1,3 +1,4 @@
+
 'use client';
 import data from "./placeholder-images.json";
 import type { DocumentReference } from "firebase/firestore";
@@ -73,6 +74,11 @@ export interface DealerPayment {
   date: string;
   paymentMethod: 'Cash' | 'Bank Transfer' | 'Cheque';
   onlinePaymentSource?: string;
+  paymentDestinationDetails?: {
+      accountTitle?: string;
+      bankName?: string;
+      accountNumber?: string;
+  };
   notes?: string;
   receiptImageUrl?: string;
   reference?: string;

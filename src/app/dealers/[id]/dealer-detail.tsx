@@ -106,6 +106,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
             onlinePaymentSource: p.onlinePaymentSource,
             notes: p.notes,
             receiptImageUrl: p.receiptImageUrl,
+            paymentDestinationDetails: (p as any).paymentDestinationDetails,
           }
         }));
         
@@ -147,8 +148,9 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                     date: paymentData.paymentDate.toISOString(),
                     paymentMethod: paymentData.paymentMethod,
                     onlinePaymentSource: paymentData.onlinePaymentSource || '',
-                    notes: paymentData.notes || '',
                     receiptImageUrl: paymentData.receiptImageUrl || '',
+                    notes: paymentData.notes || '',
+                    paymentDestinationDetails: paymentData.paymentDestinationDetails || null,
                 };
                 
                 if (transactionToEdit && transactionToEdit.type === 'Payment') {
@@ -341,5 +343,3 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     </div>
   );
 }
-
-    

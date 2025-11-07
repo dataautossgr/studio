@@ -31,6 +31,12 @@ function createWindow() {
   }
 }
 
+// This is a fix for the Firebase connection error in Electron.
+// It tells Electron to ignore certificate errors, which can happen with localhost connections.
+app.commandLine.appendSwitch('ignore-certificate-errors');
+app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
+
+
 app.whenReady().then(() => {
   createWindow();
 

@@ -27,29 +27,23 @@ export function initializeFirebase() {
       .then(() => {
         persistenceEnabled = true;
         console.log("Firebase Offline Persistence Enabled.");
-        // Connect to emulators only AFTER persistence is enabled.
-        if (!emulatorsConnected) {
-          console.log('Attempting to connect to Firebase Emulators...');
-          connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-          connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-          emulatorsConnected = true;
-          console.log('Emulator connection calls have been made.');
-        }
       })
       .catch((err: any) => {
         if (err.code == 'failed-precondition') {
-          console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open. Emulators will still be connected.');
+          console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open.');
         } else if (err.code == 'unimplemented') {
-          console.warn('Firebase offline persistence is not supported in this browser. Emulators will still be connected.');
+          console.warn('Firebase offline persistence is not supported in this browser.');
         }
-        // Even if persistence fails, connect to emulators in development.
-        if (!emulatorsConnected) {
-          console.log('Attempting to connect to Firebase Emulators after persistence failure...');
-          connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-          connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-          emulatorsConnected = true;
-          console.log('Emulator connection calls have been made.');
-        }
+      })
+      .finally(() => {
+          // Connect to emulators after trying to enable persistence
+          if (!emulatorsConnected) {
+            console.log('Attempting to connect to Firebase Emulators...');
+            connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+            connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+            emulatorsConnected = true;
+            console.log('Emulator connection calls have been made.');
+          }
       });
   }
 

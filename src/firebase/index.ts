@@ -23,15 +23,9 @@ export function initializeFirebase() {
   
   // This logic is for development and connects to emulators.
   // For a production build, you would comment out these lines.
-  // We're calling this unconditionally for the dev environment.
-  console.log('Attempting to connect to Firebase Emulators...');
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-  console.log('Emulator connection calls have been made.');
-
-  // Attempt to enable persistence if not already enabled.
-  // This is an async operation but we don't need to block rendering for it.
-  // We fire and forget it.
+  
+  // CRITICAL: Persistence must be enabled BEFORE any other Firestore operation,
+  // including connecting to the emulator.
   if (typeof window !== 'undefined' && !persistenceEnabled) {
     enableIndexedDbPersistence(firestore)
       .then(() => {
@@ -46,6 +40,12 @@ export function initializeFirebase() {
         }
       });
   }
+
+  // Connect to emulators AFTER attempting to enable persistence.
+  console.log('Attempting to connect to Firebase Emulators...');
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+  console.log('Emulator connection calls have been made.');
 
   return { firebaseApp, auth, firestore };
 }

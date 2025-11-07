@@ -9,6 +9,7 @@ let firebaseApp: FirebaseApp;
 let auth: ReturnType<typeof getAuth>;
 let firestore: ReturnType<typeof getFirestore>;
 let persistenceEnabled = false;
+let emulatorsConnected = false;
 
 // This function is now synchronous.
 export function initializeFirebase() {
@@ -21,31 +22,36 @@ export function initializeFirebase() {
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
   
-  // This logic is for development and connects to emulators.
-  // For a production build, you would comment out these lines.
-  
-  // CRITICAL: Persistence must be enabled BEFORE any other Firestore operation,
-  // including connecting to the emulator.
   if (typeof window !== 'undefined' && !persistenceEnabled) {
     enableIndexedDbPersistence(firestore)
       .then(() => {
         persistenceEnabled = true;
         console.log("Firebase Offline Persistence Enabled.");
+        // Connect to emulators only AFTER persistence is enabled.
+        if (!emulatorsConnected) {
+          console.log('Attempting to connect to Firebase Emulators...');
+          connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+          connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+          emulatorsConnected = true;
+          console.log('Emulator connection calls have been made.');
+        }
       })
       .catch((err: any) => {
         if (err.code == 'failed-precondition') {
-          console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open.');
+          console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open. Emulators will still be connected.');
         } else if (err.code == 'unimplemented') {
-          console.warn('Firebase offline persistence is not supported in this browser.');
+          console.warn('Firebase offline persistence is not supported in this browser. Emulators will still be connected.');
+        }
+        // Even if persistence fails, connect to emulators in development.
+        if (!emulatorsConnected) {
+          console.log('Attempting to connect to Firebase Emulators after persistence failure...');
+          connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+          connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+          emulatorsConnected = true;
+          console.log('Emulator connection calls have been made.');
         }
       });
   }
-
-  // Connect to emulators AFTER attempting to enable persistence.
-  console.log('Attempting to connect to Firebase Emulators...');
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-  console.log('Emulator connection calls have been made.');
 
   return { firebaseApp, auth, firestore };
 }

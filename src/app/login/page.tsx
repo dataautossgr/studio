@@ -27,6 +27,16 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
+    if (!auth) {
+        toast({
+            variant: 'destructive',
+            title: 'Authentication Error',
+            description: 'Firebase Auth service is not available.',
+        });
+        setIsLoading(false);
+        return;
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
@@ -37,8 +47,19 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error('Login error:', error);
       let description = 'An unexpected error occurred.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        description = 'Invalid credentials. Please make sure the user exists in Firebase and the password is correct.';
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            description = 'Invalid credentials. Please check your email and password.';
+            break;
+          case 'auth/network-request-failed':
+            description = 'Network error. Please check your internet connection or emulator status.';
+            break;
+          default:
+            description = `Error: ${error.message}`;
+        }
       }
       toast({
         variant: 'destructive',

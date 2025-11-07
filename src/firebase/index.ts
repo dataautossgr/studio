@@ -2,8 +2,8 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore'
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, enableIndexedDbPersistence, connectFirestoreEmulator } from 'firebase/firestore'
 
 let firebaseApp: FirebaseApp;
 let auth: ReturnType<typeof getAuth>;
@@ -30,6 +30,18 @@ export async function initializeFirebase() {
 
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
+  
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      console.log('Connecting to Firebase Emulators...');
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+      connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+      console.log('Successfully connected to Firebase Emulators.');
+    } catch (e) {
+      console.error('Error connecting to Firebase Emulators:', e);
+    }
+  }
+
 
   if (!persistenceEnabled) {
     try {

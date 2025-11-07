@@ -11,8 +11,8 @@ let firestore: Firestore;
 
 // --- Singleton Pattern ---
 // These flags prevent re-initialization and race conditions.
-let persistenceEnabled = false;
 let emulatorsConnected = false;
+let persistenceEnabled = false;
 
 // Initialize Firebase App (runs only once)
 if (getApps().length === 0) {
@@ -26,13 +26,14 @@ firestore = getFirestore(firebaseApp);
 
 // This entire block runs only on the client-side.
 if (typeof window !== 'undefined') {
+  
   // --- Emulator Connection (MUST run before persistence) ---
   if (!emulatorsConnected) {
-    console.log('Attempting to connect to Firebase Emulators...');
+    console.log('Connecting to Firebase Emulators...');
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
     connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
     emulatorsConnected = true;
-    console.log('Emulator connection calls have been made.');
+    console.log('Successfully connected to Firebase Emulators.');
   }
 
   // --- Offline Persistence (runs after emulator connection) ---
@@ -58,7 +59,6 @@ if (typeof window !== 'undefined') {
 export function initializeFirebase() {
   return { firebaseApp, auth, firestore };
 }
-
 
 export * from './provider';
 export * from './client-provider';

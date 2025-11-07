@@ -3,10 +3,9 @@ const path = require('path');
 const isDev = require('electron-is-dev');
 const { autoUpdater } = require('electron-updater');
 
-// This is a fix for the Firebase connection error in Electron.
-// It tells Electron to ignore certificate errors, which can happen with localhost connections.
+// This is a fix for potential SSL/CORS issues in Electron production builds.
+// It tells Electron to ignore certificate errors.
 app.commandLine.appendSwitch('ignore-certificate-errors');
-app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -16,9 +15,6 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      // In dev mode, we load from a web server, so webSecurity can be enabled.
-      // In production, we load from file system, so it might need to be disabled
-      // if you face CORS issues, but it's better to handle those properly.
       webSecurity: true 
     },
   });

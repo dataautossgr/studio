@@ -31,9 +31,9 @@ export async function initializeFirebase() {
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
   
-  // The following block is simplified to always connect to emulators.
-  // In a real production app, you would use a more robust method
-  // (like environment variables) to distinguish dev from prod.
+  // This logic is now simplified for development.
+  // It will always attempt to connect to emulators.
+  // For a production build, you would comment out these lines.
   try {
     console.log('Connecting to Firebase Emulators...');
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });

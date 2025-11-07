@@ -21,18 +21,9 @@ export function initializeFirebase() {
 
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
-  
-  if (typeof window !== 'undefined' && !emulatorsConnected) {
-    // IMPORTANT: Connect to emulators BEFORE any other Firestore operation.
-    console.log('Attempting to connect to Firebase Emulators...');
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-    connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-    emulatorsConnected = true;
-    console.log('Emulator connection calls have been made.');
-  }
 
   if (typeof window !== 'undefined' && !persistenceEnabled) {
-    // Now, try to enable persistence.
+    // Try to enable persistence.
     enableIndexedDbPersistence(firestore)
       .then(() => {
         persistenceEnabled = true;
@@ -47,6 +38,15 @@ export function initializeFirebase() {
           console.error("An error occurred while enabling persistence:", err);
         }
       });
+  }
+  
+  if (typeof window !== 'undefined' && !emulatorsConnected) {
+    // IMPORTANT: Connect to emulators.
+    console.log('Attempting to connect to Firebase Emulators...');
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+    emulatorsConnected = true;
+    console.log('Emulator connection calls have been made.');
   }
 
   return { firebaseApp, auth, firestore };

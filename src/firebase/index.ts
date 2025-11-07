@@ -34,14 +34,12 @@ export async function initializeFirebase() {
   // This logic is now simplified for development.
   // It will always attempt to connect to emulators.
   // For a production build, you would comment out these lines.
-  try {
-    console.log('Connecting to Firebase Emulators...');
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-    connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-    console.log('Successfully connected to Firebase Emulators.');
-  } catch (e) {
-    console.error('Error connecting to Firebase Emulators:', e);
-  }
+  // We removed the try...catch block to ensure that any connection errors
+  // are immediately visible in the console, preventing silent failures.
+  console.log('Attempting to connect to Firebase Emulators...');
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+  console.log('Emulator connection calls have been made.');
 
 
   if (!persistenceEnabled) {

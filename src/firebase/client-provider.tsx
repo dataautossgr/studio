@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, type ReactNode, useState, useEffect } from 'react';
+import React, { useMemo, type ReactNode } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
 import type { FirebaseApp } from 'firebase/app';
@@ -19,15 +19,13 @@ interface FirebaseServices {
 }
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  // Use useMemo to initialize Firebase services only once.
-  // This runs synchronously with the component's render, ensuring services
-  // are available before children attempt to use them.
+  // useMemo still ensures this only runs once, but now it's just getting the
+  // already-configured instances from the module scope.
   const firebaseServices = useMemo<FirebaseServices | null>(() => {
     try {
-      // This function now needs to be synchronous. We'll adjust it.
       return initializeFirebase();
     } catch (error) {
-      console.error("Failed to initialize Firebase services:", error);
+      console.error("Failed to get Firebase services:", error);
       return null;
     }
   }, []);

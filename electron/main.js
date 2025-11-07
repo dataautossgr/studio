@@ -21,7 +21,7 @@ function createWindow() {
   // If in development, load from the Next.js dev server.
   // Otherwise, load the static build output.
   const loadURL = isDev
-    ? 'http://localhost:9002'
+    ? 'http://127.0.0.1:9002'
     : `file://${path.join(__dirname, '../out/index.html')}`;
 
   win.loadURL(loadURL);

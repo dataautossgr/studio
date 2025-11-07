@@ -4,14 +4,14 @@
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "dev": "next dev --turbopack -p 9002",
+    "dev": "next dev --turbopack -p 9002 -H 127.0.0.1",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "electron:dev": "concurrently -k \"npm:dev\" \"wait-on http://localhost:9002 && electron .\"",
+    "electron:dev": "concurrently -k \"npm:dev\" \"wait-on http://127.0.0.1:9002 && electron .\"",
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {

@@ -19,26 +19,21 @@ interface FirebaseServices {
 }
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  const [firebaseServices, setFirebaseServices] = useState<FirebaseServices | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use useMemo to initialize Firebase services only once.
+  // This runs synchronously with the component's render, ensuring services
+  // are available before children attempt to use them.
+  const firebaseServices = useMemo<FirebaseServices | null>(() => {
+    try {
+      // This function now needs to be synchronous. We'll adjust it.
+      return initializeFirebase();
+    } catch (error) {
+      console.error("Failed to initialize Firebase services:", error);
+      return null;
+    }
+  }, []);
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const services = await initializeFirebase();
-        setFirebaseServices(services);
-      } catch (error) {
-        console.error("Failed to initialize Firebase services:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    init();
-  }, []); 
-
-  if (isLoading || !firebaseServices) {
-    return <div className="flex h-screen items-center justify-center">Loading Application...</div>;
+  if (!firebaseServices) {
+    return <div className="flex h-screen items-center justify-center">Error initializing Firebase. Check console.</div>;
   }
 
   return (

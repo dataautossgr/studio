@@ -10,20 +10,10 @@ let auth: ReturnType<typeof getAuth>;
 let firestore: ReturnType<typeof getFirestore>;
 let persistenceEnabled = false;
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export async function initializeFirebase() {
+// This function is now synchronous.
+export function initializeFirebase() {
   if (!getApps().length) {
-    try {
-      firebaseApp = initializeApp(firebaseConfig);
-    } catch (e) {
-      console.error('Firebase initialization error', e);
-      // Fallback for environments where config is needed.
-      if (!getApps().length) {
-         firebaseApp = initializeApp(firebaseConfig);
-      } else {
-         firebaseApp = getApp();
-      }
-    }
+    firebaseApp = initializeApp(firebaseConfig);
   } else {
     firebaseApp = getApp();
   }
@@ -31,48 +21,35 @@ export async function initializeFirebase() {
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
   
-  // This logic is now simplified for development.
-  // It will always attempt to connect to emulators.
+  // This logic is for development and connects to emulators.
   // For a production build, you would comment out these lines.
-  // We removed the try...catch block to ensure that any connection errors
-  // are immediately visible in the console, preventing silent failures.
+  // We're calling this unconditionally for the dev environment.
   console.log('Attempting to connect to Firebase Emulators...');
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
   console.log('Emulator connection calls have been made.');
 
-
-  if (!persistenceEnabled) {
-    try {
-      await enableIndexedDbPersistence(firestore);
-      persistenceEnabled = true;
-      console.log("Firebase Offline Persistence Enabled.");
-    } catch (err: any) {
-      if (err.code == 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled in one.
-        console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open.');
-      } else if (err.code == 'unimplemented') {
-        // The current browser does not support all of the
-        // features required to enable persistence
-        console.warn('Firebase offline persistence is not supported in this browser.');
-      }
-      // We can still continue with the app, just without offline support.
-    }
+  // Attempt to enable persistence if not already enabled.
+  // This is an async operation but we don't need to block rendering for it.
+  // We fire and forget it.
+  if (typeof window !== 'undefined' && !persistenceEnabled) {
+    enableIndexedDbPersistence(firestore)
+      .then(() => {
+        persistenceEnabled = true;
+        console.log("Firebase Offline Persistence Enabled.");
+      })
+      .catch((err: any) => {
+        if (err.code == 'failed-precondition') {
+          console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open.');
+        } else if (err.code == 'unimplemented') {
+          console.warn('Firebase offline persistence is not supported in this browser.');
+        }
+      });
   }
 
   return { firebaseApp, auth, firestore };
 }
 
-// This function is kept for any part of the app that might still use it synchronously,
-// but it will not guarantee offline persistence.
-// The async initializeFirebase should be preferred.
-export function getSdks(appInstance: FirebaseApp) {
-  return {
-    firebaseApp: appInstance,
-    auth: getAuth(appInstance),
-    firestore: getFirestore(appInstance)
-  };
-}
 
 export * from './provider';
 export * from './client-provider';

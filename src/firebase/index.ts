@@ -22,29 +22,36 @@ export function initializeFirebase() {
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
   
+  if (typeof window !== 'undefined' && !emulatorsConnected) {
+    // IMPORTANT: Connect to emulators BEFORE any other Firestore operation, including enabling persistence.
+    // This is a key change to prevent the "settings can no longer be changed" error.
+    console.log('Attempting to connect to Firebase Emulators...');
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+    emulatorsConnected = true;
+    console.log('Emulator connection calls have been made.');
+  }
+
   if (typeof window !== 'undefined' && !persistenceEnabled) {
-    enableIndexedDbPersistence(firestore)
-      .then(() => {
-        persistenceEnabled = true;
-        console.log("Firebase Offline Persistence Enabled.");
-      })
-      .catch((err: any) => {
-        if (err.code == 'failed-precondition') {
-          console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open.');
-        } else if (err.code == 'unimplemented') {
-          console.warn('Firebase offline persistence is not supported in this browser.');
-        }
-      })
-      .finally(() => {
-          // Connect to emulators after trying to enable persistence
-          if (!emulatorsConnected) {
-            console.log('Attempting to connect to Firebase Emulators...');
-            connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-            connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-            emulatorsConnected = true;
-            console.log('Emulator connection calls have been made.');
+    // Now, try to enable persistence.
+    try {
+      enableIndexedDbPersistence(firestore)
+        .then(() => {
+          persistenceEnabled = true;
+          console.log("Firebase Offline Persistence Enabled.");
+        })
+        .catch((err: any) => {
+          if (err.code == 'failed-precondition') {
+            console.warn('Firebase offline persistence could not be enabled: failed-precondition. This can happen if you have multiple tabs open.');
+          } else if (err.code == 'unimplemented') {
+            console.warn('Firebase offline persistence is not supported in this browser.');
+          } else {
+            console.error("An error occurred while enabling persistence:", err);
           }
-      });
+        });
+    } catch (err) {
+      console.error("Error calling enableIndexedDbPersistence:", err);
+    }
   }
 
   return { firebaseApp, auth, firestore };

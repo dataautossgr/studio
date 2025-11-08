@@ -43,6 +43,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
+import { useStoreSettings } from '@/context/store-settings-context';
 
 const WhatsAppIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -73,6 +74,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     const router = useRouter();
     const { toast } = useToast();
     const firestore = useFirestore();
+    const { settings } = useStoreSettings();
 
     const dealerId = params.id as string;
 
@@ -297,8 +299,13 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     }
 
     const handleSendWhatsApp = () => {
-        alert("To send the ledger on WhatsApp:\n\n1. Click 'Print Ledger'.\n2. In the print window, change the destination to 'Save as PDF'.\n3. Save the PDF file to your computer.\n4. Send the saved PDF file to the dealer via WhatsApp.");
+        alert("Please 'Save as PDF' first, then send it via WhatsApp.");
         window.print();
+        if (dealer?.phone) {
+            const phone = dealer.phone.replace(/\D/g, ''); // Remove non-digits
+            const message = encodeURIComponent(`Assalam-o-Alaikum ${dealer.company},\n\nAttached is your account ledger from ${settings.storeName}.\n\nThank you for your business!\nShukriya.`);
+            window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+        }
     };
 
     if (isDealerLoading || isLoading) {

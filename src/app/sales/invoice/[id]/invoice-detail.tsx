@@ -71,8 +71,13 @@ export default function InvoiceDetail() {
   }, [firestore, saleId]);
   
   const handleSendWhatsApp = () => {
-    alert("To send the invoice on WhatsApp:\n\n1. Click 'Print'.\n2. In the print window, change the destination to 'Save as PDF'.\n3. Save the PDF file to your computer.\n4. Send the saved PDF file to the customer via WhatsApp.");
+    alert("Please 'Save as PDF' first, then send it via WhatsApp.");
     window.print();
+    if (sale?.customer?.phone) {
+        const phone = sale.customer.phone.replace(/\D/g, ''); // Remove non-digits
+        const message = encodeURIComponent(`Assalam-o-Alaikum ${sale.customer.name},\n\nAttached is your invoice #${sale.invoice} from ${settings.storeName}.\n\nThank you for your business!\nShukriya.`);
+        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+    }
   };
 
 

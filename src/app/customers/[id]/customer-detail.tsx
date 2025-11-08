@@ -45,6 +45,7 @@ import type { PaymentFormData } from './payment-dialog';
 import Link from 'next/link';
 import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
+import { useStoreSettings } from '@/context/store-settings-context';
 
 const WhatsAppIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -75,6 +76,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     const router = useRouter();
     const { toast } = useToast();
     const firestore = useFirestore();
+    const { settings } = useStoreSettings();
 
     const customerId = params.id as string;
 
@@ -288,8 +290,13 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     }
     
     const handleSendWhatsApp = () => {
-        alert("To send the ledger on WhatsApp:\n\n1. Click 'Print Ledger'.\n2. In the print window, change the destination to 'Save as PDF'.\n3. Save the PDF file to your computer.\n4. Send the saved PDF file to the customer via WhatsApp.");
+        alert("Please 'Save as PDF' first, then send it via WhatsApp.");
         window.print();
+        if (customer?.phone) {
+            const phone = customer.phone.replace(/\D/g, ''); // Remove non-digits
+            const message = encodeURIComponent(`Assalam-o-Alaikum ${customer.name},\n\nAttached is your account ledger from ${settings.storeName}.\n\nThank you for your business!\nShukriya.`);
+            window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+        }
     };
 
     if (isCustomerLoading || isLoading) {
@@ -439,4 +446,3 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     
 
     
-

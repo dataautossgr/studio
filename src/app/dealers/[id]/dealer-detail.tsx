@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { type Dealer, type Purchase, type DealerPayment, type BankAccount, type BankTransaction } from '@/lib/data';
 import {
@@ -44,6 +44,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
 import { useStoreSettings } from '@/context/store-settings-context';
+import html2pdf from 'html2pdf.js';
 
 const WhatsAppIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -75,6 +76,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     const { toast } = useToast();
     const firestore = useFirestore();
     const { settings } = useStoreSettings();
+    const printRef = useRef<HTMLDivElement>(null);
 
     const dealerId = params.id as string;
 
@@ -298,9 +300,22 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
         return 'default';
     }
 
+    const handlePrint = () => {
+        const ledgerElement = printRef.current;
+        if (ledgerElement) {
+             html2pdf(ledgerElement, {
+                margin: 0.5,
+                filename: `ledger-${dealer?.company || 'dealer'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            });
+        }
+    };
+
     const handleSendWhatsApp = () => {
         alert("Please 'Save as PDF' first, then send it via WhatsApp.");
-        window.print();
+        handlePrint();
         if (dealer?.phone) {
             const phone = dealer.phone.replace(/\D/g, ''); // Remove non-digits
             const message = encodeURIComponent(`Assalam-o-Alaikum ${dealer.company},\n\nAttached is your account ledger from ${settings.storeName}.\n\nThank you for your business!\nShukriya.`);
@@ -317,94 +332,96 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8 printable-content">
-        <Card className="no-print">
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle className="text-2xl">{dealer.company}</CardTitle>
-                    <CardDescription>{dealer.name} - {dealer.phone}</CardDescription>
-                </div>
-                <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Current Balance</p>
-                    <Badge variant={getBalanceVariant(dealer.balance)} className="text-xl font-mono">
-                        Rs. {Math.abs(dealer.balance).toLocaleString()}
-                    </Badge>
-                </div>
-            </CardHeader>
-        </Card>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+        <div ref={printRef}>
+            <Card className="print:border-none print:shadow-none">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="text-2xl">{dealer.company}</CardTitle>
+                        <CardDescription>{dealer.name} - {dealer.phone}</CardDescription>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Current Balance</p>
+                        <Badge variant={getBalanceVariant(dealer.balance)} className="text-xl font-mono">
+                            Rs. {Math.abs(dealer.balance).toLocaleString()}
+                        </Badge>
+                    </div>
+                </CardHeader>
+            </Card>
 
-         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Transaction Ledger</CardTitle>
-                    <CardDescription>
-                    History of all purchases and payments with {dealer.company}.
-                    </CardDescription>
-                </div>
-                <div className="flex gap-2 no-print">
-                    <Button variant="outline" onClick={() => window.print()}>
-                        <Printer className="mr-2 h-4 w-4" /> Print Ledger
-                    </Button>
-                    <Button onClick={handleSendWhatsApp}>
-                        <WhatsAppIcon /> <span className="ml-2">Send on WhatsApp</span>
-                    </Button>
-                    <Button onClick={() => { setTransactionToEdit(null); setIsPaymentDialogOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add Payment
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Reference</TableHead>
-                            <TableHead className="text-right">Debit</TableHead>
-                            <TableHead className="text-right">Credit</TableHead>
-                            <TableHead className="text-right">Balance</TableHead>
-                            <TableHead className="no-print"><span className="sr-only">Actions</span></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {transactions.map((tx) => (
-                            <TableRow key={tx.id}>
-                                <TableCell>{format(new Date(tx.date), 'dd MMM, yyyy')}</TableCell>
-                                <TableCell>
-                                    <Badge variant={tx.type === 'Purchase' ? 'outline' : 'secondary'}>
-                                        {tx.type}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="font-medium">{tx.reference}</TableCell>
-                                <TableCell className="text-right font-mono">{tx.debit > 0 ? `Rs. ${tx.debit.toLocaleString()}`: '-'}</TableCell>
-                                <TableCell className="text-right font-mono text-green-600">{tx.credit > 0 ? `Rs. ${tx.credit.toLocaleString()}` : '-'}</TableCell>
-                                <TableCell className="text-right font-mono">{`Rs. ${Math.abs(tx.balance).toLocaleString()}`}</TableCell>
-                                 <TableCell className="text-right no-print">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={() => handleEdit(tx)}>
-                                                <Pencil className="mr-2 h-4 w-4" />
-                                                Edit
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setTransactionToDelete(tx)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Delete
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
+            <Card className="mt-8 print:border-none print:shadow-none">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Transaction Ledger</CardTitle>
+                        <CardDescription>
+                        History of all purchases and payments with {dealer.company}.
+                        </CardDescription>
+                    </div>
+                    <div className="flex gap-2 no-print">
+                        <Button variant="outline" onClick={handlePrint}>
+                            <Printer className="mr-2 h-4 w-4" /> Print / Save PDF
+                        </Button>
+                        <Button onClick={handleSendWhatsApp}>
+                            <WhatsAppIcon /> <span className="ml-2">Send on WhatsApp</span>
+                        </Button>
+                        <Button onClick={() => { setTransactionToEdit(null); setIsPaymentDialogOpen(true); }}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Add Payment
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Reference</TableHead>
+                                <TableHead className="text-right">Debit</TableHead>
+                                <TableHead className="text-right">Credit</TableHead>
+                                <TableHead className="text-right">Balance</TableHead>
+                                <TableHead className="no-print"><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-         </Card>
+                        </TableHeader>
+                        <TableBody>
+                            {transactions.map((tx) => (
+                                <TableRow key={tx.id}>
+                                    <TableCell>{format(new Date(tx.date), 'dd MMM, yyyy')}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={tx.type === 'Purchase' ? 'outline' : 'secondary'}>
+                                            {tx.type}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="font-medium">{tx.reference}</TableCell>
+                                    <TableCell className="text-right font-mono">{tx.debit > 0 ? `Rs. ${tx.debit.toLocaleString()}`: '-'}</TableCell>
+                                    <TableCell className="text-right font-mono text-green-600">{tx.credit > 0 ? `Rs. ${tx.credit.toLocaleString()}` : '-'}</TableCell>
+                                    <TableCell className="text-right font-mono">{`Rs. ${Math.abs(tx.balance).toLocaleString()}`}</TableCell>
+                                    <TableCell className="text-right no-print">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="icon" variant="ghost">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem onSelect={() => handleEdit(tx)}>
+                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                    Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => setTransactionToDelete(tx)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
 
         <PaymentDialog 
             isOpen={isPaymentDialogOpen}
@@ -434,3 +451,5 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     </div>
   );
 }
+
+    

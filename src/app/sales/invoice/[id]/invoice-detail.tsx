@@ -74,13 +74,21 @@ export default function InvoiceDetail() {
     const handlePrint = () => {
         const invoiceElement = printRef.current;
         if (invoiceElement) {
-            html2pdf(invoiceElement, {
-                margin: 0.5,
+            const options = {
+                margin: 0.2,
                 filename: `invoice-${sale?.invoice || 'INV'}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: "in", format: "a4", orientation: "portrait" }
-            });
+                jsPDF: { unit: "in", orientation: "portrait", format: 'a4' }
+            };
+            if(receiptSize === 'pos'){
+                options.jsPDF.format = [3.15, 10]; // 80mm width, auto height
+                options.margin = 0.1;
+            } else {
+                options.jsPDF.format = receiptSize;
+            }
+
+            html2pdf().set(options).from(invoiceElement).save();
         }
     };
   
@@ -242,3 +250,5 @@ export default function InvoiceDetail() {
     </div>
   );
 }
+
+    

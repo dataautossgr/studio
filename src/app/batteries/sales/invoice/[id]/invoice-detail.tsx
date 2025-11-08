@@ -70,21 +70,8 @@ export default function InvoiceDetail() {
   }, [firestore, saleId]);
   
   const handleSendWhatsApp = () => {
-    if (!sale || !sale.customer || !sale.customer.phone) {
-        alert("Customer phone number is not available.");
-        return;
-    }
-
-    let phoneNumber = sale.customer.phone.replace(/[^0-9]/g, '');
-    if (phoneNumber.startsWith('0')) {
-        phoneNumber = '92' + phoneNumber.substring(1);
-    }
-    
-    const message = `Assalam-o-Alaikum, ${sale.customer.name}.\n\nThank you for your purchase from *${settings.storeName}*.\n\n*Invoice Summary:*\nInvoice #: ${sale.invoice}\nTotal Amount: Rs. ${sale.total.toLocaleString()}\nDate: ${format(new Date(sale.date), 'dd MMM, yyyy')}\n\nThank you for your business!`;
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-
-    window.open(whatsappUrl, '_blank');
+    alert("Please use the 'Print' button to save the invoice as a PDF, then send the file through WhatsApp.");
+    window.print();
   };
 
 

@@ -44,9 +44,8 @@
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
+    "electron-packager": "^17.1.2",
     "embla-carousel-react": "^8.6.0",
-    "electron-is-dev": "^3.0.1",
-    "electron-updater": "^6.2.2",
     "firebase": "^11.9.1",
     "genkit": "^1.20.0",
     "idb": "^8.0.0",
@@ -69,8 +68,10 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "concurrently": "^8.2.2",
-    "electron": "^31.2.1",
-    "electron-builder": "^25.0.0",
+    "electron": "^31.7.7",
+    "electron-builder": "^25.1.8",
+    "electron-is-dev": "^3.0.1",
+    "electron-updater": "^6.6.2",
     "genkit-cli": "^1.20.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
@@ -95,5 +96,12 @@
         "repo": "DataAutosPOS"
       }
     ]
-  }
+  },
+  "description": "This is a comprehensive, hybrid (offline-first) Point-of-Sale (POS) and inventory management application built with Next.js, Firebase, and Electron. It's specifically tailored for automotive and battery shops, providing a robust solution to manage sales, purchases, customers, dealers, inventory, and detailed financial tracking.",
+  "directories": {
+    "doc": "docs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

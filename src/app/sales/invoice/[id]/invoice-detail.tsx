@@ -71,7 +71,7 @@ export default function InvoiceDetail() {
   }, [firestore, saleId]);
   
   const handleSendWhatsApp = () => {
-    alert("Please use the 'Print' button to save the invoice as a PDF, then send the file through WhatsApp.");
+    alert("To send the invoice on WhatsApp:\n\n1. Click 'Print'.\n2. In the print window, change the destination to 'Save as PDF'.\n3. Save the PDF file to your computer.\n4. Send the saved PDF file to the customer via WhatsApp.");
     window.print();
   };
 

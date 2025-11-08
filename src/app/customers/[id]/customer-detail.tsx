@@ -288,7 +288,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     }
     
     const handleSendWhatsApp = () => {
-        alert("Please use the 'Print' button to save the ledger as a PDF, then send it to the customer via WhatsApp.");
+        alert("To send the ledger on WhatsApp:\n\n1. Click 'Print Ledger'.\n2. In the print window, change the destination to 'Save as PDF'.\n3. Save the PDF file to your computer.\n4. Send the saved PDF file to the customer via WhatsApp.");
         window.print();
     };
 
@@ -439,3 +439,4 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     
 
     
+

@@ -297,7 +297,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     }
 
     const handleSendWhatsApp = () => {
-        alert("Please use the 'Print' button to save the ledger as a PDF, then send it to the dealer via WhatsApp.");
+        alert("To send the ledger on WhatsApp:\n\n1. Click 'Print Ledger'.\n2. In the print window, change the destination to 'Save as PDF'.\n3. Save the PDF file to your computer.\n4. Send the saved PDF file to the dealer via WhatsApp.");
         window.print();
     };
 

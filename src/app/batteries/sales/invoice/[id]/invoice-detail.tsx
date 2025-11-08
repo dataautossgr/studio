@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useStoreSettings } from '@/context/store-settings-context';
+import html2pdf from "html2pdf.js";
 
 
 interface EnrichedSale extends Omit<BatterySale, 'customer'> {
@@ -68,10 +69,23 @@ export default function InvoiceDetail() {
 
     fetchSaleAndCustomer();
   }, [firestore, saleId]);
+
+  const handlePrint = () => {
+    const invoiceElement = printRef.current;
+    if (invoiceElement) {
+        html2pdf(invoiceElement, {
+            margin: 0.5,
+            filename: `invoice-${sale?.invoice || 'INV'}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: "in", format: "a4", orientation: "portrait" }
+        });
+    }
+  };
   
   const handleSendWhatsApp = () => {
-    alert("Please 'Save as PDF' first, then send it via WhatsApp.");
-    window.print();
+    alert("Please download the PDF first, then send it via WhatsApp.");
+    handlePrint();
     if (sale?.customer?.phone) {
         const phone = sale.customer.phone.replace(/\D/g, ''); // Remove non-digits
         const message = encodeURIComponent(`Assalam-o-Alaikum ${sale.customer.name},\n\nAttached is your invoice #${sale.invoice} from ${settings.storeName}.\n\nThank you for your business!\nShukriya.`);
@@ -122,9 +136,9 @@ export default function InvoiceDetail() {
                 <Button size="sm" variant={receiptSize === 'a6' ? 'default' : 'ghost'} onClick={() => setPrintSize('a6')}>A6</Button>
                 <Button size="sm" variant={receiptSize === 'pos' ? 'default' : 'ghost'} onClick={() => setPrintSize('pos')}>POS</Button>
             </div>
-            <Button onClick={() => window.print()}>
+            <Button onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
-                Print
+                Print / Save PDF
             </Button>
         </div>
 

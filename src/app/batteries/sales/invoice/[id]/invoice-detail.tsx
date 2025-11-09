@@ -73,21 +73,22 @@ export default function InvoiceDetail() {
   const handlePrint = () => {
     const invoiceElement = printRef.current;
     if (invoiceElement) {
-        const options = {
-            margin: 0.2,
-            filename: `invoice-${sale?.invoice || 'INV'}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: "in", orientation: "portrait", format: 'a4' }
+        const opt = {
+            margin:       0.2,
+            filename:     `invoice-${sale?.invoice || 'INV'}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
         };
-        if(receiptSize === 'pos'){
-            options.jsPDF.format = [3.15, 10]; // 80mm width, auto height
-            options.margin = 0.1;
-        } else {
-            options.jsPDF.format = receiptSize;
-        }
 
-        html2pdf().set(options).from(invoiceElement).save();
+        if (receiptSize === 'pos') {
+            opt.jsPDF.format = [3.15, 12]; // 80mm width, height auto-adjusts
+            opt.margin = 0.1;
+        } else {
+            opt.jsPDF.format = receiptSize;
+        }
+        
+        html2pdf().set(opt).from(invoiceElement).save();
     }
   };
   
@@ -150,7 +151,7 @@ export default function InvoiceDetail() {
             </Button>
         </div>
 
-      <main className="p-4 sm:p-8 print:bg-white print:p-0">
+      <main className="p-4 sm:p-8 print:p-0">
         <div ref={printRef} className={`printable-content print-${receiptSize}`}>
           <div className="receipt-main w-[800px] max-w-full mx-auto border border-black p-5 bg-white shadow-lg print:shadow-none print:border-none">
               {/* Header */}
@@ -258,5 +259,3 @@ export default function InvoiceDetail() {
     </div>
   );
 }
-
-    

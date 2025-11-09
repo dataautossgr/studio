@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -303,13 +302,14 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     const handlePrint = () => {
         const ledgerElement = printRef.current;
         if (ledgerElement) {
-             html2pdf(ledgerElement, {
+             const opt = {
                 margin: 0.5,
                 filename: `ledger-${dealer?.company || 'dealer'}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
+                html2canvas: { scale: 2, useCORS: true },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-            });
+            };
+            html2pdf().set(opt).from(ledgerElement).save();
         }
     };
 
@@ -333,7 +333,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-        <div ref={printRef}>
+        <div ref={printRef} className="printable-content">
             <Card className="print:border-none print:shadow-none">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
@@ -451,5 +451,3 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     </div>
   );
 }
-
-    

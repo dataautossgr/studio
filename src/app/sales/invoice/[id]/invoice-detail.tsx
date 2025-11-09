@@ -83,7 +83,7 @@ export default function InvoiceDetail() {
             };
 
             if (receiptSize === 'pos') {
-                opt.jsPDF.format = [3.15, 12]; // 80mm width, height auto-adjusts
+                (opt.jsPDF as any).format = [3.15, 12]; // 80mm width, height auto-adjusts
                 opt.margin = 0.1;
             } else {
                 opt.jsPDF.format = receiptSize;

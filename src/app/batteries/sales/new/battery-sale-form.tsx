@@ -454,7 +454,7 @@ export default function BatterySaleForm() {
                                 {item.type === 'one-time' ? <Input value={item.name} onChange={e => updateCartItem(item.id, 'name', e.target.value)} /> : <span className="font-medium">{item.name}</span>}
                             </TableCell>
                             <TableCell>
-                                {item.type === 'battery' && <Input value={item.manufacturingCode || ''} onChange={e => updateCartItem(item.id, 'manufacturingCode', e.target.value)} placeholder="Mfc. Code" className="text-xs"/>}
+                                {item.type === 'battery' && <Input value={item.manufacturingCode || ''} onChange={e => updateCartItem(item.id, 'manufacturingCode', e.target.value)} placeholder="Manufacturing Code" className="w-32"/>}
                             </TableCell>
                             <TableCell>
                                 <Input type="number" value={item.quantity} onChange={e => updateCartItem(item.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-20"/>

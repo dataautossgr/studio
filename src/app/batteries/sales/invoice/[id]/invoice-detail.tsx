@@ -192,7 +192,15 @@ export default function InvoiceDetail() {
                       {sale.items.map((item, index) => (
                           <tr key={index}>
                               <td className="text-center border border-black p-2">{item.type === 'scrap' ? `${item.quantity} KG` : item.quantity}</td>
-                              <td className="border border-black p-2">{item.name}</td>
+                              <td className="border border-black p-2">
+                                  {item.name}
+                                  {item.type === 'battery' && (
+                                    <div className="text-xs text-muted-foreground">
+                                        {item.warrantyMonths ? `W: ${item.warrantyMonths} Months | ` : ''}
+                                        {item.manufacturingCode ? `Code: ${item.manufacturingCode}` : ''}
+                                    </div>
+                                  )}
+                              </td>
                               <td className="text-right border border-black p-2 font-mono">{item.price.toLocaleString()}</td>
                               <td className="text-right border border-black p-2 font-mono">{(item.price * item.quantity).toLocaleString()}</td>
                           </tr>

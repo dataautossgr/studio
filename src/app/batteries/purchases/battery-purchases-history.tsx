@@ -109,11 +109,11 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
       await runTransaction(firestore, async (transaction) => {
         const purchaseRef = doc(firestore, 'battery_purchases', purchaseToDelete.id);
 
-        // 1. READ all necessary documents first.
+        // --- 1. READS ---
         const productRefs = purchaseToDelete.items.map(item => doc(firestore, 'batteries', item.batteryId));
         const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-        // 2. Perform all WRITE operations.
+        // --- 2. WRITES ---
         productSnaps.forEach((productSnap, index) => {
           const item = purchaseToDelete.items[index];
           if (productSnap.exists()) {

@@ -1,3 +1,4 @@
+
 'use client';
 import { type Sale, type Customer } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -114,43 +115,42 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
     try {
         await runTransaction(firestore, async (transaction) => {
             const saleRef = doc(firestore, 'sales', saleToDelete.id);
+            
+            // --- 1. ALL READS FIRST ---
+            const productRefs = saleToDelete.items.map(item => doc(firestore, 'products', item.productId));
+            const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+            const customerRef = saleToDelete.customer.id !== 'walk-in' ? doc(firestore, 'customers', saleToDelete.customer.id) : null;
+            const customerSnap = customerRef ? await transaction.get(customerRef) : null;
+            const bankRef = saleToDelete.paymentMethod === 'online' && saleToDelete.onlinePaymentSource ? doc(firestore, 'my_bank_accounts', saleToDelete.onlinePaymentSource) : null;
+            const bankSnap = bankRef ? await transaction.get(bankRef) : null;
 
-            // Revert stock for each item
-            for (const item of saleToDelete.items) {
-                const productRef = doc(firestore, 'products', item.productId);
-                const productSnap = await transaction.get(productRef);
-                if (productSnap.exists()) {
-                    const currentStock = productSnap.data().stock || 0;
-                    transaction.update(productRef, { stock: currentStock + item.quantity });
+            // --- 2. ALL WRITES SECOND ---
+            // a. Revert stock
+            productSnaps.forEach((pSnap, index) => {
+                if (pSnap.exists()) {
+                    const item = saleToDelete.items[index];
+                    const currentStock = pSnap.data().stock || 0;
+                    transaction.update(pSnap.ref, { stock: currentStock + item.quantity });
                 }
-            }
+            });
 
-            // Adjust customer balance
-            if (saleToDelete.status !== 'Paid' && saleToDelete.customer.id !== 'walk-in') {
-                const customerRef = doc(firestore, 'customers', saleToDelete.customer.id);
-                const customerSnap = await transaction.get(customerRef);
-                if (customerSnap.exists()) {
-                    const currentBalance = customerSnap.data().balance || 0;
-                    const dueAmount = saleToDelete.total - (saleToDelete.partialAmountPaid || 0);
-                    transaction.update(customerRef, { balance: currentBalance - dueAmount });
-                }
+            // b. Adjust customer balance
+            if (customerSnap?.exists() && saleToDelete.status !== 'Paid') {
+                const currentBalance = customerSnap.data().balance || 0;
+                const dueAmount = saleToDelete.total - (saleToDelete.partialAmountPaid || 0);
+                transaction.update(customerSnap.ref, { balance: currentBalance - dueAmount });
             }
             
-            // Revert bank transaction if online
-            if (saleToDelete.paymentMethod === 'online' && saleToDelete.onlinePaymentSource) {
-              const amountToRevert = saleToDelete.status === 'Paid' ? saleToDelete.total : (saleToDelete.partialAmountPaid || 0);
-              if (amountToRevert > 0) {
-                  const bankRef = doc(firestore, 'my_bank_accounts', saleToDelete.onlinePaymentSource);
-                  const bankSnap = await transaction.get(bankRef);
-                  if (bankSnap.exists()) {
-                      const currentBankBalance = bankSnap.data().balance || 0;
-                      transaction.update(bankRef, { balance: currentBankBalance - amountToRevert });
-                  }
-              }
+            // c. Revert bank transaction
+            if (bankSnap?.exists()) {
+                const amountToRevert = saleToDelete.status === 'Paid' ? saleToDelete.total : (saleToDelete.partialAmountPaid || 0);
+                if (amountToRevert > 0) {
+                    const currentBankBalance = bankSnap.data().balance || 0;
+                    transaction.update(bankSnap.ref, { balance: currentBankBalance - amountToRevert });
+                }
             }
 
-
-            // Delete the sale document
+            // d. Delete the sale
             transaction.delete(saleRef);
         });
 

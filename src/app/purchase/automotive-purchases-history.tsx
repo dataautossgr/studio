@@ -119,24 +119,37 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
       await runTransaction(firestore, async (transaction) => {
         const purchaseRef = doc(firestore, 'purchases', purchaseToDelete.id);
 
-        for (const item of purchaseToDelete.items) {
-          const productRef = doc(firestore, 'products', item.productId);
-          const productSnap = await transaction.get(productRef);
-          if (productSnap.exists()) {
-            const currentStock = productSnap.data().stock || 0;
-            transaction.update(productRef, { stock: currentStock - item.quantity });
-          }
-        }
+        // --- 1. ALL READS ---
+        const productRefs = purchaseToDelete.items.map(item => doc(firestore, 'products', item.productId));
+        const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+        const dealerRef = doc(firestore, 'dealers', purchaseToDelete.dealer.id);
+        const dealerSnap = await transaction.get(dealerRef);
+        const bankRef = purchaseToDelete.paymentMethod === 'Online' && purchaseToDelete.paymentSourceAccount ? doc(firestore, 'my_bank_accounts', purchaseToDelete.paymentSourceAccount) : null;
+        const bankSnap = bankRef ? await transaction.get(bankRef) : null;
 
-        if (purchaseToDelete.status !== 'Paid') {
-          const dealerRef = doc(firestore, 'dealers', purchaseToDelete.dealer.id);
-          const dealerSnap = await transaction.get(dealerRef);
-          if (dealerSnap.exists()) {
+        // --- 2. ALL WRITES ---
+        // a. Revert stock
+        productSnaps.forEach((productSnap, index) => {
+            const item = purchaseToDelete.items[index];
+            if (productSnap.exists()) {
+                const currentStock = productSnap.data().stock || 0;
+                transaction.update(productSnap.ref, { stock: currentStock - item.quantity });
+            }
+        });
+
+        // b. Adjust dealer balance
+        if (dealerSnap.exists() && purchaseToDelete.status !== 'Paid') {
             const currentBalance = dealerSnap.data().balance || 0;
             transaction.update(dealerRef, { balance: currentBalance - purchaseToDelete.total });
-          }
         }
         
+        // c. Revert bank transaction
+        if (bankSnap?.exists() && purchaseToDelete.status === 'Paid') {
+            const currentBankBalance = bankSnap.data().balance || 0;
+            transaction.update(bankSnap.ref, { balance: currentBankBalance + purchaseToDelete.total });
+        }
+        
+        // d. Delete purchase
         transaction.delete(purchaseRef);
       });
 

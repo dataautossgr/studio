@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import {
@@ -42,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, runTransaction, addDoc, setDoc, query, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, runTransaction, addDoc, setDoc, query, where, writeBatch, deleteDoc } from 'firebase/firestore';
 import type { BankAccount, BankTransaction } from '@/lib/data';
 import { BankAccountDialog, type BankAccountFormData } from './bank-account-dialog';
 import { BankTransactionDialog, type BankTransactionFormData } from './bank-transaction-dialog';
@@ -62,6 +63,7 @@ export default function MyBanksPage() {
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<BankAccount | null>(null);
+  const [transactionToDelete, setTransactionToDelete] = useState<BankTransaction | null>(null);
   const { toast } = useToast();
   
   const handleAddAccount = () => {
@@ -195,6 +197,49 @@ export default function MyBanksPage() {
       console.error(e);
     }
   };
+  
+  const handleEditTransaction = () => {
+    toast({
+        variant: 'destructive',
+        title: 'Not Supported',
+        description: 'Editing transactions is not supported to maintain ledger integrity. Please delete and re-create the transaction.',
+        duration: 6000
+    });
+  }
+
+  const handleDeleteTransaction = async () => {
+    if (!transactionToDelete || !firestore) return;
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const txRef = doc(firestore, 'bank_transactions', transactionToDelete.id);
+            const accountRef = doc(firestore, 'my_bank_accounts', transactionToDelete.accountId);
+
+            const accountSnap = await transaction.get(accountRef);
+            if (!accountSnap.exists()) throw new Error("Associated bank account not found.");
+            
+            const currentBalance = accountSnap.data().balance;
+            let newBalance;
+
+            if (transactionToDelete.type === 'Credit') {
+                newBalance = currentBalance - transactionToDelete.amount;
+            } else { // Debit
+                newBalance = currentBalance + transactionToDelete.amount;
+            }
+
+            transaction.update(accountRef, { balance: newBalance });
+            transaction.delete(txRef);
+        });
+
+        toast({ title: 'Transaction Deleted', description: 'The transaction has been removed and balance updated.' });
+    } catch (e) {
+        console.error("Error deleting transaction: ", e);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the transaction.' });
+    } finally {
+        setTransactionToDelete(null);
+    }
+  };
+
 
   const isLoading = isLoadingAccounts || isLoadingTransactions;
 
@@ -236,8 +281,8 @@ export default function MyBanksPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => handleEditAccount(account)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setAccountToDelete(account)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleEditAccount(account)}><Pencil className="mr-2 h-4 w-4" />Edit Account</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setAccountToDelete(account)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete Account</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                      <AccordionTrigger>
@@ -254,6 +299,7 @@ export default function MyBanksPage() {
                           <TableHead className="text-right">Debit</TableHead>
                           <TableHead className="text-right">Credit</TableHead>
                           <TableHead className="text-right">Balance</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -264,6 +310,21 @@ export default function MyBanksPage() {
                             <TableCell className="text-right font-mono">{tx.type === 'Debit' ? `Rs. ${tx.amount.toLocaleString()}` : '-'}</TableCell>
                             <TableCell className="text-right font-mono text-green-600">{tx.type === 'Credit' ? `Rs. ${tx.amount.toLocaleString()}` : '-'}</TableCell>
                             <TableCell className="text-right font-mono">Rs. {tx.balanceAfter.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4"/></Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuItem onSelect={handleEditTransaction} disabled>
+                                            <Pencil className="mr-2 h-4 w-4"/> Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setTransactionToDelete(tx)} className="text-destructive">
+                                            <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -300,6 +361,21 @@ export default function MyBanksPage() {
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDeleteAccount}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!transactionToDelete} onOpenChange={() => setTransactionToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will permanently delete this transaction and update the account balance. This action cannot be undone.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteTransaction}>Continue</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

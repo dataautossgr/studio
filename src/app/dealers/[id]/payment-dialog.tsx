@@ -53,30 +53,24 @@ interface PaymentDialogProps {
   payment: Transaction | null;
   bankAccounts: BankAccount[];
   isLoadingBankAccounts: boolean;
+  isReadOnly: boolean;
 }
 
-export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, bankAccounts, isLoadingBankAccounts }: PaymentDialogProps) {
+export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, bankAccounts, isLoadingBankAccounts, isReadOnly }: PaymentDialogProps) {
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
   });
 
-  const isEditing = !!payment;
   const transactionType = watch('transactionType');
   const paymentMethod = watch('paymentMethod');
   const receiptImageUrl = watch('receiptImageUrl');
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditing && payment?.type === 'Payment' && payment?.paymentDetails) {
+      if (payment && payment.paymentDetails) {
         reset({
-            transactionType: 'Payment',
-            amount: payment.credit,
-            paymentDate: new Date(payment.date),
-            paymentMethod: payment.paymentDetails.paymentMethod,
-            onlinePaymentSource: payment.paymentDetails.onlinePaymentSource,
-            receiptImageUrl: payment.paymentDetails.receiptImageUrl,
-            notes: payment.paymentDetails.notes,
-            paymentDestinationDetails: (payment.paymentDetails as any).paymentDestinationDetails || { accountTitle: '', bankName: '', accountNumber: '' },
+            ...payment.paymentDetails,
+            amount: payment.type === 'Payment' ? payment.credit : payment.debit,
         });
       } else {
         reset({
@@ -91,7 +85,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
         });
       }
     }
-  }, [isOpen, reset, payment, isEditing]);
+  }, [isOpen, reset, payment]);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -113,13 +107,13 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Transaction' : 'Add Transaction'} for {dealerName}</DialogTitle>
+          <DialogTitle>{isReadOnly ? 'Transaction Details' : 'Add Transaction'} for {dealerName}</DialogTitle>
           <DialogDescription>
-             Record a payment made to this dealer or manually adjust their balance.
+             {isReadOnly ? 'Details for the recorded transaction.' : 'Record a payment made to this dealer or manually adjust their balance.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-6 py-4">
+          <fieldset disabled={isReadOnly} className="grid gap-6 py-4">
 
             <div className="space-y-2">
                 <Label>Transaction Type</Label>
@@ -164,6 +158,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
                           <PopoverTrigger asChild>
                               <Button
                                   variant={"outline"}
+                                  disabled={isReadOnly}
                                   className={cn(
                                   "w-full justify-start text-left font-normal",
                                   !field.value && "text-muted-foreground"
@@ -276,7 +271,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
                             <Upload className="h-6 w-6 text-muted-foreground" />
                         </div>
                     )}
-                    <Input id="receipt-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs" />
+                    <Input id="receipt-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs" disabled={isReadOnly}/>
                     </div>
                 </div>
                 )}
@@ -287,10 +282,10 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" {...register('notes')} placeholder="Optional payment notes or reference..." />
             </div>
-          </div>
+          </fieldset>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{isEditing ? 'Save Changes' : 'Save Transaction'}</Button>
+            <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+            {!isReadOnly && <Button type="submit">Save Transaction</Button>}
           </DialogFooter>
         </form>
       </DialogContent>

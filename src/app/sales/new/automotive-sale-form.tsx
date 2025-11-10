@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Search } from 'lucide-react';
+import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Search, Eye } from 'lucide-react';
 import { type Product, type Customer, type Sale, type BankAccount, type BankTransaction } from '@/lib/data';
 import {
   Popover,
@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useFirestore, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc, serverTimestamp, writeBatch, getDoc, getCountFromServer, DocumentReference, runTransaction } from 'firebase/firestore';
+import Link from 'next/link';
 
 
 interface CartItem {
@@ -478,6 +479,13 @@ export default function AutomotiveSaleForm() {
                         <Button variant="outline" size="icon" onClick={() => setIsCustomerDialogOpen(true)}>
                             <UserPlus className="h-4 w-4" />
                         </Button>
+                        {selectedCustomer && (
+                            <Button variant="ghost" size="icon" asChild>
+                                <Link href={`/customers/${selectedCustomer.id}`} target="_blank">
+                                    <Eye className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>
@@ -630,7 +638,3 @@ export default function AutomotiveSaleForm() {
     </div>
   );
 }
-
-    
-
-    

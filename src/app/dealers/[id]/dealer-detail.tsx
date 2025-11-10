@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlusCircle, MoreHorizontal, Pencil, Trash2, Printer } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Pencil, Trash2, Printer, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { PaymentDialog } from './payment-dialog';
 import type { PaymentFormData } from './payment-dialog';
@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
+import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { useStoreSettings } from '@/context/store-settings-context';
 import html2pdf from 'html2pdf.js';
 
@@ -61,7 +61,7 @@ export interface Transaction {
     debit: number;
     credit: number;
     balance: number;
-    paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
+    paymentDetails?: Partial<PaymentFormData> & { receiptImageUrl?: string };
 }
 
 interface DealerLedgerDetailProps {
@@ -84,6 +84,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
     const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [isReadOnly, setIsReadOnly] = useState(false);
     
     const dealerRef = useMemoFirebase(() => dealerId && firestore ? doc(firestore, 'dealers', dealerId) : null, [firestore, dealerId]);
     const { data: dealer, isLoading: isDealerLoading } = useDoc<Dealer>(dealerRef);
@@ -122,6 +123,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
               notes: p.notes,
               receiptImageUrl: p.receiptImageUrl,
               paymentDestinationDetails: (p as any).paymentDestinationDetails,
+              amount: p.amount,
             }
           }
         });
@@ -162,7 +164,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
 
                 // --- 2. All WRITES start from here ---
                 const amount = paymentData.amount;
-                // Adjustment (Debit) increases what we owe the dealer, Payment (Credit) decreases it.
+                // For Dealer: Adjustment increases what we owe (Debit). Payment decreases what we owe (Credit).
                 const balanceChange = isAdjustment ? amount : -amount;
 
                 const newBalance = (dealerDoc.data().balance || 0) + balanceChange;
@@ -207,6 +209,12 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
         setIsPaymentDialogOpen(false);
         setTransactionToEdit(null);
     }
+
+    const handleViewDetails = (tx: Transaction) => {
+        setTransactionToEdit(tx);
+        setIsReadOnly(true);
+        setIsPaymentDialogOpen(true);
+    };
     
     const handleEdit = (tx: Transaction) => {
         if (tx.type === 'Purchase') {
@@ -231,7 +239,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 if(!docToDeleteSnap.exists()) throw new Error("Transaction to delete not found!");
                 const docToDelete = docToDeleteSnap.data() as Purchase | DealerPayment;
 
-                let bankSnap = null;
+                let bankSnap: DocumentSnapshot<DocumentData> | null = null;
                 if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
                     bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource));
                 }
@@ -336,7 +344,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                         <Button onClick={handleSendWhatsApp}>
                             <WhatsAppIcon /> <span className="ml-2">Send on WhatsApp</span>
                         </Button>
-                        <Button onClick={() => { setTransactionToEdit(null); setIsPaymentDialogOpen(true); }}>
+                        <Button onClick={() => { setTransactionToEdit(null); setIsReadOnly(false); setIsPaymentDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Transaction
                         </Button>
@@ -376,10 +384,23 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent>
-                                                <DropdownMenuItem onSelect={() => handleEdit(tx)} disabled={tx.type !== 'Purchase'}>
-                                                    <Pencil className="mr-2 h-4 w-4" />
-                                                    Edit
-                                                </DropdownMenuItem>
+                                                {tx.type === 'Purchase' ? (
+                                                  <DropdownMenuItem onSelect={() => handleEdit(tx)}>
+                                                      <Pencil className="mr-2 h-4 w-4" />
+                                                      Edit Purchase
+                                                  </DropdownMenuItem>
+                                                ) : (
+                                                    <>
+                                                    <DropdownMenuItem onSelect={() => handleViewDetails(tx)}>
+                                                        <Eye className="mr-2 h-4 w-4" />
+                                                        View Details
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => handleEdit(tx)} disabled>
+                                                        <Pencil className="mr-2 h-4 w-4" />
+                                                        Edit (Not Supported)
+                                                    </DropdownMenuItem>
+                                                    </>
+                                                )}
                                                 <DropdownMenuItem onSelect={() => setTransactionToDelete(tx)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Delete
@@ -403,6 +424,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
             payment={transactionToEdit}
             bankAccounts={bankAccounts || []}
             isLoadingBankAccounts={isLoadingBankAccounts}
+            isReadOnly={isReadOnly}
         />
         
         <AlertDialog open={!!transactionToDelete} onOpenChange={() => setTransactionToDelete(null)}>

@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlusCircle, MoreHorizontal, Pencil, Trash2, FileText, Printer } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Pencil, Trash2, FileText, Printer, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { PaymentDialog } from './payment-dialog';
 import type { PaymentFormData } from './payment-dialog';
@@ -44,7 +44,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
+import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { useStoreSettings } from '@/context/store-settings-context';
 import html2pdf from 'html2pdf.js';
 
@@ -63,7 +63,7 @@ export interface Transaction {
     debit: number;
     credit: number;
     balance: number;
-    paymentDetails?: Omit<PaymentFormData, 'amount'> & { receiptImageUrl?: string };
+    paymentDetails?: Partial<PaymentFormData> & { receiptImageUrl?: string };
 }
 
 interface CustomerLedgerDetailProps {
@@ -86,6 +86,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
     const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [isReadOnly, setIsReadOnly] = useState(false);
 
     const customerRef = useMemoFirebase(() => customerId && firestore ? doc(firestore, 'customers', customerId) : null, [firestore, customerId]);
     const { data: customer, isLoading: isCustomerLoading } = useDoc<Customer>(customerRef);
@@ -121,6 +122,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
               onlinePaymentSource: p.onlinePaymentSource,
               notes: p.notes,
               receiptImageUrl: p.receiptImageUrl,
+              amount: p.amount,
             }
           }
         });
@@ -164,6 +166,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
 
                 // --- 2. All WRITES start from here ---
                 const amount = paymentData.amount;
+                // For customer: Adjustment increases what they owe (Debit). Payment decreases what they owe (Credit).
                 const balanceChange = isAdjustment ? amount : -amount;
 
                 const newBalance = (customerDoc.data().balance || 0) + balanceChange;
@@ -209,6 +212,12 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
         setTransactionToEdit(null);
     }
     
+     const handleViewDetails = (tx: Transaction) => {
+        setTransactionToEdit(tx);
+        setIsReadOnly(true);
+        setIsPaymentDialogOpen(true);
+    };
+
     const handleEditPayment = (tx: Transaction) => {
         toast({ variant: 'destructive', title: 'Not Supported', description: 'Editing is not supported. Please delete and re-create the transaction.' });
     };
@@ -228,7 +237,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 if(!docToDeleteSnap.exists()) throw new Error("Transaction to delete not found!");
                 const docToDelete = docToDeleteSnap.data() as Sale | Payment;
 
-                let bankSnap = null;
+                let bankSnap: DocumentSnapshot<DocumentData> | null = null;
                 if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
                     bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource));
                 }
@@ -237,7 +246,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 let newBalance: number;
 
                 if (transactionToDelete.type === 'Payment' || transactionToDelete.type === 'Manual Adjustment') {
-                    // Reverting a payment means increasing the balance (customer owes more)
+                    // Reverting a payment (credit) means increasing the balance (customer owes more)
                     // Reverting an adjustment (debit) means decreasing the balance (customer owes less)
                     const balanceChange = transactionToDelete.type === 'Payment' ? transactionToDelete.credit : -transactionToDelete.debit;
                     newBalance = currentBalance + balanceChange;
@@ -334,7 +343,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                         <Button onClick={handleSendWhatsApp}>
                             <WhatsAppIcon /> <span className="ml-2">Send on WhatsApp</span>
                         </Button>
-                        <Button onClick={() => { setTransactionToEdit(null); setIsPaymentDialogOpen(true); }}>
+                        <Button onClick={() => { setTransactionToEdit(null); setIsReadOnly(false); setIsPaymentDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Add Transaction
                         </Button>
@@ -390,10 +399,16 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                                                         </DropdownMenuItem>
                                                     </>
                                                 ) : (
-                                                    <DropdownMenuItem onSelect={() => handleEditPayment(tx)} disabled>
-                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                        Edit (Not Supported)
-                                                    </DropdownMenuItem>
+                                                    <>
+                                                        <DropdownMenuItem onSelect={() => handleViewDetails(tx)}>
+                                                            <Eye className="mr-2 h-4 w-4" />
+                                                            View Details
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => handleEditPayment(tx)} disabled>
+                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                            Edit (Not Supported)
+                                                        </DropdownMenuItem>
+                                                    </>
                                                 )}
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem onSelect={() => setTransactionToDelete(tx)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
@@ -419,6 +434,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
             payment={transactionToEdit}
             bankAccounts={bankAccounts || []}
             isLoadingBankAccounts={isLoadingBankAccounts}
+            isReadOnly={isReadOnly}
         />
 
         <AlertDialog open={!!transactionToDelete} onOpenChange={() => setTransactionToDelete(null)}>

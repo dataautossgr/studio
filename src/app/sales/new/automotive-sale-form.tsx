@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -444,7 +445,6 @@ export default function AutomotiveSaleForm() {
                                                     key={customer.id}
                                                     onSelect={() => {
                                                         setSelectedCustomer(customer);
-                                                        (document.activeElement as HTMLElement)?.blur();
                                                     }}
                                                 >
                                                     {customer.name} ({customer.phone})
@@ -515,7 +515,6 @@ export default function AutomotiveSaleForm() {
                               key={product.id}
                               onSelect={() => {
                                 handleProductSelect(product);
-                                document.body.click();
                               }}
                             >
                               {product.name}
@@ -610,3 +609,5 @@ export default function AutomotiveSaleForm() {
     </div>
   );
 }
+
+    

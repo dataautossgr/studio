@@ -172,7 +172,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 };
                 transaction.set(paymentRef, { ...paymentPayload, customer: customerRef });
 
-                if (bankSnap && bankSnap.exists()) {
+                if (bankSnap && bankSnap.exists() && paymentData.paymentMethod === 'Online') {
                     const newBankBalance = (bankSnap.data().balance || 0) + paymentData.amount;
                     transaction.update(bankSnap.ref, { balance: newBankBalance });
 
@@ -201,8 +201,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     }
     
     const handleEditPayment = (tx: Transaction) => {
-        // Editing logic would be complex due to balance adjustments, disabled for now.
-        toast({ variant: 'destructive', title: 'Not Implemented', description: 'Editing transactions is not supported. Please delete and re-create.' });
+        toast({ variant: 'destructive', title: 'Not Supported', description: 'Editing is not supported. Please delete and re-create the transaction.' });
     };
 
     const handleDelete = async () => {
@@ -231,7 +230,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 if (transactionToDelete.type === 'Payment' || transactionToDelete.type === 'Manual Adjustment') {
                     const balanceChange = transactionToDelete.credit > 0 ? transactionToDelete.credit : -transactionToDelete.debit;
                     newBalance = currentBalance + balanceChange; // Revert the payment/adjustment
-                    if (bankSnap?.exists()) {
+                    if (bankSnap?.exists() && docToDelete.paymentMethod === 'Online') {
                         const currentBankBalance = bankSnap.data().balance;
                         transaction.update(bankSnap.ref, { balance: currentBankBalance - docToDelete.amount });
                     }
@@ -245,7 +244,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
              toast({ title: "Transaction Deleted", description: "The transaction has been removed and balance updated." });
         } catch (error) {
              console.error("Delete transaction failed: ", error);
-             toast({ variant: "destructive", title: "Error", description: "Could not delete the transaction." });
+             toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Could not delete the transaction." });
         }
 
         setTransactionToDelete(null);
@@ -381,7 +380,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                                                 ) : (
                                                     <DropdownMenuItem onSelect={() => handleEditPayment(tx)} disabled>
                                                         <Pencil className="mr-2 h-4 w-4" />
-                                                        Edit (Not Available)
+                                                        Edit (Not Supported)
                                                     </DropdownMenuItem>
                                                 )}
                                                 <DropdownMenuSeparator />
@@ -427,5 +426,3 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     </div>
   );
 }
-
-    

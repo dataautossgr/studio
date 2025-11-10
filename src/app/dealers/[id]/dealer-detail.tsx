@@ -174,7 +174,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 };
                 transaction.set(paymentRef, { ...paymentPayload, dealer: dealerRef });
 
-                if (bankSnap?.exists()) {
+                if (bankSnap?.exists() && paymentData.paymentMethod === 'Online') {
                     const newBankBalance = (bankSnap.data().balance || 0) - paymentData.amount;
                     transaction.update(bankSnap.ref, { balance: newBankBalance });
 
@@ -205,7 +205,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
         if (tx.type === 'Purchase') {
             router.push(`/purchase/${tx.id}`);
         } else {
-            toast({ variant: 'destructive', title: 'Not Implemented', description: 'Editing payments is not supported. Please delete and re-create.' });
+            toast({ variant: 'destructive', title: 'Not Supported', description: 'Editing is not supported. Please delete and re-create the transaction.' });
         }
     };
 
@@ -237,7 +237,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 } else { // Payment or Adjustment
                     const balanceChange = transactionToDelete.credit > 0 ? transactionToDelete.credit : -transactionToDelete.debit;
                     newBalance = currentBalance + balanceChange; // Revert the payment/adjustment
-                     if (bankSnap?.exists()) {
+                     if (bankSnap?.exists() && docToDelete.paymentMethod === 'Online') {
                         const currentBankBalance = bankSnap.data().balance;
                         transaction.update(bankSnap.ref, { balance: currentBankBalance + docToDelete.amount });
                     }
@@ -250,7 +250,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
              toast({ title: "Transaction Deleted", description: "The transaction has been removed and balance updated." });
         } catch (error) {
              console.error("Delete transaction failed: ", error);
-             toast({ variant: "destructive", title: "Error", description: "Could not delete the transaction." });
+             toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Could not delete the transaction." });
         }
 
         setTransactionToDelete(null);
@@ -367,7 +367,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent>
-                                                <DropdownMenuItem onSelect={() => handleEdit(tx)}>
+                                                <DropdownMenuItem onSelect={() => handleEdit(tx)} disabled={tx.type !== 'Purchase'}>
                                                     <Pencil className="mr-2 h-4 w-4" />
                                                     Edit
                                                 </DropdownMenuItem>
@@ -414,5 +414,3 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     </div>
   );
 }
-
-    

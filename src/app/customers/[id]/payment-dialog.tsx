@@ -108,7 +108,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment, 
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Transaction' : 'Add Transaction'} for {customerName}</DialogTitle>
           <DialogDescription>
-            Record a payment received or manually adjust the customer's balance.
+            Record a payment received from this customer or manually adjust their balance.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -128,7 +128,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment, 
                         >
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="Payment" id="type-payment" />
-                                <Label htmlFor="type-payment">Payment (Credit)</Label>
+                                <Label htmlFor="type-payment">Payment Received (Credit)</Label>
                             </div>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="Adjustment" id="type-adjustment" />
@@ -138,7 +138,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, customerName, payment, 
                     )}
                 />
                  <p className="text-xs text-muted-foreground">
-                    'Payment' reduces dues. 'Balance Adjustment' increases dues (e.g., for opening balance).
+                    'Payment' reduces what the customer owes. 'Adjustment' increases what they owe (e.g., for opening balance).
                 </p>
             </div>
 

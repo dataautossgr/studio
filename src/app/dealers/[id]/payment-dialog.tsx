@@ -135,7 +135,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
                         >
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="Payment" id="type-payment-d" />
-                                <Label htmlFor="type-payment-d">Payment (Credit)</Label>
+                                <Label htmlFor="type-payment-d">Payment Made (Credit)</Label>
                             </div>
                             <div className="flex items-center space-x-2">
                                 <RadioGroupItem value="Adjustment" id="type-adjustment-d" />
@@ -145,7 +145,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
                     )}
                 />
                 <p className="text-xs text-muted-foreground">
-                    'Payment' reduces what you owe. 'Balance Adjustment' increases what you owe (e.g., for returns/opening balance).
+                    'Payment' reduces what you owe. 'Adjustment' increases what you owe (e.g., for returns/opening balance).
                 </p>
             </div>
 
@@ -201,16 +201,16 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
                                 className="flex gap-4 pt-2"
                             >
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="Cash" id="cash" />
-                                    <Label htmlFor="cash">Cash</Label>
+                                    <RadioGroupItem value="Cash" id="cash-d" />
+                                    <Label htmlFor="cash-d">Cash</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="Online" id="online" />
-                                    <Label htmlFor="online">Online</Label>
+                                    <RadioGroupItem value="Online" id="online-d" />
+                                    <Label htmlFor="online-d">Online</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="Cheque" id="cheque" />
-                                    <Label htmlFor="cheque">Cheque</Label>
+                                    <RadioGroupItem value="Cheque" id="cheque-d" />
+                                    <Label htmlFor="cheque-d">Cheque</Label>
                                 </div>
                             </RadioGroup>
                         )}

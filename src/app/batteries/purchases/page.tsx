@@ -1,4 +1,3 @@
-
 'use client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
-import type { Battery, Dealer, BatteryPurchase } from "@/lib/data";
+import type { Battery, Dealer, BatteryPurchase, BankAccount } from "@/lib/data";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -27,8 +26,6 @@ interface PurchaseItem {
     currentStock: number;
 }
 
-const onlinePaymentSources = ["Meezan Bank", "Nayapay", "Sadapay", "Easypaisa", "Jazzcash", "Upaisa", "Islamic Bank", "Other"];
-
 export default function BatteryPurchaseForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -40,9 +37,12 @@ export default function BatteryPurchaseForm() {
 
     const batteriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'batteries') : null, [firestore]);
     const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
+    const bankAccountsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'my_bank_accounts') : null, [firestore]);
+
 
     const { data: batteries, isLoading: batteriesLoading } = useCollection<Battery>(batteriesCollection);
     const { data: dealers, isLoading: dealersLoading } = useCollection<Dealer>(dealersCollection);
+    const { data: bankAccounts, isLoading: bankAccountsLoading } = useCollection<BankAccount>(bankAccountsCollection);
 
     const [items, setItems] = useState<PurchaseItem[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
@@ -121,9 +121,23 @@ export default function BatteryPurchaseForm() {
 
     const totalAmount = useMemo(() => items.reduce((acc, item) => acc + item.quantity * item.costPrice, 0), [items]);
 
+    const selectedBankAccount = useMemo(() => {
+        if (!paymentSourceAccount || !bankAccounts) return null;
+        return bankAccounts.find(acc => acc.id === paymentSourceAccount);
+    }, [paymentSourceAccount, bankAccounts]);
+
+    const hasSufficientFunds = useMemo(() => {
+        if (paymentMethod !== 'Online' || !selectedBankAccount) return true;
+        return selectedBankAccount.balance >= totalAmount;
+    }, [paymentMethod, selectedBankAccount, totalAmount]);
+
     const handleSavePurchase = async () => {
         if (!firestore || !selectedDealer || items.length === 0 || !purchaseDate) {
             toast({ variant: 'destructive', title: 'Validation Error', description: 'Please select a dealer and add at least one item.' });
+            return;
+        }
+        if (!hasSufficientFunds) {
+            toast({ variant: 'destructive', title: 'Insufficient Balance', description: 'Not enough balance in the selected bank account for this payment.' });
             return;
         }
         setIsSaving(true);
@@ -133,6 +147,11 @@ export default function BatteryPurchaseForm() {
                 // --- 1. All READ operations first ---
                 const batteryRefs = items.map(item => doc(firestore, 'batteries', item.id));
                 const batterySnaps = await Promise.all(batteryRefs.map(ref => transaction.get(ref)));
+                const bankDoc = (paymentMethod === 'Online' && paymentSourceAccount) ? await transaction.get(doc(firestore, 'my_bank_accounts', paymentSourceAccount)) : null;
+
+                if (paymentMethod === 'Online' && bankDoc && bankDoc.exists() && bankDoc.data().balance < totalAmount) {
+                    throw new Error("Insufficient balance in the selected account.");
+                }
 
                 // --- 2. All WRITE operations second ---
                 batterySnaps.forEach((batterySnap, index) => {
@@ -143,6 +162,11 @@ export default function BatteryPurchaseForm() {
                     const newStock = isNew ? currentStock + item.quantity : item.currentStock + item.quantity;
                     transaction.update(batterySnap.ref, { stock: newStock });
                 });
+
+                if (paymentMethod === 'Online' && bankDoc?.exists()) {
+                    const newBankBalance = bankDoc.data().balance - totalAmount;
+                    transaction.update(bankDoc.ref, { balance: newBankBalance });
+                }
 
                 const purchaseData: Omit<BatteryPurchase, 'id'> = {
                     dealerId: selectedDealer.id,
@@ -162,7 +186,7 @@ export default function BatteryPurchaseForm() {
 
         } catch (error) {
             console.error("Error saving battery purchase:", error);
-            toast({ variant: "destructive", title: "Error", description: "Failed to save the purchase." });
+            toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Failed to save the purchase." });
         } finally {
             setIsSaving(false);
         }
@@ -280,9 +304,17 @@ export default function BatteryPurchaseForm() {
                                     <Select value={paymentSourceAccount} onValueChange={setPaymentSourceAccount}>
                                         <SelectTrigger id="paymentSource"><SelectValue placeholder="Select my bank" /></SelectTrigger>
                                         <SelectContent>
-                                            {onlinePaymentSources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                             {bankAccountsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                                bankAccounts?.map(account => (
+                                                <SelectItem key={account.id} value={account.id}>
+                                                    {account.bankName} (Balance: {account.balance.toLocaleString()})
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
+                                    {!hasSufficientFunds && (
+                                        <p className="text-xs text-destructive">Insufficient balance in the selected account.</p>
+                                    )}
                                 </div>
                                 <div className="space-y-4">
                                   <h4 className="text-sm font-medium text-muted-foreground">Dealer's Account (Destination)</h4>
@@ -314,7 +346,7 @@ export default function BatteryPurchaseForm() {
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => router.push('/purchase?tab=battery')}>Cancel</Button>
-                <Button onClick={handleSavePurchase} disabled={isSaving}>
+                <Button onClick={handleSavePurchase} disabled={isSaving || !hasSufficientFunds}>
                     {isSaving ? 'Saving...' : 'Save Purchase'}
                 </Button>
             </CardFooter>

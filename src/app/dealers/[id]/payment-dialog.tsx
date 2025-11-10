@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Dialog,
@@ -64,6 +63,19 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
   const transactionType = watch('transactionType');
   const paymentMethod = watch('paymentMethod');
   const receiptImageUrl = watch('receiptImageUrl');
+  const onlinePaymentSource = watch('onlinePaymentSource');
+  const amount = watch('amount');
+
+  const selectedBankAccount = useMemo(() => {
+    if (!onlinePaymentSource || !bankAccounts) return null;
+    return bankAccounts.find(acc => acc.id === onlinePaymentSource);
+  }, [onlinePaymentSource, bankAccounts]);
+
+  const hasSufficientFunds = useMemo(() => {
+    if (paymentMethod !== 'Online' || !selectedBankAccount) return true;
+    return selectedBankAccount.balance >= amount;
+  }, [paymentMethod, selectedBankAccount, amount]);
+
 
   useEffect(() => {
     if (isOpen) {
@@ -107,7 +119,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isReadOnly ? 'Transaction Details' : 'Add Transaction'} for {dealerName}</DialogTitle>
+          <DialogTitle>{isReadOnly ? 'Transaction Details' : (payment ? 'Edit' : 'Add') + ' Transaction'} for {dealerName}</DialogTitle>
           <DialogDescription>
              {isReadOnly ? 'Details for the recorded transaction.' : 'Record a payment made to this dealer or manually adjust their balance.'}
           </DialogDescription>
@@ -227,13 +239,16 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
                             {isLoadingBankAccounts ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
                             bankAccounts.map(account => (
                                 <SelectItem key={account.id} value={account.id}>
-                                {account.bankName} ({account.accountTitle})
+                                {account.bankName} (Balance: {account.balance.toLocaleString()})
                                 </SelectItem>
                             ))}
                             </SelectContent>
                         </Select>
                         )}
                     />
+                     {!hasSufficientFunds && (
+                        <p className="text-xs text-destructive">Insufficient balance in the selected account.</p>
+                      )}
                     </div>
                     <div className="space-y-4">
                     <h4 className="text-sm font-medium text-muted-foreground">Dealer's Account (Destination)</h4>
@@ -285,7 +300,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
           </fieldset>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Close</Button>
-            {!isReadOnly && <Button type="submit">Save Transaction</Button>}
+            {!isReadOnly && <Button type="submit" disabled={!hasSufficientFunds}>Save Transaction</Button>}
           </DialogFooter>
         </form>
       </DialogContent>

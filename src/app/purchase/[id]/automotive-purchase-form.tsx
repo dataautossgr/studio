@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -29,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar as CalendarIcon, Trash2, Search, PlusCircle, Upload } from 'lucide-react';
-import { type Product, type Dealer, type Purchase } from '@/lib/data';
+import { type Product, type Dealer, type Purchase, type BankAccount } from '@/lib/data';
 import { ProductDialog } from '../../inventory/product-dialog';
 import {
   Popover,
@@ -55,8 +54,6 @@ import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 
-const onlinePaymentSources = ["Meezan Bank", "Nayapay", "Sadapay", "Easypaisa", "Jazzcash", "Upaisa", "Islamic Bank", "Other"];
-
 
 interface PurchaseItem {
   productId: string;
@@ -77,10 +74,12 @@ export default function AutomotivePurchaseForm() {
     
     const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
     const dealersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'dealers') : null, [firestore]);
+    const bankAccountsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'my_bank_accounts') : null, [firestore]);
     const purchaseRef = useMemoFirebase(() => isNew || !firestore || !purchaseId ? null : doc(firestore, 'purchases', purchaseId), [isNew, purchaseId, firestore]);
     
     const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
     const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
+    const { data: bankAccounts, isLoading: isLoadingBankAccounts } = useCollection<BankAccount>(bankAccountsCollection);
     const { data: purchase, isLoading: isLoadingPurchase } = useDoc<Purchase>(purchaseRef);
     
     const automotiveDealers = useMemo(() => dealers?.filter(d => d.type === 'automotive') || [], [dealers]);
@@ -104,6 +103,19 @@ export default function AutomotivePurchaseForm() {
       accountNumber: ''
     });
 
+    const totalAmount = useMemo(() => {
+        return purchaseItems.reduce((acc, item) => acc + item.costPrice * item.quantity, 0);
+    }, [purchaseItems]);
+
+    const selectedBankAccount = useMemo(() => {
+        if (!paymentSourceAccount || !bankAccounts) return null;
+        return bankAccounts.find(acc => acc.id === paymentSourceAccount);
+    }, [paymentSourceAccount, bankAccounts]);
+
+    const hasSufficientFunds = useMemo(() => {
+        if (paymentMethod !== 'Online' || status !== 'Paid' || !selectedBankAccount) return true;
+        return selectedBankAccount.balance >= totalAmount;
+    }, [paymentMethod, status, selectedBankAccount, totalAmount]);
     
     useEffect(() => {
         if (!isNew && purchase && products && dealers) {
@@ -220,10 +232,6 @@ export default function AutomotivePurchaseForm() {
         setPurchaseItems(purchaseItems.filter((item) => item.productId !== productId));
     };
 
-    const totalAmount = useMemo(() => {
-        return purchaseItems.reduce((acc, item) => acc + item.costPrice * item.quantity, 0);
-    }, [purchaseItems]);
-
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -240,6 +248,10 @@ export default function AutomotivePurchaseForm() {
             toast({ variant: 'destructive', title: 'Validation Error', description: 'Please select a dealer, a date, and add at least one item.' });
             return;
         }
+        if (!hasSufficientFunds) {
+            toast({ variant: 'destructive', title: 'Insufficient Balance', description: 'Not enough balance in the selected bank account for this payment.' });
+            return;
+        }
 
         try {
             await runTransaction(firestore, async (transaction) => {
@@ -249,8 +261,12 @@ export default function AutomotivePurchaseForm() {
                 // --- 1. All READS must come before writes ---
                 const dealerDoc = await transaction.get(dealerRef);
                 const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+                const bankDoc = (paymentMethod === 'Online' && paymentSourceAccount) ? await transaction.get(doc(firestore, 'my_bank_accounts', paymentSourceAccount)) : null;
 
                 if (!dealerDoc.exists()) throw new Error("Dealer not found!");
+                if (paymentMethod === 'Online' && bankDoc && bankDoc.exists() && bankDoc.data().balance < totalAmount) {
+                    throw new Error("Insufficient balance in the selected account.");
+                }
 
                 // --- 2. All WRITES start from here ---
                 // Step 2a: Update product stocks
@@ -301,6 +317,12 @@ export default function AutomotivePurchaseForm() {
                 if (balanceChange !== 0) {
                     const newBalance = (dealerDoc.data()?.balance || 0) + balanceChange;
                     transaction.update(dealerRef, { balance: newBalance });
+                }
+
+                // Step 2e: Update bank balance
+                if (status === 'Paid' && paymentMethod === 'Online' && bankDoc?.exists()) {
+                    const newBankBalance = bankDoc.data().balance - totalAmount;
+                    transaction.update(bankDoc.ref, { balance: newBankBalance });
                 }
             });
 
@@ -574,9 +596,17 @@ export default function AutomotivePurchaseForm() {
                                     <Select value={paymentSourceAccount} onValueChange={setPaymentSourceAccount}>
                                         <SelectTrigger id="paymentSource"><SelectValue placeholder="Select my bank" /></SelectTrigger>
                                         <SelectContent>
-                                            {onlinePaymentSources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                            {isLoadingBankAccounts ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                                bankAccounts?.map(account => (
+                                                <SelectItem key={account.id} value={account.id}>
+                                                    {account.bankName} (Balance: {account.balance.toLocaleString()})
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
+                                     {!hasSufficientFunds && (
+                                        <p className="text-xs text-destructive">Insufficient balance in the selected account.</p>
+                                    )}
                                 </div>
                                 <div className="space-y-4">
                                   <h4 className="text-sm font-medium text-muted-foreground">Dealer's Account (Destination)</h4>
@@ -603,7 +633,7 @@ export default function AutomotivePurchaseForm() {
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => router.push('/purchase')}>Cancel</Button>
-          <Button onClick={handleSavePurchase}>Save Purchase</Button>
+          <Button onClick={handleSavePurchase} disabled={!hasSufficientFunds}>Save Purchase</Button>
         </CardFooter>
       </Card>
       <ProductDialog 

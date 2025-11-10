@@ -278,9 +278,14 @@ export default function AutomotiveSaleForm() {
 
   const handleSaveSale = async (print = false) => {
     if (!firestore || !saleDate) return;
-    const batch = writeBatch(firestore);
     
+    // Pre-read data needed for the transaction
+    const salesSnapshot = isNew ? await getCountFromServer(collection(firestore, 'sales')) : null;
+    const bankSnap = (paymentMethod === 'online' && onlinePaymentSource) ? await getDoc(doc(firestore, 'my_bank_accounts', onlinePaymentSource)) : null;
+
     try {
+        const batch = writeBatch(firestore);
+        
         const finalSaleDate = new Date(saleDate);
         const [hours, minutes] = saleTime.split(':').map(Number);
         finalSaleDate.setHours(hours, minutes);
@@ -315,14 +320,12 @@ export default function AutomotiveSaleForm() {
         };
 
         if (isNew) {
-            const salesSnapshot = await getCountFromServer(collection(firestore, 'sales'));
-            const newInvoiceNumber = (salesSnapshot.data().count + 1).toString().padStart(3, '0');
+            const newInvoiceNumber = (salesSnapshot!.data().count + 1).toString().padStart(3, '0');
             batch.set(saleRef, { ...saleData, invoice: `INV-${newInvoiceNumber}` });
         } else {
             batch.update(saleRef, saleData);
         }
 
-        // Update balances and stock
         if (status !== 'Paid' && selectedCustomer) {
             const dueAmount = finalAmount - partialAmount;
             const originalDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
@@ -337,29 +340,25 @@ export default function AutomotiveSaleForm() {
             }
         });
         
-        // Update bank balance for online payments
-        if (paymentMethod === 'online' && onlinePaymentSource) {
+        if (paymentMethod === 'online' && onlinePaymentSource && bankSnap?.exists()) {
             const amountToCredit = status === 'Paid' ? finalAmount : partialAmount;
             if(amountToCredit > 0) {
                 const bankRef = doc(firestore, 'my_bank_accounts', onlinePaymentSource);
-                const bankSnap = await getDoc(bankRef);
-                if (bankSnap.exists()) {
-                    const currentBalance = bankSnap.data().balance;
-                    const newBalance = currentBalance + amountToCredit;
-                    batch.update(bankRef, { balance: newBalance });
+                const currentBalance = bankSnap.data().balance;
+                const newBalance = currentBalance + amountToCredit;
+                batch.update(bankRef, { balance: newBalance });
 
-                    const transactionRef = doc(collection(firestore, 'bank_transactions'));
-                    batch.set(transactionRef, {
-                        accountId: onlinePaymentSource,
-                        date: finalSaleDate.toISOString(),
-                        description: `Sale ${isNew ? saleRef.id : saleId}`,
-                        type: 'Credit',
-                        amount: amountToCredit,
-                        balanceAfter: newBalance,
-                        referenceId: saleRef.id,
-                        referenceType: 'Sale'
-                    });
-                }
+                const transactionRef = doc(collection(firestore, 'bank_transactions'));
+                batch.set(transactionRef, {
+                    accountId: onlinePaymentSource,
+                    date: finalSaleDate.toISOString(),
+                    description: `Sale ${isNew ? `INV-${(salesSnapshot!.data().count + 1).toString().padStart(3, '0')}` : sale?.invoice}`,
+                    type: 'Credit',
+                    amount: amountToCredit,
+                    balanceAfter: newBalance,
+                    referenceId: saleRef.id,
+                    referenceType: 'Sale'
+                });
             }
         }
         
@@ -445,6 +444,7 @@ export default function AutomotiveSaleForm() {
                                                     key={customer.id}
                                                     onSelect={() => {
                                                         setSelectedCustomer(customer);
+                                                        (document.activeElement as HTMLElement)?.blur();
                                                     }}
                                                 >
                                                     {customer.name} ({customer.phone})
@@ -515,6 +515,7 @@ export default function AutomotiveSaleForm() {
                               key={product.id}
                               onSelect={() => {
                                 handleProductSelect(product);
+                                (document.activeElement as HTMLElement)?.blur();
                               }}
                             >
                               {product.name}

@@ -152,31 +152,37 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
 
         try {
             await runTransaction(firestore, async (transaction) => {
-                // --- 1. All READS must come before writes ---
                 const customerDoc = await transaction.get(customerRef);
                 if (!customerDoc.exists()) throw new Error("Customer not found!");
                 
+                const isEditing = !!transactionToEdit;
                 const isAdjustment = paymentData.transactionType === 'Adjustment';
-                const paymentReceived = paymentData.transactionType === 'Payment';
-                let bankSnap: DocumentSnapshot<DocumentData> | null = null;
+                const isPayment = paymentData.transactionType === 'Payment';
                 
-                if (paymentReceived && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
-                    bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
+                let originalAmount = 0;
+                let originalIsPayment = false;
+                let oldPaymentDoc: DocumentSnapshot<DocumentData> | null = null;
+                
+                if (isEditing && transactionToEdit) {
+                    const oldPaymentRef = doc(firestore, 'payments', transactionToEdit.id);
+                    oldPaymentDoc = await transaction.get(oldPaymentRef);
+                    if (oldPaymentDoc.exists()) {
+                        originalAmount = oldPaymentDoc.data().amount || 0;
+                        originalIsPayment = !oldPaymentDoc.data().reference?.startsWith('ADJ');
+                    }
                 }
 
-                // --- 2. All WRITES start from here ---
-                const amount = paymentData.amount;
-                // For customer: Adjustment increases what they owe (Debit). Payment decreases what they owe (Credit).
-                const balanceChange = isAdjustment ? amount : -amount;
-
-                const newBalance = (customerDoc.data().balance || 0) + balanceChange;
-                transaction.update(customerRef, { balance: newBalance });
-
-                const paymentRef = doc(collection(firestore, 'payments'));
+                const balanceReversal = isEditing ? (originalIsPayment ? originalAmount : -originalAmount) : 0;
+                const newBalanceEffect = isPayment ? -paymentData.amount : paymentData.amount;
+                const balanceChange = newBalanceEffect + balanceReversal;
+                
+                transaction.update(customerRef, { balance: (customerDoc.data().balance || 0) + balanceChange });
+                
+                const paymentRef = isEditing ? doc(firestore, 'payments', transactionToEdit!.id) : doc(collection(firestore, 'payments'));
                 const paymentPayload: Omit<Payment, 'id' | 'customer'> = {
                     amount: paymentData.amount,
                     date: paymentData.paymentDate.toISOString(),
-                    paymentMethod: paymentData.paymentMethod || 'Cash', // Default for adjustments
+                    paymentMethod: paymentData.paymentMethod || 'Cash',
                     onlinePaymentSource: paymentData.onlinePaymentSource || '',
                     notes: paymentData.notes || (isAdjustment ? 'Manual Balance Adjustment' : ''),
                     receiptImageUrl: paymentData.receiptImageUrl || '',
@@ -184,25 +190,8 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 };
                 transaction.set(paymentRef, { ...paymentPayload, customer: customerRef });
 
-                if (bankSnap?.exists() && paymentReceived && paymentData.paymentMethod === 'Online') {
-                    const newBankBalance = (bankSnap.data().balance || 0) + paymentData.amount;
-                    transaction.update(bankSnap.ref, { balance: newBankBalance });
-
-                    const txRef = doc(collection(firestore, 'bank_transactions'));
-                    const txPayload: Omit<BankTransaction, 'id'> = {
-                        accountId: paymentData.onlinePaymentSource!,
-                        date: paymentData.paymentDate.toISOString(),
-                        description: `Payment from ${customer.name}`,
-                        type: 'Credit',
-                        amount: paymentData.amount,
-                        balanceAfter: newBankBalance,
-                        referenceId: paymentRef.id,
-                        referenceType: 'Customer Payment'
-                    };
-                    transaction.set(txRef, txPayload);
-                }
             });
-            toast({ title: "Transaction Added", description: "The transaction has been recorded successfully." });
+            toast({ title: "Transaction Saved", description: "The transaction has been recorded successfully." });
         } catch (error) {
             console.error("Transaction failed: ", error);
             toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Could not save the transaction." });
@@ -219,7 +208,13 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     };
 
     const handleEditPayment = (tx: Transaction) => {
-        toast({ variant: 'destructive', title: 'Not Supported', description: 'Editing is not supported. Please delete and re-create the transaction.' });
+        if(tx.type === 'Sale') {
+            router.push(`/sales/${tx.id}`);
+            return;
+        }
+        setTransactionToEdit(tx);
+        setIsReadOnly(false);
+        setIsPaymentDialogOpen(true);
     };
 
     const handleDelete = async () => {
@@ -246,8 +241,6 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 let newBalance: number;
 
                 if (transactionToDelete.type === 'Payment' || transactionToDelete.type === 'Manual Adjustment') {
-                    // Reverting a payment (credit) means increasing the balance (customer owes more)
-                    // Reverting an adjustment (debit) means decreasing the balance (customer owes less)
                     const balanceChange = transactionToDelete.type === 'Payment' ? transactionToDelete.credit : -transactionToDelete.debit;
                     newBalance = currentBalance + balanceChange;
                     
@@ -384,29 +377,19 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent>
                                                 {tx.type === 'Sale' ? (
-                                                    <>
-                                                        <DropdownMenuItem asChild>
-                                                            <Link href={`/sales/invoice/${tx.id}`}>
-                                                                <FileText className="mr-2 h-4 w-4" />
-                                                                View Invoice
-                                                            </Link>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem asChild>
-                                                            <Link href={`/sales/${tx.id}`}>
-                                                                <Pencil className="mr-2 h-4 w-4" />
-                                                                Edit Sale
-                                                            </Link>
-                                                        </DropdownMenuItem>
-                                                    </>
+                                                    <DropdownMenuItem onSelect={() => handleEditPayment(tx)}>
+                                                        <Pencil className="mr-2 h-4 w-4" />
+                                                        Edit Sale
+                                                    </DropdownMenuItem>
                                                 ) : (
                                                     <>
                                                         <DropdownMenuItem onSelect={() => handleViewDetails(tx)}>
                                                             <Eye className="mr-2 h-4 w-4" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onSelect={() => handleEditPayment(tx)} disabled>
+                                                        <DropdownMenuItem onSelect={() => handleEditPayment(tx)}>
                                                             <Pencil className="mr-2 h-4 w-4" />
-                                                            Edit (Not Supported)
+                                                            Edit
                                                         </DropdownMenuItem>
                                                     </>
                                                 )}

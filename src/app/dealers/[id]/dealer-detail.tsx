@@ -150,27 +150,32 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
 
         try {
             await runTransaction(firestore, async (transaction) => {
-                // --- 1. All READS must come before writes ---
                 const dealerDoc = await transaction.get(dealerRef);
                 if (!dealerDoc.exists()) throw new Error("Dealer not found!");
                 
+                const isEditing = !!transactionToEdit;
                 const isAdjustment = paymentData.transactionType === 'Adjustment';
                 const isPayment = paymentData.transactionType === 'Payment';
                 
-                let bankSnap: DocumentSnapshot<DocumentData> | null = null;
-                if (isPayment && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
-                    bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
+                let originalAmount = 0;
+                let originalIsPayment = false;
+                
+                if (isEditing && transactionToEdit) {
+                    const oldPaymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
+                    const oldPaymentDoc = await transaction.get(oldPaymentRef);
+                    if (oldPaymentDoc.exists()) {
+                        originalAmount = oldPaymentDoc.data().amount || 0;
+                        originalIsPayment = !oldPaymentDoc.data().reference?.startsWith('ADJ');
+                    }
                 }
 
-                // --- 2. All WRITES start from here ---
-                const amount = paymentData.amount;
-                // For Dealer: Adjustment increases what we owe (Debit). Payment decreases what we owe (Credit).
-                const balanceChange = isAdjustment ? amount : -amount;
+                const balanceReversal = isEditing ? (originalIsPayment ? originalAmount : -originalAmount) : 0;
+                const newBalanceEffect = isPayment ? -paymentData.amount : paymentData.amount;
+                const balanceChange = newBalanceEffect + balanceReversal;
+                
+                transaction.update(dealerRef, { balance: (dealerDoc.data().balance || 0) + balanceChange });
 
-                const newBalance = (dealerDoc.data().balance || 0) + balanceChange;
-                transaction.update(dealerRef, { balance: newBalance });
-
-                const paymentRef = doc(collection(firestore, 'dealer_payments'));
+                const paymentRef = isEditing ? doc(firestore, 'dealer_payments', transactionToEdit!.id) : doc(collection(firestore, 'dealer_payments'));
                 const paymentPayload: Omit<DealerPayment, 'id' | 'dealer'> = {
                     amount: paymentData.amount,
                     date: paymentData.paymentDate.toISOString(),
@@ -182,26 +187,8 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                     reference: isAdjustment ? `ADJ-DLR-${Date.now().toString().slice(-6)}` : `PAID-${Date.now().toString().slice(-6)}`,
                 };
                 transaction.set(paymentRef, { ...paymentPayload, dealer: dealerRef });
-
-                if (bankSnap?.exists() && isPayment && paymentData.paymentMethod === 'Online') {
-                    const newBankBalance = (bankSnap.data().balance || 0) - paymentData.amount;
-                    transaction.update(bankSnap.ref, { balance: newBankBalance });
-
-                    const txRef = doc(collection(firestore, 'bank_transactions'));
-                    const txPayload: Omit<BankTransaction, 'id'> = {
-                        accountId: paymentData.onlinePaymentSource!,
-                        date: paymentData.paymentDate.toISOString(),
-                        description: `Payment to ${dealer.company}`,
-                        type: 'Debit',
-                        amount: paymentData.amount,
-                        balanceAfter: newBankBalance,
-                        referenceId: paymentRef.id,
-                        referenceType: 'Dealer Payment'
-                    };
-                    transaction.set(txRef, txPayload);
-                }
             });
-            toast({ title: "Transaction Added", description: `The transaction for ${dealer.company} has been recorded.` });
+            toast({ title: "Transaction Saved", description: `The transaction for ${dealer.company} has been recorded.` });
         } catch (error) {
             console.error("Payment transaction failed: ", error);
             toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Could not save the transaction." });
@@ -219,9 +206,11 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     const handleEdit = (tx: Transaction) => {
         if (tx.type === 'Purchase') {
             router.push(`/purchase/${tx.id}`);
-        } else {
-            toast({ variant: 'destructive', title: 'Not Supported', description: 'Editing is not supported. Please delete and re-create the transaction.' });
+            return;
         }
+        setTransactionToEdit(tx);
+        setIsReadOnly(false);
+        setIsPaymentDialogOpen(true);
     };
 
     const handleDelete = async () => {
@@ -250,8 +239,6 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 if (transactionToDelete.type === 'Purchase') {
                     newBalance = currentBalance - transactionToDelete.debit;
                 } else { // Payment or Adjustment
-                    // Reverting a payment (credit) increases what we owe
-                    // Reverting an adjustment (debit) decreases what we owe
                     const balanceChange = transactionToDelete.type === 'Payment' ? transactionToDelete.credit : -transactionToDelete.debit;
                     newBalance = currentBalance + balanceChange;
                      if (bankSnap?.exists() && 'paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online') {
@@ -395,9 +382,9 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                                                         <Eye className="mr-2 h-4 w-4" />
                                                         View Details
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onSelect={() => handleEdit(tx)} disabled>
+                                                    <DropdownMenuItem onSelect={() => handleEdit(tx)}>
                                                         <Pencil className="mr-2 h-4 w-4" />
-                                                        Edit (Not Supported)
+                                                        Edit
                                                     </DropdownMenuItem>
                                                     </>
                                                 )}

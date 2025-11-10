@@ -104,24 +104,27 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
           balance: 0,
         }));
         
-        const paymentTransactions: Transaction[] = validDealerPayments.map(p => ({
-          id: p.id,
-          date: p.date,
-          type: p.reference?.startsWith('ADJ') ? 'Manual Adjustment' : 'Payment',
-          reference: p.reference || `PAY-DLR-${p.id.substring(0,6)}`,
-          debit: p.reference?.startsWith('ADJ') ? p.amount : 0,
-          credit: p.reference?.startsWith('ADJ') ? 0 : p.amount,
-          balance: 0,
-          paymentDetails: {
-            transactionType: p.reference?.startsWith('ADJ') ? 'Adjustment' : 'Payment',
-            paymentDate: new Date(p.date),
-            paymentMethod: p.paymentMethod,
-            onlinePaymentSource: p.onlinePaymentSource,
-            notes: p.notes,
-            receiptImageUrl: p.receiptImageUrl,
-            paymentDestinationDetails: (p as any).paymentDestinationDetails,
+        const paymentTransactions: Transaction[] = validDealerPayments.map(p => {
+          const isAdjustment = p.reference?.startsWith('ADJ');
+          return {
+            id: p.id,
+            date: p.date,
+            type: isAdjustment ? 'Manual Adjustment' : 'Payment',
+            reference: p.reference || `PAY-DLR-${p.id.substring(0,6)}`,
+            debit: isAdjustment ? p.amount : 0,
+            credit: !isAdjustment ? p.amount : 0,
+            balance: 0,
+            paymentDetails: {
+              transactionType: isAdjustment ? 'Adjustment' : 'Payment',
+              paymentDate: new Date(p.date),
+              paymentMethod: p.paymentMethod,
+              onlinePaymentSource: p.onlinePaymentSource,
+              notes: p.notes,
+              receiptImageUrl: p.receiptImageUrl,
+              paymentDestinationDetails: (p as any).paymentDestinationDetails,
+            }
           }
-        }));
+        });
         
         const allTransactions = [...purchaseTransactions, ...paymentTransactions]
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -147,15 +150,19 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
             await runTransaction(firestore, async (transaction) => {
                 // --- 1. All READS must come before writes ---
                 const dealerDoc = await transaction.get(dealerRef);
-                const bankSnap = (paymentData.transactionType !== 'Adjustment' && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource)
-                    ? await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource))
-                    : null;
-
                 if (!dealerDoc.exists()) throw new Error("Dealer not found!");
+                
+                const isAdjustment = paymentData.transactionType === 'Adjustment';
+                const isPayment = paymentData.transactionType === 'Payment';
+                
+                let bankSnap: DocumentSnapshot<DocumentData> | null = null;
+                if (isPayment && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
+                    bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
+                }
 
                 // --- 2. All WRITES start from here ---
-                const isAdjustment = paymentData.transactionType === 'Adjustment';
                 const amount = paymentData.amount;
+                // Adjustment (Debit) increases what we owe the dealer, Payment (Credit) decreases it.
                 const balanceChange = isAdjustment ? amount : -amount;
 
                 const newBalance = (dealerDoc.data().balance || 0) + balanceChange;
@@ -174,7 +181,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 };
                 transaction.set(paymentRef, { ...paymentPayload, dealer: dealerRef });
 
-                if (bankSnap?.exists() && paymentData.paymentMethod === 'Online') {
+                if (bankSnap?.exists() && isPayment && paymentData.paymentMethod === 'Online') {
                     const newBankBalance = (bankSnap.data().balance || 0) - paymentData.amount;
                     transaction.update(bankSnap.ref, { balance: newBankBalance });
 
@@ -222,10 +229,10 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 
                 const docToDeleteSnap = await transaction.get(ref);
                 if(!docToDeleteSnap.exists()) throw new Error("Transaction to delete not found!");
-                const docToDelete = docToDeleteSnap.data();
+                const docToDelete = docToDeleteSnap.data() as Purchase | DealerPayment;
 
                 let bankSnap = null;
-                if (docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
+                if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
                     bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource));
                 }
 
@@ -235,9 +242,11 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 if (transactionToDelete.type === 'Purchase') {
                     newBalance = currentBalance - transactionToDelete.debit;
                 } else { // Payment or Adjustment
-                    const balanceChange = transactionToDelete.credit > 0 ? transactionToDelete.credit : -transactionToDelete.debit;
-                    newBalance = currentBalance + balanceChange; // Revert the payment/adjustment
-                     if (bankSnap?.exists() && docToDelete.paymentMethod === 'Online') {
+                    // Reverting a payment (credit) increases what we owe
+                    // Reverting an adjustment (debit) decreases what we owe
+                    const balanceChange = transactionToDelete.type === 'Payment' ? transactionToDelete.credit : -transactionToDelete.debit;
+                    newBalance = currentBalance + balanceChange;
+                     if (bankSnap?.exists() && 'paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online') {
                         const currentBankBalance = bankSnap.data().balance;
                         transaction.update(bankSnap.ref, { balance: currentBankBalance + docToDelete.amount });
                     }

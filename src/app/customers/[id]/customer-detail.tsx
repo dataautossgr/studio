@@ -104,30 +104,36 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
           balance: 0,
         }));
         
-        const paymentTransactions: Transaction[] = customerPayments.map(p => ({
-          id: p.id,
-          date: p.date,
-          type: p.reference?.startsWith('ADJ') ? 'Manual Adjustment' : 'Payment',
-          reference: p.reference || `PAY-${p.id.substring(0,6)}`,
-          debit: p.reference?.startsWith('ADJ') ? p.amount : 0,
-          credit: p.reference?.startsWith('ADJ') ? 0 : p.amount,
-          balance: 0,
-          paymentDetails: {
-            transactionType: p.reference?.startsWith('ADJ') ? 'Adjustment' : 'Payment',
-            paymentDate: new Date(p.date),
-            paymentMethod: p.paymentMethod,
-            onlinePaymentSource: p.onlinePaymentSource,
-            notes: p.notes,
-            receiptImageUrl: p.receiptImageUrl,
+        const paymentTransactions: Transaction[] = customerPayments.map(p => {
+          const isAdjustment = p.reference?.startsWith('ADJ');
+          return {
+            id: p.id,
+            date: p.date,
+            type: isAdjustment ? 'Manual Adjustment' : 'Payment',
+            reference: p.reference || `PAY-${p.id.substring(0,6)}`,
+            debit: isAdjustment ? p.amount : 0,
+            credit: !isAdjustment ? p.amount : 0,
+            balance: 0,
+            paymentDetails: {
+              transactionType: isAdjustment ? 'Adjustment' : 'Payment',
+              paymentDate: new Date(p.date),
+              paymentMethod: p.paymentMethod,
+              onlinePaymentSource: p.onlinePaymentSource,
+              notes: p.notes,
+              receiptImageUrl: p.receiptImageUrl,
+            }
           }
-        }));
+        });
         
         const allTransactions = [...salesTransactions, ...paymentTransactions]
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
-        const totalCredits = allTransactions.reduce((sum, tx) => sum + tx.credit, 0);
-        const totalDebits = allTransactions.reduce((sum, tx) => sum + tx.debit, 0);
-        let startingBalance = customer.balance - totalDebits + totalCredits;
+        let runningBalance = customer.balance;
+        
+        // Calculate starting balance by reversing transactions from the current balance
+        const totalDebitsInPeriod = allTransactions.reduce((sum, tx) => sum + tx.debit, 0);
+        const totalCreditsInPeriod = allTransactions.reduce((sum, tx) => sum + tx.credit, 0);
+        let startingBalance = runningBalance - totalDebitsInPeriod + totalCreditsInPeriod;
         
         const finalTransactions = allTransactions.map(tx => {
           startingBalance += tx.debit - tx.credit;
@@ -146,14 +152,17 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
             await runTransaction(firestore, async (transaction) => {
                 // --- 1. All READS must come before writes ---
                 const customerDoc = await transaction.get(customerRef);
-                const bankSnap = (!paymentData.transactionType || paymentData.paymentMethod !== 'Online' || !paymentData.onlinePaymentSource) 
-                    ? null 
-                    : await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
-
                 if (!customerDoc.exists()) throw new Error("Customer not found!");
                 
-                // --- 2. All WRITES start from here ---
                 const isAdjustment = paymentData.transactionType === 'Adjustment';
+                const paymentReceived = paymentData.transactionType === 'Payment';
+                let bankSnap: DocumentSnapshot<DocumentData> | null = null;
+                
+                if (paymentReceived && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
+                    bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
+                }
+
+                // --- 2. All WRITES start from here ---
                 const amount = paymentData.amount;
                 const balanceChange = isAdjustment ? amount : -amount;
 
@@ -172,7 +181,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 };
                 transaction.set(paymentRef, { ...paymentPayload, customer: customerRef });
 
-                if (bankSnap && bankSnap.exists() && paymentData.paymentMethod === 'Online') {
+                if (bankSnap?.exists() && paymentReceived && paymentData.paymentMethod === 'Online') {
                     const newBankBalance = (bankSnap.data().balance || 0) + paymentData.amount;
                     transaction.update(bankSnap.ref, { balance: newBankBalance });
 
@@ -217,10 +226,10 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 
                 const docToDeleteSnap = await transaction.get(ref);
                 if(!docToDeleteSnap.exists()) throw new Error("Transaction to delete not found!");
-                const docToDelete = docToDeleteSnap.data();
+                const docToDelete = docToDeleteSnap.data() as Sale | Payment;
 
                 let bankSnap = null;
-                if (docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
+                if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
                     bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource));
                 }
 
@@ -228,9 +237,12 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 let newBalance: number;
 
                 if (transactionToDelete.type === 'Payment' || transactionToDelete.type === 'Manual Adjustment') {
-                    const balanceChange = transactionToDelete.credit > 0 ? transactionToDelete.credit : -transactionToDelete.debit;
-                    newBalance = currentBalance + balanceChange; // Revert the payment/adjustment
-                    if (bankSnap?.exists() && docToDelete.paymentMethod === 'Online') {
+                    // Reverting a payment means increasing the balance (customer owes more)
+                    // Reverting an adjustment (debit) means decreasing the balance (customer owes less)
+                    const balanceChange = transactionToDelete.type === 'Payment' ? transactionToDelete.credit : -transactionToDelete.debit;
+                    newBalance = currentBalance + balanceChange;
+                    
+                    if (bankSnap?.exists() && 'paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online') {
                         const currentBankBalance = bankSnap.data().balance;
                         transaction.update(bankSnap.ref, { balance: currentBankBalance - docToDelete.amount });
                     }

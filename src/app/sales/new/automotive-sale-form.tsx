@@ -444,7 +444,7 @@ export default function AutomotiveSaleForm() {
                                                     key={customer.id}
                                                     onSelect={() => {
                                                         setSelectedCustomer(customer);
-                                                        document.body.click();
+                                                        (document.activeElement as HTMLElement)?.blur();
                                                     }}
                                                 >
                                                     {customer.name} ({customer.phone})

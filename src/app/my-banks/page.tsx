@@ -139,7 +139,7 @@ export default function MyBanksPage() {
         return;
     }
 
-    await setDoc(doc(firestore, 'my_bank_accounts', accountToDelete.id), { balance: -1 }); // Mark for deletion or handle differently
+    await deleteDoc(doc(firestore, 'my_bank_accounts', accountToDelete.id));
     toast({ title: "Account Deleted", description: "The bank account has been removed." });
     setAccountToDelete(null);
   };
@@ -160,7 +160,7 @@ export default function MyBanksPage() {
         const fromTx: Omit<BankTransaction, 'id'> = {
           accountId: fromAccount.id,
           date: new Date().toISOString(),
-          description: data.note || `Transfer to ${bankAccounts?.find(a => a.id === data.toAccount)?.bankName}`,
+          description: data.note || `Transfer to ${bankAccounts?.find(a => a.id === data.toAccount)?.bankName || 'Cash'}`,
           type: 'Debit',
           amount: data.amount,
           balanceAfter: newFromBalance,
@@ -180,7 +180,7 @@ export default function MyBanksPage() {
         const toTx: Omit<BankTransaction, 'id'> = {
           accountId: toAccount.id,
           date: new Date().toISOString(),
-          description: data.note || `Transfer from ${bankAccounts?.find(a => a.id === data.fromAccount)?.bankName}`,
+          description: data.note || `Transfer from ${bankAccounts?.find(a => a.id === data.fromAccount)?.bankName || 'Cash'}`,
           type: 'Credit',
           amount: data.amount,
           balanceAfter: newToBalance,
@@ -232,9 +232,9 @@ export default function MyBanksPage() {
         });
 
         toast({ title: 'Transaction Deleted', description: 'The transaction has been removed and balance updated.' });
-    } catch (e) {
+    } catch (e: any) {
         console.error("Error deleting transaction: ", e);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the transaction.' });
+        toast({ variant: 'destructive', title: 'Error', description: e.message || 'Could not delete the transaction.' });
     } finally {
         setTransactionToDelete(null);
     }

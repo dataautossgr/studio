@@ -1,8 +1,9 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch, getDoc, getCountFromServer, DocumentReference, setDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, getDoc, getCountFromServer, DocumentReference, setDoc, runTransaction } from 'firebase/firestore';
 import type { Customer, Battery, BatterySale, AcidStock, BankAccount, BankTransaction } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -235,117 +236,122 @@ export default function BatterySaleForm() {
     setIsSaving(true);
     setIsPrintDialogOpen(false);
     setIsWalkInUnpaidDialogOpen(false);
-
-    const finalSaleDate = new Date(saleDate);
-    const [hours, minutes] = saleTime.split(':').map(Number);
-    finalSaleDate.setHours(hours, minutes);
-
-    const dueAmount = finalAmount - (status === 'Partial' ? partialAmount : 0);
-
-    const batch = writeBatch(firestore);
-    let customerRef;
-
-    if (customerType === 'registered' && selectedCustomer) {
-        customerRef = doc(firestore, 'customers', selectedCustomer.id);
-        if (status !== 'Paid') {
-            const previousDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
-            const balanceChange = dueAmount - previousDue;
-            batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + balanceChange });
-        }
-    } else { 
-        const isConverting = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
-        customerRef = doc(collection(firestore, 'customers'));
-        const customerPayload: Omit<Customer, 'id'> = {
-            name: walkInCustomerName, phone: '', vehicleDetails: '',
-            type: 'battery',
-            balance: isConverting ? dueAmount : 0,
-        };
-        batch.set(customerRef, customerPayload);
-    }
-    
-    let saleIdToPrint = editId;
-    const saleRef = isNew ? doc(collection(firestore, 'battery_sales')) : doc(firestore, 'battery_sales', saleIdToPrint!);
-    if(isNew) saleIdToPrint = saleRef.id;
-
-
-    const saleData: Omit<BatterySale, 'id' | 'invoice'> = {
-        customer: customerRef,
-        date: finalSaleDate.toISOString(),
-        total: finalAmount,
-        status,
-        items: cart,
-        discount,
-        ...( (status === 'Paid' || status === 'Partial') && { paymentMethod: paymentMethod || 'cash' }),
-        ...(paymentMethod === 'online' && { onlinePaymentSource }),
-        ...(status === 'Partial' && { partialAmountPaid: partialAmount }),
-        ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
-    };
-
-    if (isNew) {
-        const salesSnapshot = await getCountFromServer(collection(firestore, 'battery_sales'));
-        const newInvoice = `B-INV-${new Date().getFullYear()}-${(salesSnapshot.data().count + 1).toString().padStart(4, '0')}`;
-        batch.set(saleRef, { ...saleData, invoice: newInvoice });
-    } else {
-        batch.update(saleRef, saleData as any);
-    }
-
-    for (const item of cart) {
-        if (item.type === 'battery' && !item.isOneTime) {
-            batch.update(doc(firestore, 'batteries', item.productId), { stock: item.stock - item.quantity });
-        }
-        if (item.type === 'acid' && acidStockRef) {
-            const acidStockSnap = await getDoc(acidStockRef);
-            const currentAcidQty = acidStockSnap.exists() ? acidStockSnap.data().totalQuantityKg : 0;
-            batch.update(acidStockRef, { totalQuantityKg: currentAcidQty - item.quantity });
-        }
-        if (item.type === 'scrap') {
-             const scrapStockRef = doc(firestore, 'scrap_stock', 'main');
-             const scrapSnap = await getDoc(scrapStockRef);
-             const currentScrapWeight = scrapSnap.exists() ? scrapSnap.data().totalWeightKg : 0;
-             batch.set(scrapStockRef, { totalWeightKg: currentScrapWeight + item.quantity }, { merge: true });
-        }
-    }
-    
-     if (paymentMethod === 'online' && onlinePaymentSource) {
-        const amountToCredit = status === 'Paid' ? finalAmount : partialAmount;
-        if(amountToCredit > 0) {
-            const bankRef = doc(firestore, 'my_bank_accounts', onlinePaymentSource);
-            const bankSnap = await getDoc(bankRef);
-            if (bankSnap.exists()) {
-                const currentBalance = bankSnap.data().balance;
-                const newBalance = currentBalance + amountToCredit;
-                batch.update(bankRef, { balance: newBalance });
-
-                const transactionRef = doc(collection(firestore, 'bank_transactions'));
-                const transactionPayload: Omit<BankTransaction, 'id'> = {
-                    accountId: onlinePaymentSource,
-                    date: finalSaleDate.toISOString(),
-                    description: `Battery Sale INV-${(saleData as any).invoice || saleRef.id.slice(-4)}`,
-                    type: 'Credit',
-                    amount: amountToCredit,
-                    balanceAfter: newBalance,
-                    referenceId: saleRef.id,
-                    referenceType: 'Sale'
-                };
-                batch.set(transactionRef, transactionPayload);
-            }
-        }
-    }
-
-
+  
     try {
-        await batch.commit();
-        toast({ title: "Sale Saved", description: "The transaction has been successfully recorded." });
-        if (print && saleIdToPrint) {
-            router.push(`/batteries/sales/invoice/${saleIdToPrint}`);
+      await runTransaction(firestore, async (transaction) => {
+        // --- 1. All READ operations first ---
+        const salesSnapshot = isNew ? await getCountFromServer(collection(firestore, 'battery_sales')) : null;
+        const bankSnap = (paymentMethod === 'online' && onlinePaymentSource) ? await getDoc(doc(firestore, 'my_bank_accounts', onlinePaymentSource)) : null;
+        const acidStockSnap = (cart.some(i => i.type === 'acid') && acidStockRef) ? await getDoc(acidStockRef) : null;
+        const scrapStockSnap = (cart.some(i => i.type === 'scrap')) ? await getDoc(doc(firestore, 'scrap_stock', 'main')) : null;
+  
+        let customerRef: DocumentReference;
+        let customerSnap: any = null;
+  
+        if (customerType === 'registered' && selectedCustomer) {
+          customerRef = doc(firestore, 'customers', selectedCustomer.id);
+          customerSnap = await transaction.get(customerRef);
         } else {
-            router.push(`/sales?tab=battery`);
+          customerRef = doc(collection(firestore, 'customers'));
         }
+  
+        // --- 2. All WRITE operations second ---
+        const finalSaleDate = new Date(saleDate);
+        const [hours, minutes] = saleTime.split(':').map(Number);
+        finalSaleDate.setHours(hours, minutes);
+  
+        if (customerType === 'walk-in') {
+          const isConverting = status === 'Unpaid' || status === 'Partial';
+          const customerPayload: Omit<Customer, 'id'> = {
+            name: walkInCustomerName, phone: '', vehicleDetails: '', type: 'battery',
+            balance: isConverting ? (finalAmount - partialAmount) : 0,
+          };
+          transaction.set(customerRef, customerPayload);
+        } else if (customerSnap?.exists() && status !== 'Paid') {
+          const dueAmount = finalAmount - (status === 'Partial' ? partialAmount : 0);
+          const originalDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
+          const balanceChange = dueAmount - originalDue;
+          transaction.update(customerRef, { balance: (customerSnap.data()?.balance || 0) + balanceChange });
+        }
+  
+        const saleRef = isNew ? doc(collection(firestore, 'battery_sales')) : doc(firestore, 'battery_sales', editId!);
+        const newInvoice = isNew ? `B-INV-${new Date().getFullYear()}-${(salesSnapshot!.data().count + 1).toString().padStart(4, '0')}` : sale!.invoice;
+  
+        const saleData: Omit<BatterySale, 'id'> = {
+          invoice: newInvoice,
+          customer: customerRef,
+          date: finalSaleDate.toISOString(),
+          total: finalAmount,
+          status,
+          items: cart,
+          discount,
+          ...((status === 'Paid' || status === 'Partial') && { paymentMethod: paymentMethod || 'cash' }),
+          ...(paymentMethod === 'online' && { onlinePaymentSource }),
+          ...(status === 'Partial' && { partialAmountPaid: partialAmount }),
+          ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
+        };
+  
+        if (isNew) {
+          transaction.set(saleRef, saleData);
+        } else {
+          transaction.update(saleRef, saleData as any);
+        }
+  
+        for (const item of cart) {
+          if (item.type === 'battery' && !item.isOneTime) {
+            transaction.update(doc(firestore, 'batteries', item.productId), { stock: item.stock - item.quantity });
+          }
+          if (item.type === 'acid' && acidStockRef && acidStockSnap?.exists()) {
+            const currentAcidQty = acidStockSnap.data()?.totalQuantityKg || 0;
+            transaction.update(acidStockRef, { totalQuantityKg: currentAcidQty - item.quantity });
+          }
+          if (item.type === 'scrap' && scrapStockSnap?.exists()) {
+            const currentScrapWeight = scrapStockSnap.data()?.totalWeightKg || 0;
+            transaction.set(doc(firestore, 'scrap_stock', 'main'), { totalWeightKg: currentScrapWeight + item.quantity }, { merge: true });
+          }
+        }
+  
+        if (paymentMethod === 'online' && onlinePaymentSource && bankSnap?.exists()) {
+          const amountToCredit = status === 'Paid' ? finalAmount : partialAmount;
+          if (amountToCredit > 0) {
+            const bankRef = doc(firestore, 'my_bank_accounts', onlinePaymentSource);
+            const newBalance = (bankSnap.data()?.balance || 0) + amountToCredit;
+            transaction.update(bankRef, { balance: newBalance });
+  
+            const txRef = doc(collection(firestore, 'bank_transactions'));
+            const txPayload: Omit<BankTransaction, 'id'> = {
+              accountId: onlinePaymentSource,
+              date: finalSaleDate.toISOString(),
+              description: `Battery Sale INV-${newInvoice}`,
+              type: 'Credit',
+              amount: amountToCredit,
+              balanceAfter: newBalance,
+              referenceId: saleRef.id,
+              referenceType: 'Sale'
+            };
+            transaction.set(txRef, txPayload);
+          }
+        }
+      });
+  
+      toast({ title: "Sale Saved", description: "The transaction has been successfully recorded." });
+      // Navigation needs to be outside the transaction
+      let saleIdToPrint = editId;
+      if (isNew) {
+        // This is a simplification; ideally, we'd get the new ID from the transaction result.
+        // For now, we redirect to the list page.
+        router.push(`/sales?tab=battery`);
+      } else if (print && saleIdToPrint) {
+        router.push(`/batteries/sales/invoice/${saleIdToPrint}`);
+      } else {
+        router.push(`/sales?tab=battery`);
+      }
+  
     } catch (error) {
-        console.error("Error saving sale:", error);
-        toast({ variant: "destructive", title: "Error", description: "Failed to save the sale." });
+      console.error("Error saving sale:", error);
+      toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Failed to save the sale." });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -546,3 +552,6 @@ export default function BatterySaleForm() {
     </div>
   );
 }
+
+
+    

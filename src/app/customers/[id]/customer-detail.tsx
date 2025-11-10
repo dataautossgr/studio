@@ -144,15 +144,19 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
 
         try {
             await runTransaction(firestore, async (transaction) => {
-                // --- ALL READS MUST COME BEFORE WRITES ---
+                // --- 1. All READS must come before writes ---
                 const customerDoc = await transaction.get(customerRef);
+                const bankSnap = (!paymentData.transactionType || paymentData.paymentMethod !== 'Online' || !paymentData.onlinePaymentSource) 
+                    ? null 
+                    : await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
+
                 if (!customerDoc.exists()) throw new Error("Customer not found!");
                 
+                // --- 2. All WRITES start from here ---
                 const isAdjustment = paymentData.transactionType === 'Adjustment';
                 const amount = paymentData.amount;
                 const balanceChange = isAdjustment ? amount : -amount;
 
-                // --- ALL WRITES START FROM HERE ---
                 const newBalance = (customerDoc.data().balance || 0) + balanceChange;
                 transaction.update(customerRef, { balance: newBalance });
 
@@ -168,28 +172,22 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 };
                 transaction.set(paymentRef, { ...paymentPayload, customer: customerRef });
 
-                // Handle Bank Transaction for online payments
-                if (!isAdjustment && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
-                    const bankRef = doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource);
-                    const bankSnap = await transaction.get(bankRef);
-                    if (bankSnap.exists()) {
-                        const currentBankBalance = bankSnap.data().balance || 0;
-                        const newBankBalance = currentBankBalance + paymentData.amount;
-                        transaction.update(bankRef, { balance: newBankBalance });
+                if (bankSnap && bankSnap.exists()) {
+                    const newBankBalance = (bankSnap.data().balance || 0) + paymentData.amount;
+                    transaction.update(bankSnap.ref, { balance: newBankBalance });
 
-                        const txRef = doc(collection(firestore, 'bank_transactions'));
-                        const txPayload: Omit<BankTransaction, 'id'> = {
-                            accountId: paymentData.onlinePaymentSource,
-                            date: paymentData.paymentDate.toISOString(),
-                            description: `Payment from ${customer.name}`,
-                            type: 'Credit',
-                            amount: paymentData.amount,
-                            balanceAfter: newBankBalance,
-                            referenceId: paymentRef.id,
-                            referenceType: 'Customer Payment'
-                        };
-                        transaction.set(txRef, txPayload);
-                    }
+                    const txRef = doc(collection(firestore, 'bank_transactions'));
+                    const txPayload: Omit<BankTransaction, 'id'> = {
+                        accountId: paymentData.onlinePaymentSource!,
+                        date: paymentData.paymentDate.toISOString(),
+                        description: `Payment from ${customer.name}`,
+                        type: 'Credit',
+                        amount: paymentData.amount,
+                        balanceAfter: newBankBalance,
+                        referenceId: paymentRef.id,
+                        referenceType: 'Customer Payment'
+                    };
+                    transaction.set(txRef, txPayload);
                 }
             });
             toast({ title: "Transaction Added", description: "The transaction has been recorded successfully." });
@@ -222,19 +220,20 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 if(!docToDeleteSnap.exists()) throw new Error("Transaction to delete not found!");
                 const docToDelete = docToDeleteSnap.data();
 
+                let bankSnap = null;
+                if (docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
+                    bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource));
+                }
+
                 const currentBalance = customerDoc.data().balance || 0;
                 let newBalance: number;
 
                 if (transactionToDelete.type === 'Payment' || transactionToDelete.type === 'Manual Adjustment') {
                     const balanceChange = transactionToDelete.credit > 0 ? transactionToDelete.credit : -transactionToDelete.debit;
                     newBalance = currentBalance + balanceChange; // Revert the payment/adjustment
-                    if (docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
-                        const bankRef = doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource);
-                        const bankSnap = await transaction.get(bankRef);
-                        if (bankSnap.exists()) {
-                            const currentBankBalance = bankSnap.data().balance;
-                            transaction.update(bankRef, { balance: currentBankBalance - docToDelete.amount });
-                        }
+                    if (bankSnap?.exists()) {
+                        const currentBankBalance = bankSnap.data().balance;
+                        transaction.update(bankSnap.ref, { balance: currentBankBalance - docToDelete.amount });
                     }
                 } else { // Sale
                     newBalance = currentBalance - transactionToDelete.debit;
@@ -428,3 +427,5 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     </div>
   );
 }
+
+    

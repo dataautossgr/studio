@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Trash2, PlusCircle, UserPlus, Calendar as CalendarIcon, Search } from 'lucide-react';
-import { type Product, type Customer, type Sale, type BankAccount } from '@/lib/data';
+import { type Product, type Customer, type Sale, type BankAccount, type BankTransaction } from '@/lib/data';
 import {
   Popover,
   PopoverContent,
@@ -61,7 +61,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useFirestore, useCollection, addDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp, writeBatch, getDoc, getCountFromServer, DocumentReference } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch, getDoc, getCountFromServer, DocumentReference, runTransaction } from 'firebase/firestore';
 
 
 interface CartItem {
@@ -279,92 +279,112 @@ export default function AutomotiveSaleForm() {
   const handleSaveSale = async (print = false) => {
     if (!firestore || !saleDate) return;
     
-    // Pre-read data needed for the transaction
-    const salesSnapshot = isNew ? await getCountFromServer(collection(firestore, 'sales')) : null;
-    const bankSnap = (paymentMethod === 'online' && onlinePaymentSource) ? await getDoc(doc(firestore, 'my_bank_accounts', onlinePaymentSource)) : null;
-
     try {
-        const batch = writeBatch(firestore);
-        
-        const finalSaleDate = new Date(saleDate);
-        const [hours, minutes] = saleTime.split(':').map(Number);
-        finalSaleDate.setHours(hours, minutes);
+        await runTransaction(firestore, async (transaction) => {
+            // --- ALL READS MUST COME BEFORE WRITES ---
+            const salesSnapshot = isNew ? await getCountFromServer(collection(firestore, 'sales')) : null;
+            const bankSnap = (paymentMethod === 'online' && onlinePaymentSource) ? await getDoc(doc(firestore, 'my_bank_accounts', onlinePaymentSource)) : null;
+            
+            let customerRef: DocumentReference;
+            let customerSnap: any = null; // To hold customer doc snapshot if needed
 
-        let customerRef;
-        if (customerType === 'registered' && selectedCustomer) {
-            customerRef = doc(firestore, 'customers', selectedCustomer.id);
-        } else {
-            const newCustomerRef = doc(collection(firestore, 'customers'));
-            const isConverting = customerType === 'walk-in' && (status === 'Unpaid' || status === 'Partial');
-            const customerPayload: Omit<Customer, 'id'> = {
-                name: customerName, phone: '', vehicleDetails: '', type: 'automotive',
-                balance: isConverting ? (finalAmount - partialAmount) : 0,
+            if (customerType === 'registered' && selectedCustomer) {
+                customerRef = doc(firestore, 'customers', selectedCustomer.id);
+                customerSnap = await transaction.get(customerRef);
+                if (!customerSnap.exists()) {
+                  throw new Error("Registered customer not found in database.");
+                }
+            } else {
+                customerRef = doc(collection(firestore, 'customers'));
+            }
+
+            // Read stock for all products in cart
+            const productRefs = cart.filter(item => !item.isOneTime).map(item => doc(firestore, 'products', item.id));
+            const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+
+            // --- ALL WRITES START FROM HERE ---
+            const finalSaleDate = new Date(saleDate);
+            const [hours, minutes] = saleTime.split(':').map(Number);
+            finalSaleDate.setHours(hours, minutes);
+
+            if (customerType === 'walk-in') {
+                const isConverting = status === 'Unpaid' || status === 'Partial';
+                const customerPayload: Omit<Customer, 'id'> = {
+                    name: customerName, phone: '', vehicleDetails: '', type: 'automotive',
+                    balance: isConverting ? (finalAmount - partialAmount) : 0,
+                };
+                transaction.set(customerRef, customerPayload);
+            }
+            
+            const saleRef = isNew ? doc(collection(firestore, 'sales')) : doc(firestore, 'sales', saleId);
+            const newInvoiceNumber = isNew ? (salesSnapshot!.data().count + 1).toString().padStart(3, '0') : sale?.invoice;
+
+            const saleData = {
+                invoice: `INV-${newInvoiceNumber}`,
+                date: finalSaleDate.toISOString(),
+                total: finalAmount,
+                status,
+                discount,
+                customer: customerRef,
+                items: cart.map(item => ({ productId: item.id, name: item.name, quantity: item.quantity, price: item.price })),
+                ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
+                ...( (status === 'Paid' || status === 'Partial') && { paymentMethod }),
+                ...( paymentMethod === 'online' && { onlinePaymentSource }),
+                ...( status === 'Partial' && { partialAmountPaid: partialAmount }),
             };
-            batch.set(newCustomerRef, customerPayload);
-            customerRef = newCustomerRef;
-        }
+            
+            if(isNew) {
+                transaction.set(saleRef, saleData);
+            } else {
+                transaction.update(saleRef, saleData);
+            }
 
-        const saleRef = isNew ? doc(collection(firestore, 'sales')) : doc(firestore, 'sales', saleId);
-        
-        const saleData = {
-            date: finalSaleDate.toISOString(),
-            total: finalAmount,
-            status,
-            discount,
-            customer: customerRef,
-            items: cart.map(item => ({ productId: item.id, name: item.name, quantity: item.quantity, price: item.price })),
-            ...(status !== 'Paid' && dueDate && { dueDate: dueDate.toISOString() }),
-            ...( (status === 'Paid' || status === 'Partial') && { paymentMethod }),
-            ...( paymentMethod === 'online' && { onlinePaymentSource }),
-            ...( status === 'Partial' && { partialAmountPaid: partialAmount }),
-        };
+            if (status !== 'Paid' && customerSnap) {
+                const dueAmount = finalAmount - partialAmount;
+                const originalDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
+                const balanceChange = dueAmount - originalDue;
+                transaction.update(customerRef, { balance: (customerSnap.data()?.balance || 0) + balanceChange });
+            }
 
-        if (isNew) {
-            const newInvoiceNumber = (salesSnapshot!.data().count + 1).toString().padStart(3, '0');
-            batch.set(saleRef, { ...saleData, invoice: `INV-${newInvoiceNumber}` });
-        } else {
-            batch.update(saleRef, saleData);
-        }
+            productSnaps.forEach((pSnap, index) => {
+                const cartItem = cart.filter(i => !i.isOneTime)[index];
+                if (pSnap.exists()) {
+                    const newStock = (pSnap.data().stock || 0) - cartItem.quantity;
+                    transaction.update(pSnap.ref, { stock: newStock });
+                }
+            });
+            
+            if (paymentMethod === 'online' && onlinePaymentSource && bankSnap?.exists()) {
+                const amountToCredit = status === 'Paid' ? finalAmount : partialAmount;
+                if(amountToCredit > 0) {
+                    const bankRef = doc(firestore, 'my_bank_accounts', onlinePaymentSource);
+                    const newBalance = (bankSnap.data()?.balance || 0) + amountToCredit;
+                    transaction.update(bankRef, { balance: newBalance });
 
-        if (status !== 'Paid' && selectedCustomer) {
-            const dueAmount = finalAmount - partialAmount;
-            const originalDue = isNew ? 0 : (sale?.total || 0) - (sale?.partialAmountPaid || 0);
-            const balanceChange = dueAmount - originalDue;
-            batch.update(customerRef, { balance: (selectedCustomer.balance || 0) + balanceChange });
-        }
-
-        cart.forEach(item => {
-            if (!item.isOneTime) {
-                const productRef = doc(firestore, 'products', item.id);
-                batch.update(productRef, { stock: item.stock - item.quantity });
+                    const transactionRef = doc(collection(firestore, 'bank_transactions'));
+                    const txPayload: Omit<BankTransaction, 'id'> = {
+                        accountId: onlinePaymentSource,
+                        date: finalSaleDate.toISOString(),
+                        description: `Sale ${saleData.invoice}`,
+                        type: 'Credit',
+                        amount: amountToCredit,
+                        balanceAfter: newBalance,
+                        referenceId: saleRef.id,
+                        referenceType: 'Sale'
+                    };
+                    transaction.set(transactionRef, txPayload);
+                }
             }
         });
-        
-        if (paymentMethod === 'online' && onlinePaymentSource && bankSnap?.exists()) {
-            const amountToCredit = status === 'Paid' ? finalAmount : partialAmount;
-            if(amountToCredit > 0) {
-                const bankRef = doc(firestore, 'my_bank_accounts', onlinePaymentSource);
-                const currentBalance = bankSnap.data().balance;
-                const newBalance = currentBalance + amountToCredit;
-                batch.update(bankRef, { balance: newBalance });
 
-                const transactionRef = doc(collection(firestore, 'bank_transactions'));
-                batch.set(transactionRef, {
-                    accountId: onlinePaymentSource,
-                    date: finalSaleDate.toISOString(),
-                    description: `Sale ${isNew ? `INV-${(salesSnapshot!.data().count + 1).toString().padStart(3, '0')}` : sale?.invoice}`,
-                    type: 'Credit',
-                    amount: amountToCredit,
-                    balanceAfter: newBalance,
-                    referenceId: saleRef.id,
-                    referenceType: 'Sale'
-                });
-            }
-        }
-        
-        await batch.commit();
         toast({ title: "Sale Saved", description: "Transaction recorded successfully." });
-        if (print) { router.push(`/sales/invoice/${saleRef.id}`); } else { router.push('/sales'); }
+        if (print) { 
+            const finalSaleId = isNew ? (await getDoc(doc(collection(firestore, 'sales'), saleId))).id : saleId;
+            router.push(`/sales/invoice/${finalSaleId}`);
+        } else {
+            router.push('/sales'); 
+        }
+
     } catch (error) {
         console.error("Error saving sale:", error);
         toast({ variant: "destructive", title: "Error", description: "Failed to save sale." });
@@ -610,5 +630,7 @@ export default function AutomotiveSaleForm() {
     </div>
   );
 }
+
+    
 
     

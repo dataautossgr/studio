@@ -130,17 +130,20 @@ export default function BatteryPurchaseForm() {
         
         try {
             await runTransaction(firestore, async (transaction) => {
-                // Update stock for each item
-                for (const item of items) {
-                    const batteryRef = doc(firestore, 'batteries', item.id);
-                    // This logic is simplified. A real-world scenario would need to handle stock reversal on edit.
-                    const batterySnap = await transaction.get(batteryRef);
-                    const currentStock = batterySnap.exists() ? (batterySnap.data() as Battery).stock : 0;
-                    const newStock = isNew ? currentStock + item.quantity : item.currentStock + item.quantity;
-                    transaction.update(batteryRef, { stock: newStock });
-                }
+                // --- 1. All READ operations first ---
+                const batteryRefs = items.map(item => doc(firestore, 'batteries', item.id));
+                const batterySnaps = await Promise.all(batteryRefs.map(ref => transaction.get(ref)));
 
-                // Create or update purchase record
+                // --- 2. All WRITE operations second ---
+                batterySnaps.forEach((batterySnap, index) => {
+                    const item = items[index];
+                    const currentStock = batterySnap.exists() ? (batterySnap.data() as Battery).stock : 0;
+                    // Simplified logic for stock update. For edits, a more complex diff would be needed.
+                    // This assumes adding stock on new purchase, and recalculating for edits.
+                    const newStock = isNew ? currentStock + item.quantity : item.currentStock + item.quantity;
+                    transaction.update(batterySnap.ref, { stock: newStock });
+                });
+
                 const purchaseData: Omit<BatteryPurchase, 'id'> = {
                     dealerId: selectedDealer.id,
                     date: purchaseDate.toISOString(),
@@ -150,15 +153,8 @@ export default function BatteryPurchaseForm() {
                     ...(paymentMethod === 'Online' && { paymentSourceAccount, paymentDestinationDetails }),
                 };
 
-                if (isNew) {
-                    const newPurchaseRef = doc(collection(firestore, 'battery_purchases'));
-                    transaction.set(newPurchaseRef, purchaseData);
-                } else {
-                    const purchaseRef = doc(firestore, 'battery_purchases', editId);
-                    // Note: This simplified logic overwrites the old purchase.
-                    // A robust solution would calculate stock differences for edited items.
-                    transaction.set(purchaseRef, purchaseData);
-                }
+                const purchaseRef = isNew ? doc(collection(firestore, 'battery_purchases')) : doc(firestore, 'battery_purchases', editId!);
+                transaction.set(purchaseRef, purchaseData);
             });
 
             toast({ title: 'Purchase Saved', description: 'Battery stock has been updated successfully.' });
@@ -325,3 +321,5 @@ export default function BatteryPurchaseForm() {
         </Card>
     );
 }
+
+    

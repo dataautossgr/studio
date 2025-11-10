@@ -29,10 +29,20 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, runTransaction } from 'firebase/firestore';
 import type { BatteryPurchase, Dealer } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface EnrichedPurchase extends BatteryPurchase {
   dealerName: string;
@@ -49,6 +59,7 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
 
   const [enrichedPurchases, setEnrichedPurchases] = useState<EnrichedPurchase[]>([]);
   const [filteredPurchases, setFilteredPurchases] = useState<EnrichedPurchase[]>([]);
+  const [purchaseToDelete, setPurchaseToDelete] = useState<EnrichedPurchase | null>(null);
   const { toast } = useToast();
   
    useEffect(() => {
@@ -91,6 +102,36 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
     }
   }, [dateRange, enrichedPurchases]);
   
+  const handleDeletePurchase = async () => {
+    if (!purchaseToDelete || !firestore) return;
+    
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        const purchaseRef = doc(firestore, 'battery_purchases', purchaseToDelete.id);
+
+        for (const item of purchaseToDelete.items) {
+          const productRef = doc(firestore, 'batteries', item.batteryId);
+          const productSnap = await transaction.get(productRef);
+          if (productSnap.exists()) {
+            const currentStock = productSnap.data().stock || 0;
+            transaction.update(productRef, { stock: currentStock - item.quantity });
+          }
+        }
+        
+        transaction.delete(purchaseRef);
+      });
+
+      toast({
+        title: "Purchase Deleted",
+        description: `Battery purchase record has been deleted.`,
+      });
+    } catch (e) {
+      console.error("Error deleting purchase:", e);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete purchase.' });
+    }
+    setPurchaseToDelete(null);
+  };
+  
   const handleExport = () => {
     if (filteredPurchases.length === 0) {
         toast({ variant: 'destructive', title: 'Export Failed', description: 'No purchase data in the selected range to export.' });
@@ -120,6 +161,7 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
 
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -184,7 +226,7 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
                           </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                      <DropdownMenuItem onSelect={() => setPurchaseToDelete(purchase)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                       </DropdownMenuItem>
@@ -197,5 +239,20 @@ export default function BatteryPurchasesHistory({ dateRange }: BatteryPurchasesH
         </Table>
       </CardContent>
     </Card>
+    <AlertDialog open={!!purchaseToDelete} onOpenChange={() => setPurchaseToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will permanently delete this purchase. This will revert the stock changes made by this purchase. This action cannot be undone.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePurchase}>Continue</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

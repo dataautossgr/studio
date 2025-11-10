@@ -24,9 +24,19 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, DocumentReference } from 'firebase/firestore';
+import { collection, getDoc, DocumentReference, doc, runTransaction } from 'firebase/firestore';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface EnrichedSale extends Omit<Sale, 'customer'> {
   customer: {
@@ -49,6 +59,7 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
 
   const [enrichedSales, setEnrichedSales] = useState<EnrichedSale[]>([]);
   const [filteredSales, setFilteredSales] = useState<EnrichedSale[]>([]);
+  const [saleToDelete, setSaleToDelete] = useState<EnrichedSale | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -96,6 +107,64 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
       setFilteredSales(enrichedSales);
     }
   }, [dateRange, enrichedSales]);
+
+  const handleDeleteSale = async () => {
+    if (!saleToDelete || !firestore) return;
+
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const saleRef = doc(firestore, 'sales', saleToDelete.id);
+
+            // Revert stock for each item
+            for (const item of saleToDelete.items) {
+                const productRef = doc(firestore, 'products', item.productId);
+                const productSnap = await transaction.get(productRef);
+                if (productSnap.exists()) {
+                    const currentStock = productSnap.data().stock || 0;
+                    transaction.update(productRef, { stock: currentStock + item.quantity });
+                }
+            }
+
+            // Adjust customer balance
+            if (saleToDelete.status !== 'Paid' && saleToDelete.customer.id !== 'walk-in') {
+                const customerRef = doc(firestore, 'customers', saleToDelete.customer.id);
+                const customerSnap = await transaction.get(customerRef);
+                if (customerSnap.exists()) {
+                    const currentBalance = customerSnap.data().balance || 0;
+                    const dueAmount = saleToDelete.total - (saleToDelete.partialAmountPaid || 0);
+                    transaction.update(customerRef, { balance: currentBalance - dueAmount });
+                }
+            }
+            
+            // Revert bank transaction if online
+            if (saleToDelete.paymentMethod === 'online' && saleToDelete.onlinePaymentSource) {
+              const amountToRevert = saleToDelete.status === 'Paid' ? saleToDelete.total : (saleToDelete.partialAmountPaid || 0);
+              if (amountToRevert > 0) {
+                  const bankRef = doc(firestore, 'my_bank_accounts', saleToDelete.onlinePaymentSource);
+                  const bankSnap = await transaction.get(bankRef);
+                  if (bankSnap.exists()) {
+                      const currentBankBalance = bankSnap.data().balance || 0;
+                      transaction.update(bankRef, { balance: currentBankBalance - amountToRevert });
+                  }
+              }
+            }
+
+
+            // Delete the sale document
+            transaction.delete(saleRef);
+        });
+
+        toast({
+            title: "Sale Deleted",
+            description: `Invoice ${saleToDelete.invoice} has been deleted and stock/balances are updated.`,
+        });
+
+    } catch (e) {
+        console.error("Error deleting sale: ", e);
+        toast({ variant: 'destructive', title: "Error", description: "Failed to delete sale." });
+    }
+    setSaleToDelete(null);
+  };
   
   const handleExport = () => {
     if (filteredSales.length === 0) {
@@ -142,6 +211,7 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
   };
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
@@ -220,7 +290,7 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
                         Return / Exchange
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                      <DropdownMenuItem onSelect={() => setSaleToDelete(sale)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
@@ -233,5 +303,21 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
         </Table>
       </CardContent>
     </Card>
+    
+    <AlertDialog open={!!saleToDelete} onOpenChange={() => setSaleToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will permanently delete invoice <span className="font-bold">{saleToDelete?.invoice}</span>. This will revert the stock and adjust customer balance. This action cannot be undone.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSale}>Continue</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

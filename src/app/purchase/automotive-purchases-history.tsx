@@ -30,10 +30,20 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, getDoc, DocumentReference } from 'firebase/firestore';
+import { collection, getDoc, DocumentReference, runTransaction, doc } from 'firebase/firestore';
 import type { Purchase, Dealer } from '@/lib/data';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 
 interface EnrichedPurchase extends Omit<Purchase, 'dealer'> {
@@ -54,6 +64,7 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
 
   const [enrichedPurchases, setEnrichedPurchases] = useState<EnrichedPurchase[]>([]);
   const [filteredPurchases, setFilteredPurchases] = useState<EnrichedPurchase[]>([]);
+  const [purchaseToDelete, setPurchaseToDelete] = useState<EnrichedPurchase | null>(null);
   const { toast } = useToast();
 
    useEffect(() => {
@@ -100,6 +111,45 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
         setFilteredPurchases(enrichedPurchases);
     }
   }, [dateRange, enrichedPurchases]);
+
+  const handleDeletePurchase = async () => {
+    if (!purchaseToDelete || !firestore) return;
+    
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        const purchaseRef = doc(firestore, 'purchases', purchaseToDelete.id);
+
+        for (const item of purchaseToDelete.items) {
+          const productRef = doc(firestore, 'products', item.productId);
+          const productSnap = await transaction.get(productRef);
+          if (productSnap.exists()) {
+            const currentStock = productSnap.data().stock || 0;
+            transaction.update(productRef, { stock: currentStock - item.quantity });
+          }
+        }
+
+        if (purchaseToDelete.status !== 'Paid') {
+          const dealerRef = doc(firestore, 'dealers', purchaseToDelete.dealer.id);
+          const dealerSnap = await transaction.get(dealerRef);
+          if (dealerSnap.exists()) {
+            const currentBalance = dealerSnap.data().balance || 0;
+            transaction.update(dealerRef, { balance: currentBalance - purchaseToDelete.total });
+          }
+        }
+        
+        transaction.delete(purchaseRef);
+      });
+
+      toast({
+        title: "Purchase Deleted",
+        description: `Purchase ${purchaseToDelete.invoiceNumber} has been deleted.`,
+      });
+    } catch (e) {
+      console.error("Error deleting purchase:", e);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete purchase.' });
+    }
+    setPurchaseToDelete(null);
+  };
   
   const handleExport = () => {
     if (filteredPurchases.length === 0) {
@@ -145,6 +195,7 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
   }
 
   return (
+    <>
     <Card>
        <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -219,7 +270,7 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
                           Return Items
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                      <DropdownMenuItem onSelect={() => setPurchaseToDelete(purchase)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                       </DropdownMenuItem>
@@ -232,5 +283,20 @@ export default function AutomotivePurchasesHistory({ dateRange }: AutomotivePurc
         </Table>
       </CardContent>
     </Card>
+    <AlertDialog open={!!purchaseToDelete} onOpenChange={() => setPurchaseToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will permanently delete purchase <span className="font-bold">{purchaseToDelete?.invoiceNumber}</span>. This will revert the stock and adjust dealer balance. This action cannot be undone.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePurchase}>Continue</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

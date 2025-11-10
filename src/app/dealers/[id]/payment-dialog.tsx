@@ -29,9 +29,10 @@ import type { BankAccount } from '@/lib/data';
 
 
 const paymentSchema = z.object({
-  amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
+  transactionType: z.enum(['Payment', 'Adjustment']),
+  amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   paymentDate: z.date(),
-  paymentMethod: z.enum(['Cash', 'Online', 'Cheque']),
+  paymentMethod: z.enum(['Cash', 'Online', 'Cheque']).optional(),
   onlinePaymentSource: z.string().optional(),
   receiptImageUrl: z.string().optional(),
   notes: z.string().optional(),
@@ -60,13 +61,15 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
   });
 
   const isEditing = !!payment;
+  const transactionType = watch('transactionType');
   const paymentMethod = watch('paymentMethod');
   const receiptImageUrl = watch('receiptImageUrl');
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditing && payment?.paymentDetails) {
+      if (isEditing && payment?.type === 'Payment' && payment?.paymentDetails) {
         reset({
+            transactionType: 'Payment',
             amount: payment.credit,
             paymentDate: new Date(payment.date),
             paymentMethod: payment.paymentDetails.paymentMethod,
@@ -77,6 +80,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
         });
       } else {
         reset({
+            transactionType: 'Payment',
             amount: 0,
             paymentDate: new Date(),
             paymentMethod: 'Cash',
@@ -109,20 +113,49 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit' : 'Add'} Payment for {dealerName}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Transaction' : 'Add Transaction'} for {dealerName}</DialogTitle>
           <DialogDescription>
-             {isEditing ? 'Update the details of this payment.' : 'Record a payment made to this dealer.'}
+             Record a payment made to this dealer or manually adjust their balance.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-6 py-4">
+
+            <div className="space-y-2">
+                <Label>Transaction Type</Label>
+                <Controller
+                    control={control}
+                    name="transactionType"
+                    defaultValue="Payment"
+                    render={({ field }) => (
+                        <RadioGroup 
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="flex gap-4 pt-2"
+                        >
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Payment" id="type-payment-d" />
+                                <Label htmlFor="type-payment-d">Payment (Credit)</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="Adjustment" id="type-adjustment-d" />
+                                <Label htmlFor="type-adjustment-d">Balance Adjustment (Debit)</Label>
+                            </div>
+                        </RadioGroup>
+                    )}
+                />
+                <p className="text-xs text-muted-foreground">
+                    'Payment' reduces what you owe. 'Balance Adjustment' increases what you owe (e.g., for returns/opening balance).
+                </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="amount">Amount (Rs.)</Label>
               <Input id="amount" type="number" {...register('amount')} className={errors.amount ? 'border-destructive' : ''} />
               {errors.amount && <p className="text-xs text-destructive mt-1">{errors.amount.message}</p>}
             </div>
             <div className="space-y-2">
-                <Label>Payment Date</Label>
+                <Label>Date</Label>
                 <Controller
                     control={control}
                     name="paymentDate"
@@ -152,98 +185,104 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
                     )}
                 />
             </div>
-            <div className="space-y-2">
-                <Label>Payment Method</Label>
-                 <Controller
-                    control={control}
-                    name="paymentMethod"
-                    defaultValue="Cash"
-                    render={({ field }) => (
-                        <RadioGroup 
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            className="flex gap-4 pt-2"
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Cash" id="cash" />
-                                <Label htmlFor="cash">Cash</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Online" id="online" />
-                                <Label htmlFor="online">Online</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Cheque" id="cheque" />
-                                <Label htmlFor="cheque">Cheque</Label>
-                            </div>
-                        </RadioGroup>
-                    )}
-                />
-            </div>
-            {paymentMethod === 'Online' && (
-              <div className="grid md:grid-cols-2 gap-6 p-4 border rounded-md">
+            
+            {transactionType === 'Payment' && (
+              <div className="space-y-4 border p-4 rounded-md">
                 <div className="space-y-2">
-                  <Label htmlFor="onlinePaymentSource">My Account (Source)</Label>
-                  <Controller
-                    name="onlinePaymentSource"
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger id="onlinePaymentSource">
-                          <SelectValue placeholder="Select my bank" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {isLoadingBankAccounts ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
-                          bankAccounts.map(account => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.bankName} ({account.accountTitle})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-muted-foreground">Dealer's Account (Destination)</h4>
-                   <div className="space-y-2">
-                       <Label htmlFor="dest-title" className="text-xs">Account Title</Label>
-                       <Input id="dest-title" {...register('paymentDestinationDetails.accountTitle')} placeholder="e.g. Qureshi Autos"/>
-                   </div>
-                    <div className="space-y-2">
-                       <Label htmlFor="dest-bank" className="text-xs">Bank Name</Label>
-                       <Input id="dest-bank" {...register('paymentDestinationDetails.bankName')} placeholder="e.g. HBL"/>
-                   </div>
-                    <div className="space-y-2">
-                       <Label htmlFor="dest-acc" className="text-xs">Account Number (Optional)</Label>
-                       <Input id="dest-acc" {...register('paymentDestinationDetails.accountNumber')} placeholder="e.g. PK..."/>
-                   </div>
-                </div>
-              </div>
-            )}
-            {(paymentMethod === 'Online' || paymentMethod === 'Cheque') && (
-              <div className="space-y-2">
-                <Label htmlFor="receipt-upload">
-                  {paymentMethod === 'Online' ? 'Upload Receipt (Optional)' : 'Upload Cheque Image (Optional)'}
-                </Label>
-                <div className="flex items-center gap-4">
-                  {receiptImageUrl ? (
-                     <Image
-                        src={receiptImageUrl}
-                        alt="Receipt preview"
-                        width={64}
-                        height={64}
-                        className="rounded-md aspect-square object-cover"
+                    <Label>Payment Method</Label>
+                    <Controller
+                        control={control}
+                        name="paymentMethod"
+                        defaultValue="Cash"
+                        render={({ field }) => (
+                            <RadioGroup 
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                className="flex gap-4 pt-2"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Cash" id="cash" />
+                                    <Label htmlFor="cash">Cash</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Online" id="online" />
+                                    <Label htmlFor="online">Online</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="Cheque" id="cheque" />
+                                    <Label htmlFor="cheque">Cheque</Label>
+                                </div>
+                            </RadioGroup>
+                        )}
                     />
-                  ) : (
-                    <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
-                        <Upload className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  )}
-                  <Input id="receipt-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs" />
                 </div>
+                {paymentMethod === 'Online' && (
+                <div className="grid md:grid-cols-2 gap-6 p-4 border rounded-md">
+                    <div className="space-y-2">
+                    <Label htmlFor="onlinePaymentSource">My Account (Source)</Label>
+                    <Controller
+                        name="onlinePaymentSource"
+                        control={control}
+                        render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger id="onlinePaymentSource">
+                            <SelectValue placeholder="Select my bank" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {isLoadingBankAccounts ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
+                            bankAccounts.map(account => (
+                                <SelectItem key={account.id} value={account.id}>
+                                {account.bankName} ({account.accountTitle})
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        )}
+                    />
+                    </div>
+                    <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-muted-foreground">Dealer's Account (Destination)</h4>
+                    <div className="space-y-2">
+                        <Label htmlFor="dest-title" className="text-xs">Account Title</Label>
+                        <Input id="dest-title" {...register('paymentDestinationDetails.accountTitle')} placeholder="e.g. Qureshi Autos"/>
+                    </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="dest-bank" className="text-xs">Bank Name</Label>
+                        <Input id="dest-bank" {...register('paymentDestinationDetails.bankName')} placeholder="e.g. HBL"/>
+                    </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="dest-acc" className="text-xs">Account Number (Optional)</Label>
+                        <Input id="dest-acc" {...register('paymentDestinationDetails.accountNumber')} placeholder="e.g. PK..."/>
+                    </div>
+                    </div>
+                </div>
+                )}
+                {(paymentMethod === 'Online' || paymentMethod === 'Cheque') && (
+                <div className="space-y-2">
+                    <Label htmlFor="receipt-upload">
+                    {paymentMethod === 'Online' ? 'Upload Receipt (Optional)' : 'Upload Cheque Image (Optional)'}
+                    </Label>
+                    <div className="flex items-center gap-4">
+                    {receiptImageUrl ? (
+                        <Image
+                            src={receiptImageUrl}
+                            alt="Receipt preview"
+                            width={64}
+                            height={64}
+                            className="rounded-md aspect-square object-cover"
+                        />
+                    ) : (
+                        <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                            <Upload className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                    )}
+                    <Input id="receipt-upload" type="file" accept="image/*" onChange={handleImageChange} className="text-xs" />
+                    </div>
+                </div>
+                )}
               </div>
             )}
+            
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" {...register('notes')} placeholder="Optional payment notes or reference..." />
@@ -251,7 +290,7 @@ export function PaymentDialog({ isOpen, onClose, onSave, dealerName, payment, ba
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{isEditing ? 'Save Changes' : 'Save Payment'}</Button>
+            <Button type="submit">{isEditing ? 'Save Changes' : 'Save Transaction'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

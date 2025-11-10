@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -22,6 +23,7 @@ import {
 import { PlusCircle, MoreHorizontal, Pencil, Trash2, FileText, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { PaymentDialog } from './payment-dialog';
+import type { PaymentFormData } from './payment-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -40,7 +42,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import type { PaymentFormData } from './payment-dialog';
 import Link from 'next/link';
 import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc, query, where, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
@@ -57,7 +58,7 @@ const WhatsAppIcon = () => (
 export interface Transaction {
     id: string;
     date: string;
-    type: 'Sale' | 'Payment';
+    type: 'Sale' | 'Payment' | 'Manual Adjustment';
     reference: string;
     debit: number;
     credit: number;
@@ -106,12 +107,13 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
         const paymentTransactions: Transaction[] = customerPayments.map(p => ({
           id: p.id,
           date: p.date,
-          type: 'Payment',
+          type: p.reference?.startsWith('ADJ') ? 'Manual Adjustment' : 'Payment',
           reference: p.reference || `PAY-${p.id.substring(0,6)}`,
-          debit: 0,
-          credit: p.amount,
+          debit: p.reference?.startsWith('ADJ') ? p.amount : 0,
+          credit: p.reference?.startsWith('ADJ') ? 0 : p.amount,
           balance: 0,
           paymentDetails: {
+            transactionType: p.reference?.startsWith('ADJ') ? 'Adjustment' : 'Payment',
             paymentDate: new Date(p.date),
             paymentMethod: p.paymentMethod,
             onlinePaymentSource: p.onlinePaymentSource,
@@ -143,79 +145,46 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
         try {
             await runTransaction(firestore, async (transaction) => {
                 // --- ALL READS MUST COME BEFORE WRITES ---
-
                 const customerDoc = await transaction.get(customerRef);
                 if (!customerDoc.exists()) throw new Error("Customer not found!");
-
-                let oldPaymentDoc: DocumentSnapshot | null = null;
-                if (transactionToEdit && transactionToEdit.type === 'Payment') {
-                    const paymentRef = doc(firestore, 'payments', transactionToEdit.id);
-                    oldPaymentDoc = await transaction.get(paymentRef);
-                }
-
-                let oldBankSnap: DocumentSnapshot | null = null;
-                const oldOnlinePaymentSource = oldPaymentDoc?.data()?.onlinePaymentSource;
-                if (oldOnlinePaymentSource) {
-                    oldBankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', oldOnlinePaymentSource));
-                }
                 
-                let newBankSnap: DocumentSnapshot | null = null;
-                if (paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
-                    newBankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource));
-                }
+                const isAdjustment = paymentData.transactionType === 'Adjustment';
+                const amount = paymentData.amount;
+                const balanceChange = isAdjustment ? amount : -amount;
 
                 // --- ALL WRITES START FROM HERE ---
+                const newBalance = (customerDoc.data().balance || 0) + balanceChange;
+                transaction.update(customerRef, { balance: newBalance });
 
-                const currentBalance = customerDoc.data().balance || 0;
-                const oldAmount = oldPaymentDoc?.data()?.amount || 0;
-
-                const paymentPayload: Omit<Payment, 'customer' | 'id'> = {
+                const paymentRef = doc(collection(firestore, 'payments'));
+                const paymentPayload: Omit<Payment, 'id' | 'customer'> = {
                     amount: paymentData.amount,
                     date: paymentData.paymentDate.toISOString(),
-                    paymentMethod: paymentData.paymentMethod,
+                    paymentMethod: paymentData.paymentMethod || 'Cash', // Default for adjustments
                     onlinePaymentSource: paymentData.onlinePaymentSource || '',
-                    notes: paymentData.notes || '',
+                    notes: paymentData.notes || (isAdjustment ? 'Manual Balance Adjustment' : ''),
                     receiptImageUrl: paymentData.receiptImageUrl || '',
-                    reference: transactionToEdit?.reference || `RECV-${Date.now().toString().slice(-6)}`,
+                    reference: isAdjustment ? `ADJ-${Date.now().toString().slice(-6)}` : `RECV-${Date.now().toString().slice(-6)}`,
                 };
-                
-                let paymentRef: DocumentReference;
-                if (transactionToEdit && transactionToEdit.type === 'Payment') {
-                    paymentRef = doc(firestore, 'payments', transactionToEdit.id);
-                    const difference = paymentData.amount - oldAmount;
-                    transaction.update(paymentRef, paymentPayload);
-                    transaction.update(customerRef, { balance: currentBalance - difference });
-                } else {
-                    paymentRef = doc(collection(firestore, 'payments'));
-                    transaction.set(paymentRef, { ...paymentPayload, customer: customerRef });
-                    transaction.update(customerRef, { balance: currentBalance - paymentData.amount });
-                }
+                transaction.set(paymentRef, { ...paymentPayload, customer: customerRef });
 
-                // Revert old transaction if online source changed
-                if (oldBankSnap?.exists() && oldOnlinePaymentSource !== paymentData.onlinePaymentSource) {
-                    const oldBankRef = oldBankSnap.ref;
-                    const oldBankBalance = oldBankSnap.data()?.balance || 0;
-                    transaction.update(oldBankRef, { balance: oldBankBalance - oldAmount });
-                }
-
-                // Add new transaction if it's online
-                if (newBankSnap?.exists() && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
-                    const newBankRef = newBankSnap.ref;
-                    const currentBankBalance = newBankSnap.data()?.balance || 0;
-                    const amountToCredit = paymentData.amount - (oldOnlinePaymentSource === paymentData.onlinePaymentSource ? oldAmount : 0);
-
-                    if (amountToCredit !== 0) {
-                        const newBalance = currentBankBalance + amountToCredit;
-                        transaction.update(newBankRef, { balance: newBalance });
+                // Handle Bank Transaction for online payments
+                if (!isAdjustment && paymentData.paymentMethod === 'Online' && paymentData.onlinePaymentSource) {
+                    const bankRef = doc(firestore, 'my_bank_accounts', paymentData.onlinePaymentSource);
+                    const bankSnap = await transaction.get(bankRef);
+                    if (bankSnap.exists()) {
+                        const currentBankBalance = bankSnap.data().balance || 0;
+                        const newBankBalance = currentBankBalance + paymentData.amount;
+                        transaction.update(bankRef, { balance: newBankBalance });
 
                         const txRef = doc(collection(firestore, 'bank_transactions'));
                         const txPayload: Omit<BankTransaction, 'id'> = {
                             accountId: paymentData.onlinePaymentSource,
                             date: paymentData.paymentDate.toISOString(),
-                            description: `${transactionToEdit ? 'Update for' : 'Payment from'} ${customer.name}`,
+                            description: `Payment from ${customer.name}`,
                             type: 'Credit',
-                            amount: amountToCredit,
-                            balanceAfter: newBalance,
+                            amount: paymentData.amount,
+                            balanceAfter: newBankBalance,
                             referenceId: paymentRef.id,
                             referenceType: 'Customer Payment'
                         };
@@ -223,12 +192,10 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                     }
                 }
             });
-
-             toast({ title: transactionToEdit ? "Payment Updated" : "Payment Added", description: "The payment has been recorded successfully." });
-
+            toast({ title: "Transaction Added", description: "The transaction has been recorded successfully." });
         } catch (error) {
-            console.error("Payment transaction failed: ", error);
-            toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Could not save the payment." });
+            console.error("Transaction failed: ", error);
+            toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Could not save the transaction." });
         }
 
         setIsPaymentDialogOpen(false);
@@ -236,8 +203,8 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
     }
     
     const handleEditPayment = (tx: Transaction) => {
-        setTransactionToEdit(tx);
-        setIsPaymentDialogOpen(true);
+        // Editing logic would be complex due to balance adjustments, disabled for now.
+        toast({ variant: 'destructive', title: 'Not Implemented', description: 'Editing transactions is not supported. Please delete and re-create.' });
     };
 
     const handleDelete = async () => {
@@ -258,8 +225,9 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 const currentBalance = customerDoc.data().balance || 0;
                 let newBalance: number;
 
-                if (transactionToDelete.type === 'Payment') {
-                    newBalance = currentBalance + transactionToDelete.credit;
+                if (transactionToDelete.type === 'Payment' || transactionToDelete.type === 'Manual Adjustment') {
+                    const balanceChange = transactionToDelete.credit > 0 ? transactionToDelete.credit : -transactionToDelete.debit;
+                    newBalance = currentBalance + balanceChange; // Revert the payment/adjustment
                     if (docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
                         const bankRef = doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource);
                         const bankSnap = await transaction.get(bankRef);
@@ -358,7 +326,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                         </Button>
                         <Button onClick={() => { setTransactionToEdit(null); setIsPaymentDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
-                            Add Payment
+                            Add Transaction
                         </Button>
                     </div>
                 </CardHeader>
@@ -380,7 +348,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                                 <TableRow key={tx.id}>
                                     <TableCell>{format(new Date(tx.date), 'dd MMM, yyyy')}</TableCell>
                                     <TableCell>
-                                        <Badge variant={tx.type === 'Sale' ? 'outline' : 'secondary'}>
+                                        <Badge variant={tx.type === 'Sale' || tx.type === 'Manual Adjustment' ? 'outline' : 'secondary'}>
                                             {tx.type}
                                         </Badge>
                                     </TableCell>
@@ -412,9 +380,9 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                                                         </DropdownMenuItem>
                                                     </>
                                                 ) : (
-                                                    <DropdownMenuItem onSelect={() => handleEditPayment(tx)}>
+                                                    <DropdownMenuItem onSelect={() => handleEditPayment(tx)} disabled>
                                                         <Pencil className="mr-2 h-4 w-4" />
-                                                        Edit Payment
+                                                        Edit (Not Available)
                                                     </DropdownMenuItem>
                                                 )}
                                                 <DropdownMenuSeparator />

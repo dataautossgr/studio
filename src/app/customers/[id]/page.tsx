@@ -1,34 +1,13 @@
 
-'use client';
-
-import { useMemo } from 'react';
-import { useParams } from 'next/navigation';
 import CustomerLedgerDetail from './customer-detail';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
-import type { Sale, Payment } from '@/lib/data';
 
-export default function CustomerLedgerPage() {
-    const params = useParams();
-    const firestore = useFirestore();
-    const customerId = params.id as string;
+export async function generateStaticParams() {
+  // Returning an empty array tells Next.js not to generate any pages at build time.
+  // The pages will be generated on-demand at request time.
+  return [];
+}
 
-    const salesQuery = useMemoFirebase(() => {
-      if (!firestore || !customerId) return null;
-      return query(collection(firestore, 'sales'), where('customer', '==', doc(firestore, 'customers', customerId)));
-    }, [firestore, customerId]);
-
-    const paymentsQuery = useMemoFirebase(() => {
-      if (!firestore || !customerId) return null;
-      return query(collection(firestore, 'payments'), where('customer', '==', doc(firestore, 'customers', customerId)));
-    }, [firestore, customerId]);
-
-    const { data: customerSales, isLoading: areSalesLoading } = useCollection<Sale>(salesQuery);
-    const { data: customerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
-
-    return <CustomerLedgerDetail 
-        customerSales={customerSales} 
-        customerPayments={customerPayments}
-        isLoading={areSalesLoading || arePaymentsLoading} 
-    />;
+// This is now a Server Component. It can pass params to a Client Component.
+export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
+    return <CustomerLedgerDetail customerId={params.id} />;
 }

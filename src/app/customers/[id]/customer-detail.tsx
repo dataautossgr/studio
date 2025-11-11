@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { type Customer, type Sale, type Payment, type BankAccount, type BankTransaction } from '@/lib/data';
 import {
   Card,
@@ -67,20 +67,15 @@ export interface Transaction {
 }
 
 interface CustomerLedgerDetailProps {
-    customerSales: Sale[] | null;
-    customerPayments: Payment[] | null;
-    isLoading: boolean;
+   customerId: string;
 }
 
-export default function CustomerLedgerDetail({ customerSales, customerPayments, isLoading }: CustomerLedgerDetailProps) {
-    const params = useParams();
+export default function CustomerLedgerDetail({ customerId }: CustomerLedgerDetailProps) {
     const router = useRouter();
     const { toast } = useToast();
     const firestore = useFirestore();
     const { settings } = useStoreSettings();
     const printRef = useRef<HTMLDivElement>(null);
-
-    const customerId = params.id as string;
 
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
@@ -90,6 +85,22 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
 
     const customerRef = useMemoFirebase(() => customerId && firestore ? doc(firestore, 'customers', customerId) : null, [firestore, customerId]);
     const { data: customer, isLoading: isCustomerLoading } = useDoc<Customer>(customerRef);
+    
+    const salesQuery = useMemoFirebase(() => {
+      if (!firestore || !customerId) return null;
+      return query(collection(firestore, 'sales'), where('customer', '==', doc(firestore, 'customers', customerId)));
+    }, [firestore, customerId]);
+
+    const paymentsQuery = useMemoFirebase(() => {
+      if (!firestore || !customerId) return null;
+      return query(collection(firestore, 'payments'), where('customer', '==', doc(firestore, 'customers', customerId)));
+    }, [firestore, customerId]);
+
+    const { data: customerSales, isLoading: areSalesLoading } = useCollection<Sale>(salesQuery);
+    const { data: customerPayments, isLoading: arePaymentsLoading } = useCollection<Payment>(paymentsQuery);
+    const isLoading = areSalesLoading || arePaymentsLoading || isCustomerLoading;
+
+
     const bankAccountsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'my_bank_accounts') : null, [firestore]);
     const { data: bankAccounts, isLoading: isLoadingBankAccounts } = useCollection<BankAccount>(bankAccountsCollection);
     

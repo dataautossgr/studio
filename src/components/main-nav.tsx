@@ -14,7 +14,7 @@ import {
   Wrench,
   ShieldCheck,
   Landmark,
-  PackageWarning,
+  ArchiveX,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -27,7 +27,7 @@ import {
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/low-stock', label: 'Low Stock', icon: PackageWarning },
+  { href: '/low-stock', label: 'Low Stock', icon: ArchiveX },
   { href: '/sales', label: 'Sales', icon: Receipt },
   { href: '/batteries/claims', label: 'Claims', icon: ShieldCheck },
   { href: '/repair-jobs', label: 'Temporary Bill', icon: Wrench },

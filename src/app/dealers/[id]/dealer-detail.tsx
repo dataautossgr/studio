@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { type Dealer, type Purchase, type DealerPayment, type BankAccount, type BankTransaction } from '@/lib/data';
 import {
   Card,
@@ -65,20 +65,15 @@ export interface Transaction {
 }
 
 interface DealerLedgerDetailProps {
-    dealerPurchases: Purchase[] | null;
-    dealerPayments: DealerPayment[] | null;
-    isLoading: boolean;
+    dealerId: string;
 }
 
-export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, isLoading }: DealerLedgerDetailProps) {
-    const params = useParams();
+export default function DealerLedgerDetail({ dealerId }: DealerLedgerDetailProps) {
     const router = useRouter();
     const { toast } = useToast();
     const firestore = useFirestore();
     const { settings } = useStoreSettings();
     const printRef = useRef<HTMLDivElement>(null);
-
-    const dealerId = params.id as string;
 
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
@@ -88,6 +83,21 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     
     const dealerRef = useMemoFirebase(() => dealerId && firestore ? doc(firestore, 'dealers', dealerId) : null, [firestore, dealerId]);
     const { data: dealer, isLoading: isDealerLoading } = useDoc<Dealer>(dealerRef);
+    
+    const purchasesQuery = useMemoFirebase(() => {
+      if (!firestore || !dealerId) return null;
+      return query(collection(firestore, 'purchases'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
+    }, [firestore, dealerId]);
+
+    const paymentsQuery = useMemoFirebase(() => {
+      if (!firestore || !dealerId) return null;
+      return query(collection(firestore, 'dealer_payments'), where('dealer', '==', doc(firestore, 'dealers', dealerId)));
+    }, [firestore, dealerId]);
+
+    const { data: dealerPurchases, isLoading: arePurchasesLoading } = useCollection<Purchase>(purchasesQuery);
+    const { data: dealerPayments, isLoading: arePaymentsLoading } = useCollection<DealerPayment>(paymentsQuery);
+    const isLoading = arePurchasesLoading || arePaymentsLoading;
+
     const bankAccountsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'my_bank_accounts') : null, [firestore]);
     const { data: bankAccounts, isLoading: isLoadingBankAccounts } = useCollection<BankAccount>(bankAccountsCollection);
 
@@ -233,11 +243,11 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 if (
                     'paymentMethod' in docToDelete &&
                     docToDelete.paymentMethod === 'Online' &&
-                    'onlinePaymentSource' in docToDelete && // Type guard for Purchase
-                    docToDelete.onlinePaymentSource
+                    'paymentSourceAccount' in docToDelete &&
+                    docToDelete.paymentSourceAccount
                   ) {
                     bankSnap = await transaction.get(
-                      doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource)
+                      doc(firestore, 'my_bank_accounts', docToDelete.paymentSourceAccount)
                     );
                 }
 

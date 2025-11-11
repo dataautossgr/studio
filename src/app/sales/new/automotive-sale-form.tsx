@@ -94,7 +94,7 @@ export default function AutomotiveSaleForm() {
   const [cashReceived, setCashReceived] = useState(0);
 
 
-  const [isCustomerDialogOpen, setIsCustomerDialogOpen] useState(false);
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isWalkInUnpaidDialogOpen, setIsWalkInUnpaidDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -164,14 +164,15 @@ export default function AutomotiveSaleForm() {
               const cartItems: CartItem[] = await Promise.all(currentSale.items.map(async (item) => {
                   const product = products.find(p => p.id === item.productId);
                   const isOneTimeProduct = !product;
-                  let itemType: CartItem['type'] = 'automotive'; // Default to automotive for stock items
                   
+                  let itemType: CartItem['type'];
                   if (isOneTimeProduct) {
-                      // Logic to determine type for one-time items based on their ID prefix
-                      if (item.productId.startsWith('service')) itemType = 'service';
-                      else if (item.productId.startsWith('scrap')) itemType = 'scrap';
-                      else if (item.productId.startsWith('acid')) itemType = 'acid';
-                      else itemType = 'one-time';
+                    if (item.productId.startsWith('service')) itemType = 'service';
+                    else if (item.productId.startsWith('scrap')) itemType = 'scrap';
+                    else if (item.productId.startsWith('acid')) itemType = 'acid';
+                    else itemType = 'one-time';
+                  } else {
+                    itemType = 'automotive';
                   }
 
                   return {
@@ -659,5 +660,3 @@ export default function AutomotiveSaleForm() {
     </div>
   );
 }
-
-    

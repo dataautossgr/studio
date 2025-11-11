@@ -68,7 +68,8 @@ export default function AutomotiveInventory() {
   const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsCollection);
   const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesCollection);
   const { data: dealers, isLoading: isLoadingDealers } = useCollection<Dealer>(dealersCollection);
-
+  
+  const [enrichedProducts, setEnrichedProducts] = useState<DisplayProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<DisplayProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -84,47 +85,54 @@ export default function AutomotiveInventory() {
     return { totalSaleValue: sale, totalCostValue: cost };
   }, [products]);
 
-  const displayProducts = useMemo(() => {
-    if (!products || !purchases || !dealers) return [];
+  useEffect(() => {
+    if (!products || !purchases || !dealers) {
+      setEnrichedProducts([]);
+      return;
+    };
+
+    const enrichData = async () => {
+      const enriched = await Promise.all(products.map(async (product) => {
+        const productPurchases = purchases
+          .filter(p => p.items && Array.isArray(p.items) && p.items.some(item => item.productId === product.id))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
-    return Promise.all(products.map(async (product) => {
-      const productPurchases = purchases
-        .filter(p => p.items && Array.isArray(p.items) && p.items.some(item => item.productId === product.id))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  
-      const lastPurchase = productPurchases[0];
-      let dealerName = 'N/A';
-  
-      if (lastPurchase?.dealer) {
-        try {
-          const dealerSnap = await getDoc(lastPurchase.dealer as DocumentReference);
-          if (dealerSnap.exists()) {
-            dealerName = (dealerSnap.data() as Dealer).company || 'Unknown Dealer';
+        const lastPurchase = productPurchases[0];
+        let dealerName = 'N/A';
+    
+        if (lastPurchase?.dealer) {
+          try {
+            const dealerSnap = await getDoc(lastPurchase.dealer as DocumentReference);
+            if (dealerSnap.exists()) {
+              dealerName = (dealerSnap.data() as Dealer).company || 'Unknown Dealer';
+            }
+          } catch (e) {
+            console.error("Error fetching dealer for purchase:", e);
           }
-        } catch (e) {
-          console.error("Error fetching dealer for purchase:", e);
         }
-      }
-  
-      return {
-        ...product,
-        lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yyyy') : 'N/A',
-        lastPurchaseDealer: dealerName,
-      };
-    }));
+    
+        return {
+          ...product,
+          lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yyyy') : 'N/A',
+          lastPurchaseDealer: dealerName,
+        };
+      }));
+      setEnrichedProducts(enriched);
+    }
+    
+    enrichData();
   }, [products, purchases, dealers]);
 
+
   useEffect(() => {
-    displayProducts.then(resolvedProducts => {
-        const results = resolvedProducts.filter(product =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (product.model && product.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (product.lastPurchaseDealer && product.lastPurchaseDealer.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-        setFilteredProducts(results);
-    });
-  }, [searchTerm, displayProducts]);
+      const results = enrichedProducts.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.model && product.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.lastPurchaseDealer && product.lastPurchaseDealer.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      setFilteredProducts(results);
+  }, [searchTerm, enrichedProducts]);
 
   const handleAddProduct = () => {
     setSelectedProduct(null);
@@ -408,4 +416,3 @@ export default function AutomotiveInventory() {
     </div>
   );
 }
-

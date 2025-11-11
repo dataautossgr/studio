@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, FileText, Pencil, Trash2, Undo2, PlusCircle, Download } from 'lucide-react';
+import { MoreHorizontal, FileText, Pencil, Trash2, Undo2, PlusCircle, Download, ShieldCheck } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -285,9 +285,11 @@ export default function AutomotiveSalesHistory({ dateRange }: AutomotiveSalesHis
                           Edit
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Undo2 className="mr-2 h-4 w-4" />
-                        Return / Exchange
+                      <DropdownMenuItem asChild>
+                        <Link href={`/batteries/claims/new?saleId=${sale.id}`}>
+                            <ShieldCheck className="mr-2 h-4 w-4" />
+                            Return / Exchange
+                        </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={() => setSaleToDelete(sale)} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">

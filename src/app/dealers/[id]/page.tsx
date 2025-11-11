@@ -1,12 +1,16 @@
 
-'use client';
-
 import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import DealerLedgerDetail from './dealer-detail';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import type { Purchase, DealerPayment } from '@/lib/data';
+
+export async function generateStaticParams() {
+  // Returning an empty array tells Next.js not to generate any pages at build time.
+  // The pages will be generated on-demand at request time.
+  return [];
+}
 
 export default function DealerLedgerPage() {
     const params = useParams();

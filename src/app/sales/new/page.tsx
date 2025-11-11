@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation';
 export default function NewSalePage() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'automotive';
+  const customerId = searchParams.get('customerId');
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">

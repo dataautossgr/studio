@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlusCircle, MoreHorizontal, Pencil, Trash2, FileText, Printer, Eye } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Pencil, Trash2, FileText, Printer, Eye, Receipt } from 'lucide-react';
 import { format } from 'date-fns';
 import { PaymentDialog } from './payment-dialog';
 import type { PaymentFormData } from './payment-dialog';
@@ -161,11 +161,10 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 
                 let originalAmount = 0;
                 let originalIsPayment = false;
-                let oldPaymentDoc: DocumentSnapshot<DocumentData> | null = null;
                 
                 if (isEditing && transactionToEdit) {
                     const oldPaymentRef = doc(firestore, 'payments', transactionToEdit.id);
-                    oldPaymentDoc = await transaction.get(oldPaymentRef);
+                    const oldPaymentDoc = await transaction.get(oldPaymentRef);
                     if (oldPaymentDoc.exists()) {
                         originalAmount = oldPaymentDoc.data().amount || 0;
                         originalIsPayment = !oldPaymentDoc.data().reference?.startsWith('ADJ');
@@ -335,6 +334,10 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                         </Button>
                         <Button onClick={handleSendWhatsApp}>
                             <WhatsAppIcon /> <span className="ml-2">Send on WhatsApp</span>
+                        </Button>
+                        <Button onClick={() => router.push(`/sales/new?customerId=${customerId}`)}>
+                            <Receipt className="mr-2 h-4 w-4" />
+                            Add Sale
                         </Button>
                         <Button onClick={() => { setTransactionToEdit(null); setIsReadOnly(false); setIsPaymentDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />

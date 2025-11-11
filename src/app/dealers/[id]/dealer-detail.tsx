@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlusCircle, MoreHorizontal, Pencil, Trash2, Printer, Eye } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Pencil, Trash2, Printer, Eye, ShoppingBag } from 'lucide-react';
 import { format } from 'date-fns';
 import { PaymentDialog } from './payment-dialog';
 import type { PaymentFormData } from './payment-dialog';
@@ -330,6 +330,10 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                         </Button>
                         <Button onClick={handleSendWhatsApp}>
                             <WhatsAppIcon /> <span className="ml-2">Send on WhatsApp</span>
+                        </Button>
+                         <Button onClick={() => router.push(`/purchase/new?dealerId=${dealerId}&type=${dealer.type}`)}>
+                            <ShoppingBag className="mr-2 h-4 w-4" />
+                            Add Purchase
                         </Button>
                         <Button onClick={() => { setTransactionToEdit(null); setIsReadOnly(false); setIsPaymentDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />

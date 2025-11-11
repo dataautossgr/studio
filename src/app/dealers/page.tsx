@@ -27,7 +27,7 @@ import {
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DealerDialog } from './dealer-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -57,6 +57,16 @@ export default function DealersPage() {
   const [isResetting, setIsResetting] = useState(false);
   const [dialogDealerType, setDialogDealerType] = useState<DealerType>('automotive');
   const { toast } = useToast();
+  
+  const totalDues = useMemo(() => {
+    if (!dealers) return { automotive: 0, battery: 0 };
+    return dealers.reduce((acc, dealer) => {
+        if (dealer.balance > 0) {
+            acc[dealer.type] += dealer.balance;
+        }
+        return acc;
+    }, { automotive: 0, battery: 0 });
+  }, [dealers]);
   
   const handleAddDealer = (type: DealerType) => {
     setSelectedDealer(null);
@@ -138,21 +148,27 @@ export default function DealersPage() {
 
   const renderDealerTable = (type: DealerType) => (
      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-start justify-between">
           <div>
             <CardTitle>All {type.charAt(0).toUpperCase() + type.slice(1)} Dealers</CardTitle>
             <CardDescription>
               Manage your suppliers for {type} products.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handleExport(type)}>
-              <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
-            <Button onClick={() => handleAddDealer(type)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add {type.charAt(0).toUpperCase() + type.slice(1)} Dealer
-            </Button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handleExport(type)}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+                <Button onClick={() => handleAddDealer(type)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add {type.charAt(0).toUpperCase() + type.slice(1)} Dealer
+                </Button>
+            </div>
+             <Card className="p-4 w-fit">
+                <p className="text-sm font-medium text-muted-foreground">Total Dues Payable</p>
+                <p className="text-2xl font-bold text-destructive">Rs. {(totalDues[type] || 0).toLocaleString()}</p>
+            </Card>
           </div>
         </CardHeader>
         <CardContent>

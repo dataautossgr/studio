@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye, RotateCcw, Download } from 'lucide-react';
+import { MoreHorizontal, Pencil, PlusCircle, Trash2, Eye, RotateCcw, Download, Users } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -27,7 +27,7 @@ import {
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { CustomerDialog } from './customer-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -59,6 +59,16 @@ export default function CustomersPage() {
   const [dialogCustomerType, setDialogCustomerType] = useState<CustomerType>('automotive');
 
   const { toast } = useToast();
+
+  const totalDues = useMemo(() => {
+    if (!customers) return { automotive: 0, battery: 0 };
+    return customers.reduce((acc, customer) => {
+        if (customer.balance > 0) {
+            acc[customer.type] += customer.balance;
+        }
+        return acc;
+    }, { automotive: 0, battery: 0 });
+  }, [customers]);
   
   const handleAddCustomer = (type: CustomerType) => {
     setSelectedCustomer(null);
@@ -144,21 +154,27 @@ export default function CustomersPage() {
 
   const renderCustomerTable = (type: CustomerType) => (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-start justify-between">
         <div>
           <CardTitle>All {type.charAt(0).toUpperCase() + type.slice(1)} Customers</CardTitle>
           <CardDescription>
             Manage your {type} customers.
           </CardDescription>
         </div>
-        <div className="flex gap-2">
-           <Button variant="outline" onClick={() => handleExport(type)}>
-            <Download className="mr-2 h-4 w-4" /> Export CSV
-          </Button>
-          <Button onClick={() => handleAddCustomer(type)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add {type.charAt(0).toUpperCase() + type.slice(1)} Customer
-          </Button>
+        <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handleExport(type)}>
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+                <Button onClick={() => handleAddCustomer(type)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add {type.charAt(0).toUpperCase() + type.slice(1)} Customer
+                </Button>
+            </div>
+            <Card className="p-4 w-fit">
+                <p className="text-sm font-medium text-muted-foreground">Total Dues Receivable</p>
+                <p className="text-2xl font-bold text-destructive">Rs. {(totalDues[type] || 0).toLocaleString()}</p>
+            </Card>
         </div>
       </CardHeader>
       <CardContent>

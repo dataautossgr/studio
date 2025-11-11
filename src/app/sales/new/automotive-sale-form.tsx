@@ -44,7 +44,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { CustomerDialog } from '@/app/customers/customer-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -99,6 +99,7 @@ export default function AutomotiveSaleForm() {
   const { toast } = useToast();
 
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const firestore = useFirestore();
 
@@ -115,6 +116,17 @@ export default function AutomotiveSaleForm() {
 
   const saleId = params.id as string;
   const isNew = saleId === 'new' || !saleId; // Treat no ID as new
+
+ useEffect(() => {
+    const customerId = searchParams.get('customerId');
+    if (customerId && customers) {
+        const preselectedCustomer = customers.find(c => c.id === customerId);
+        if (preselectedCustomer) {
+            setSelectedCustomer(preselectedCustomer);
+            setCustomerType('registered');
+        }
+    }
+ }, [searchParams, customers]);
 
  useEffect(() => {
     if (customersLoading || productsLoading || !firestore || isNew) return;
@@ -282,12 +294,11 @@ export default function AutomotiveSaleForm() {
     
     try {
         await runTransaction(firestore, async (transaction) => {
-            // --- ALL READS MUST COME BEFORE WRITES ---
             const salesSnapshot = isNew ? await getCountFromServer(collection(firestore, 'sales')) : null;
             const bankSnap = (paymentMethod === 'online' && onlinePaymentSource) ? await getDoc(doc(firestore, 'my_bank_accounts', onlinePaymentSource)) : null;
             
             let customerRef: DocumentReference;
-            let customerSnap: any = null; // To hold customer doc snapshot if needed
+            let customerSnap: any = null;
 
             if (customerType === 'registered' && selectedCustomer) {
                 customerRef = doc(firestore, 'customers', selectedCustomer.id);
@@ -299,11 +310,9 @@ export default function AutomotiveSaleForm() {
                 customerRef = doc(collection(firestore, 'customers'));
             }
 
-            // Read stock for all products in cart
             const productRefs = cart.filter(item => !item.isOneTime).map(item => doc(firestore, 'products', item.id));
             const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-            // --- ALL WRITES START FROM HERE ---
             const finalSaleDate = new Date(saleDate);
             const [hours, minutes] = saleTime.split(':').map(Number);
             finalSaleDate.setHours(hours, minutes);

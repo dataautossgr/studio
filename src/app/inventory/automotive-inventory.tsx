@@ -51,7 +51,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useCollection, useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, getDoc, DocumentReference } from 'firebase/firestore';
 
 
 interface DisplayProduct extends Product {
@@ -86,30 +86,44 @@ export default function AutomotiveInventory() {
 
   const displayProducts = useMemo(() => {
     if (!products || !purchases || !dealers) return [];
-    return products.map(product => {
-        const productPurchases = purchases
-            .filter(p => p.items.some(item => item.productId === product.id))
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        const lastPurchase = productPurchases[0];
-        const dealer = lastPurchase ? dealers.find(d => d.id === lastPurchase.dealer.id) : null;
-        
-        return {
-            ...product,
-            lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yyyy') : 'N/A',
-            lastPurchaseDealer: dealer ? dealer.company : (product.dealerId ? 'N/A' : 'N/A'),
+    
+    return Promise.all(products.map(async (product) => {
+      const productPurchases = purchases
+        .filter(p => p.items && Array.isArray(p.items) && p.items.some(item => item.productId === product.id))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+      const lastPurchase = productPurchases[0];
+      let dealerName = 'N/A';
+  
+      if (lastPurchase?.dealer) {
+        try {
+          const dealerSnap = await getDoc(lastPurchase.dealer as DocumentReference);
+          if (dealerSnap.exists()) {
+            dealerName = (dealerSnap.data() as Dealer).company || 'Unknown Dealer';
+          }
+        } catch (e) {
+          console.error("Error fetching dealer for purchase:", e);
         }
-    })
+      }
+  
+      return {
+        ...product,
+        lastPurchaseDate: lastPurchase ? format(new Date(lastPurchase.date), 'dd MMM, yyyy') : 'N/A',
+        lastPurchaseDealer: dealerName,
+      };
+    }));
   }, [products, purchases, dealers]);
 
   useEffect(() => {
-    const results = displayProducts.filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.model && product.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.lastPurchaseDealer && product.lastPurchaseDealer.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-    setFilteredProducts(results);
+    displayProducts.then(resolvedProducts => {
+        const results = resolvedProducts.filter(product =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.model && product.model.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.lastPurchaseDealer && product.lastPurchaseDealer.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+        setFilteredProducts(results);
+    });
   }, [searchTerm, displayProducts]);
 
   const handleAddProduct = () => {
@@ -394,3 +408,4 @@ export default function AutomotiveInventory() {
     </div>
   );
 }
+

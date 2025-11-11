@@ -229,7 +229,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 const docToDelete = docToDeleteSnap.data() as Purchase | DealerPayment;
 
                 let bankSnap: DocumentSnapshot<DocumentData> | null = null;
-                if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
+                if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && 'onlinePaymentSource' in docToDelete && docToDelete.onlinePaymentSource) {
                     bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource));
                 }
 
@@ -436,3 +436,5 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
     </div>
   );
 }
+
+    

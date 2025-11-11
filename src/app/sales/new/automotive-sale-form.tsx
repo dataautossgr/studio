@@ -94,7 +94,7 @@ export default function AutomotiveSaleForm() {
   const [cashReceived, setCashReceived] = useState(0);
 
 
-  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isWalkInUnpaidDialogOpen, setIsWalkInUnpaidDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -161,8 +161,19 @@ export default function AutomotiveSaleForm() {
             setDiscount(subtotal - currentSale.total);
 
             if (products) {
-              const cartItems = await Promise.all(currentSale.items.map(async (item) => {
+              const cartItems: CartItem[] = await Promise.all(currentSale.items.map(async (item) => {
                   const product = products.find(p => p.id === item.productId);
+                  const isOneTimeProduct = !product;
+                  let itemType: CartItem['type'] = 'automotive'; // Default to automotive for stock items
+                  
+                  if (isOneTimeProduct) {
+                      // Logic to determine type for one-time items based on their ID prefix
+                      if (item.productId.startsWith('service')) itemType = 'service';
+                      else if (item.productId.startsWith('scrap')) itemType = 'scrap';
+                      else if (item.productId.startsWith('acid')) itemType = 'acid';
+                      else itemType = 'one-time';
+                  }
+
                   return {
                       id: item.productId,
                       name: item.name,
@@ -170,8 +181,8 @@ export default function AutomotiveSaleForm() {
                       price: item.price,
                       costPrice: product?.costPrice || 0,
                       stock: product?.stock || 0,
-                      isOneTime: !product,
-                      type: 'automotive'
+                      isOneTime: isOneTimeProduct,
+                      type: itemType,
                   };
               }));
               setCart(cartItems);
@@ -648,3 +659,5 @@ export default function AutomotiveSaleForm() {
     </div>
   );
 }
+
+    

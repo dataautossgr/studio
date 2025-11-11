@@ -232,7 +232,7 @@ export default function CustomerLedgerDetail({ customerSales, customerPayments, 
                 const docToDelete = docToDeleteSnap.data() as Sale | Payment;
 
                 let bankSnap: DocumentSnapshot<DocumentData> | null = null;
-                if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && docToDelete.onlinePaymentSource) {
+                if ('paymentMethod' in docToDelete && docToDelete.paymentMethod === 'online' && docToDelete.onlinePaymentSource) {
                     bankSnap = await transaction.get(doc(firestore, 'my_bank_accounts', docToDelete.onlinePaymentSource));
                 }
 

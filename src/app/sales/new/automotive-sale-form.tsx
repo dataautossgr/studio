@@ -73,6 +73,7 @@ interface CartItem {
   costPrice: number;
   stock: number;
   isOneTime: boolean;
+  type: 'automotive' | 'service' | 'scrap' | 'acid' | 'one-time';
 }
 
 export default function AutomotiveSaleForm() {
@@ -169,7 +170,8 @@ export default function AutomotiveSaleForm() {
                       price: item.price,
                       costPrice: product?.costPrice || 0,
                       stock: product?.stock || 0,
-                      isOneTime: !product
+                      isOneTime: !product,
+                      type: 'automotive'
                   };
               }));
               setCart(cartItems);
@@ -221,25 +223,23 @@ export default function AutomotiveSaleForm() {
           costPrice: product.costPrice,
           stock: product.stock,
           isOneTime: false,
+          type: 'automotive'
         },
       ]);
     }
   };
 
-  const addOneTimeProduct = () => {
-    const newId = `onetime-${Date.now()}`;
-    setCart([
-      ...cart,
-      {
-        id: newId,
-        name: 'One-Time Product',
-        quantity: 1,
-        price: 0,
-        costPrice: 0,
-        stock: 0,
-        isOneTime: true,
-      },
-    ]);
+  const addSpecialItem = (type: 'service' | 'scrap' | 'acid' | 'one-time') => {
+    const newId = `${type}-${Date.now()}`;
+    let name = 'One-Time Product';
+    if (type === 'service') name = 'Service Charges';
+    if (type === 'acid') name = 'Acid Sale';
+    if (type === 'scrap') name = 'Scrap Trade-in';
+  
+    setCart(prev => [...prev, {
+        id: newId, name, quantity: 1, price: 0,
+        costPrice: 0, stock: 0, isOneTime: true, type,
+    }]);
   };
   
   const updateCartItem = (id: string, field: keyof CartItem, value: any) => {
@@ -533,10 +533,10 @@ export default function AutomotiveSaleForm() {
           
           <div className="space-y-2">
             <Label>Add Products</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start font-normal text-muted-foreground">
+                    <Button variant="outline" className="flex-1 min-w-[200px] justify-start font-normal text-muted-foreground">
                         <Search className="mr-2 h-4 w-4" />
                         Search inventory to add products...
                     </Button>
@@ -564,9 +564,10 @@ export default function AutomotiveSaleForm() {
                   </PopoverContent>
                 </Popover>
 
-              <Button variant="secondary" onClick={addOneTimeProduct}>
-                <PlusCircle className="mr-2 h-4 w-4" /> One-Time Product
-              </Button>
+              <Button variant="secondary" onClick={() => addSpecialItem('service')}>Service</Button>
+              <Button variant="secondary" onClick={() => addSpecialItem('acid')}>Sell Acid</Button>
+              <Button variant="destructive" onClick={() => addSpecialItem('scrap')}>Scrap Trade-in</Button>
+              <Button variant="secondary" onClick={() => addSpecialItem('one-time')}>One-Time Product</Button>
             </div>
           </div>
           
@@ -577,7 +578,7 @@ export default function AutomotiveSaleForm() {
                 {cart.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Your cart is empty.</TableCell></TableRow>
                 : cart.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>{item.isOneTime ? <Input value={item.name} onChange={(e) => updateCartItem(item.id, 'name', e.target.value)} /> : <span className="font-medium">{item.name}</span>}</TableCell>
+                      <TableCell>{item.type === 'one-time' ? <Input value={item.name} onChange={(e) => updateCartItem(item.id, 'name', e.target.value)} /> : <span className="font-medium">{item.name}</span>}</TableCell>
                       <TableCell><Input type="number" value={item.quantity} onChange={(e) => updateCartItem(item.id, 'quantity', e.target.value)} className="w-20" min="1"/></TableCell>
                       <TableCell><Input type="number" value={item.price} onChange={(e) => updateCartItem(item.id, 'price', e.target.value)} className="w-24" min="0"/></TableCell>
                       <TableCell className="text-right font-mono">Rs. {(item.quantity * item.price).toLocaleString()}</TableCell>

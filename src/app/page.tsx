@@ -160,18 +160,21 @@ export default function DashboardPage() {
       value: lowStockCount.toString(),
       icon: Package,
       change: isAcidLow ? <span className="text-destructive font-semibold flex items-center gap-1"><Droplets size={12}/> Acid is low!</span> : `${lowStockCount} items need attention`,
+      href: '/low-stock',
     },
     {
       title: 'Automotive Dues',
       value: `Rs. ${automotivePendingPayments.toLocaleString()}`,
       icon: Car,
       change: `${automotiveDuesCount} customers have dues`,
+      href: '/customers',
     },
     {
       title: 'Battery Dues',
       value: `Rs. ${batteryPendingPayments.toLocaleString()}`,
       icon: BatteryIcon,
       change: `${batteryDuesCount} customers have dues`,
+      href: '/customers',
     },
   ];
 
@@ -230,17 +233,19 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )) : reportCards.map((card, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {card.title}
-              </CardTitle>
-              <card.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{card.value}</div>
-              <p className="text-xs text-muted-foreground">{card.change}</p>
-            </CardContent>
+          <Card key={i} className="hover:bg-muted/50 transition-colors">
+            <Link href={card.href || '#'}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {card.title}
+                </CardTitle>
+                <card.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <p className="text-xs text-muted-foreground">{card.change}</p>
+              </CardContent>
+            </Link>
           </Card>
         ))}
       </div>

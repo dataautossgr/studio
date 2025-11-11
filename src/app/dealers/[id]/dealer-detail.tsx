@@ -159,9 +159,10 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 
                 let originalAmount = 0;
                 let originalIsPayment = false;
+                let oldPaymentRef: DocumentReference | null = null;
                 
                 if (isEditing && transactionToEdit) {
-                    const oldPaymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
+                    oldPaymentRef = doc(firestore, 'dealer_payments', transactionToEdit.id);
                     const oldPaymentDoc = await transaction.get(oldPaymentRef);
                     if (oldPaymentDoc.exists()) {
                         originalAmount = oldPaymentDoc.data().amount || 0;
@@ -175,7 +176,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 
                 transaction.update(dealerRef, { balance: (dealerDoc.data().balance || 0) + balanceChange });
 
-                const paymentRef = isEditing ? doc(firestore, 'dealer_payments', transactionToEdit!.id) : doc(collection(firestore, 'dealer_payments'));
+                const paymentRef = isEditing && oldPaymentRef ? oldPaymentRef : doc(collection(firestore, 'dealer_payments'));
                 const paymentPayload: Omit<DealerPayment, 'id' | 'dealer'> = {
                     amount: paymentData.amount,
                     date: paymentData.paymentDate.toISOString(),
@@ -241,7 +242,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
                 } else { // Payment or Adjustment
                     const balanceChange = transactionToDelete.type === 'Payment' ? transactionToDelete.credit : -transactionToDelete.debit;
                     newBalance = currentBalance + balanceChange;
-                     if (bankSnap?.exists() && 'paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online') {
+                     if (bankSnap?.exists() && 'paymentMethod' in docToDelete && docToDelete.paymentMethod === 'Online' && 'amount' in docToDelete) {
                         const currentBankBalance = bankSnap.data().balance;
                         transaction.update(bankSnap.ref, { balance: currentBankBalance + docToDelete.amount });
                     }
@@ -409,7 +410,7 @@ export default function DealerLedgerDetail({ dealerPurchases, dealerPayments, is
 
         <PaymentDialog 
             isOpen={isPaymentDialogOpen}
-            onClose={() => { setIsPaymentDialogOpen(false); setTransactionToEdit(null); }}
+            onClose={() => { setIsPaymentDialogOpen(false); setTransactionToEdit(null); setIsReadOnly(false); }}
             onSave={handleSavePayment}
             dealerName={dealer.company}
             payment={transactionToEdit}

@@ -1,9 +1,6 @@
 
-import CustomerLedgerDetail from './customer-detail';
 
-export const dynamicParams = true;
-
-// This is a Server Component. It passes params to a Client Component.
+// This is now a Server Component. It can pass params to a Client Component.
 export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
     return <CustomerLedgerDetail customerId={params.id} />;
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -101,7 +102,7 @@ export default function NewClaimPage() {
     const claimData: Omit<BatteryClaim, 'id'> = {
         originalSaleId: originalSale.id,
         customerId: customer.id,
-        claimedBatteryId: originalBatteryItem.id,
+        claimedBatteryId: originalBatteryItem.productId,
         replacementBatteryId: selectedReplacementBattery.id,
         claimDate: new Date().toISOString(),
         originalBatteryPrice: originalBatteryItem.price,

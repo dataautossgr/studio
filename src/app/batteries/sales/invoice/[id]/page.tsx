@@ -1,3 +1,4 @@
+
 import InvoiceDetail from './invoice-detail';
 
 export async function generateStaticParams() {

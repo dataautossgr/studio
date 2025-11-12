@@ -1,4 +1,3 @@
-
 import CustomerLedgerDetail from './customer-detail';
 
 // This is now a Server Component. It can pass params to a Client Component.

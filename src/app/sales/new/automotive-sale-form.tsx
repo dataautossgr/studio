@@ -44,7 +44,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { CustomerDialog } from '@/app/customers/customer-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -76,7 +76,11 @@ interface CartItem {
   type: 'automotive' | 'service' | 'scrap' | 'acid' | 'one-time';
 }
 
-export default function AutomotiveSaleForm() {
+interface AutomotiveSaleFormProps {
+    saleId?: string;
+}
+
+export default function AutomotiveSaleForm({ saleId }: AutomotiveSaleFormProps) {
   const [sale, setSale] = useState<Sale | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -99,7 +103,6 @@ export default function AutomotiveSaleForm() {
   const [isWalkInUnpaidDialogOpen, setIsWalkInUnpaidDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const firestore = useFirestore();
@@ -115,8 +118,7 @@ export default function AutomotiveSaleForm() {
   const automotiveCustomers = useMemo(() => customers?.filter(c => c.type === 'automotive') || [], [customers]);
 
 
-  const saleId = params.id as string;
-  const isNew = saleId === 'new' || !saleId; // Treat no ID as new
+  const isNew = !saleId || saleId === 'new';
 
  useEffect(() => {
     const customerId = searchParams.get('customerId');
@@ -133,6 +135,7 @@ export default function AutomotiveSaleForm() {
     if (customersLoading || productsLoading || !firestore || isNew) return;
 
     const fetchSale = async () => {
+        if (!saleId) return;
         const saleRef = doc(firestore, 'sales', saleId);
         const saleSnap = await getDoc(saleRef);
 
@@ -338,7 +341,7 @@ export default function AutomotiveSaleForm() {
                 transaction.set(customerRef, customerPayload);
             }
             
-            const saleRef = isNew ? doc(collection(firestore, 'sales')) : doc(firestore, 'sales', saleId);
+            const saleRef = isNew ? doc(collection(firestore, 'sales')) : doc(firestore, 'sales', saleId!);
             const newInvoiceNumber = isNew ? (salesSnapshot!.data().count + 1).toString().padStart(3, '0') : sale?.invoice;
 
             const saleData = {
@@ -400,9 +403,8 @@ export default function AutomotiveSaleForm() {
         });
 
         toast({ title: "Sale Saved", description: "Transaction recorded successfully." });
-        if (print) { 
-            const finalSaleId = isNew ? (await getDoc(doc(collection(firestore, 'sales'), saleId))).id : saleId;
-            router.push(`/sales/invoice/${finalSaleId}`);
+        if (print && saleId) { 
+            router.push(`/sales/invoice/${saleId}`);
         } else {
             router.push('/sales'); 
         }

@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -83,19 +84,21 @@ interface BillItem {
   isOneTime: boolean;
 }
 
-export default function RepairJobFormDetail() {
-  const params = useParams();
+interface RepairJobFormDetailProps {
+    jobId?: string;
+}
+
+export default function RepairJobFormDetail({ jobId }: RepairJobFormDetailProps) {
   const router = useRouter();
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const jobId = params.id as string;
-  const isNew = jobId === 'new';
+  const isNew = !jobId || jobId === 'new';
 
   // Firestore collections
   const customersCollection = useMemoFirebase(() => firestore ? collection(firestore, 'customers') : null, [firestore]);
   const productsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
-  const jobRef = useMemoFirebase(() => isNew || !firestore ? null : doc(firestore, 'repair_jobs', jobId), [firestore, jobId, isNew]);
+  const jobRef = useMemoFirebase(() => isNew || !firestore ? null : doc(firestore, 'repair_jobs', jobId!), [firestore, jobId, isNew]);
 
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersCollection);
   const { data: products, isLoading: productsLoading } = useCollection<Product>(productsCollection);
